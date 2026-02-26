@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --dc-orange: #ff6a00;
+  --dc-orange-strong: #ff5200;
+  --dc-black: #0b0b0b;
+  --dc-white: #ffffff;
+  --dc-gray-100: #f4f4f5;
+  --dc-gray-700: #3f3f46;
+  --dc-gray-900: #18181b;
+  --background: var(--dc-white);
+  --foreground: var(--dc-black);
+  --font-heading: "Roboto Slab", serif;
+  --font-body: "Roboto", sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+.fade-up {
+  animation: fadeUp 0.7s ease both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
