@@ -82,6 +82,21 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
     subscription?.status === "paused";
   const portalUnlocked = hasActiveBilling || testBypass;
 
+  if (!portalUnlocked) {
+    return (
+      <main className="mx-auto w-full max-w-5xl space-y-6">
+        <header className="rounded-2xl border border-black/10 bg-white p-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Customer Dashboard</p>
+          <h1 className="mt-2 text-3xl font-bold">Activate Your DonateCrate Plan</h1>
+          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
+            Your account is created. Complete billing to unlock pickups, referrals, and account settings.
+          </p>
+        </header>
+        <PaymentWall />
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto w-full max-w-6xl space-y-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -113,35 +128,29 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
         ))}
       </section>
 
-      {!portalUnlocked ? (
-        <PaymentWall />
-      ) : (
-        <>
-          {activeTab === "overview" ? (
-            <section className="rounded-3xl border border-black/10 bg-white p-6">
-              <h2 className="text-2xl font-bold">Welcome Back</h2>
-              <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-                Use the sidebar tabs to manage your monthly pickup, referral rewards, and notification settings.
-              </p>
-            </section>
-          ) : null}
+      {activeTab === "overview" ? (
+        <section className="rounded-3xl border border-black/10 bg-white p-6">
+          <h2 className="text-2xl font-bold">Welcome Back</h2>
+          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
+            Use the sidebar tabs to manage your monthly pickup, referral rewards, and notification settings.
+          </p>
+        </section>
+      ) : null}
 
-          {activeTab === "pickups" ? (
-            <section id="cycle-actions" className="rounded-3xl border border-black/10 bg-white p-6">
-              <h2 className="text-2xl font-bold">Cycle Actions</h2>
-              <div className="mt-4">
-                <CustomerActions
-                  nextPickupDate={latestCycle?.pickup_date ?? null}
-                  currentStatus={currentCycleRequest?.status ?? "requested"}
-                />
-              </div>
-            </section>
-          ) : null}
+      {activeTab === "pickups" ? (
+        <section id="cycle-actions" className="rounded-3xl border border-black/10 bg-white p-6">
+          <h2 className="text-2xl font-bold">Cycle Actions</h2>
+          <div className="mt-4">
+            <CustomerActions
+              nextPickupDate={latestCycle?.pickup_date ?? null}
+              currentStatus={currentCycleRequest?.status ?? "requested"}
+            />
+          </div>
+        </section>
+      ) : null}
 
-          {activeTab === "referrals" ? <CustomerPortalTools section="referrals" /> : null}
-          {activeTab === "settings" ? <CustomerPortalTools section="settings" /> : null}
-        </>
-      )}
+      {activeTab === "referrals" ? <CustomerPortalTools section="referrals" /> : null}
+      {activeTab === "settings" ? <CustomerPortalTools section="settings" /> : null}
     </main>
   );
 }
