@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedContext } from "@/lib/api-auth";
 
 export async function POST() {
+  if (process.env.ENABLE_TEST_BYPASS !== "true") {
+    return NextResponse.json({ error: "Test bypass is disabled" }, { status: 403 });
+  }
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -18,4 +22,3 @@ export async function POST() {
 
   return response;
 }
-

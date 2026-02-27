@@ -13,37 +13,57 @@ export function CustomerActions({ nextPickupDate, currentStatus }: CustomerActio
   const [state, setState] = useState<ActionState>("idle");
   const [message, setMessage] = useState("");
 
+  async function fetchWithTimeout(path: string, init?: RequestInit) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    try {
+      return await fetch(path, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async function post(path: string) {
     setState("loading");
     setMessage("");
-    const response = await fetch(path, { method: "POST" });
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    try {
+      const response = await fetchWithTimeout(path, { method: "POST" });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState("error");
+        setMessage(json.error || "Request failed");
+        return;
+      }
+      setState("success");
+      setMessage("Updated successfully.");
+      window.location.reload();
+    } catch {
       setState("error");
-      setMessage(json.error || "Request failed");
-      return;
+      setMessage("Unable to save right now. Please try again.");
     }
-    setState("success");
-    setMessage("Updated successfully.");
-    window.location.reload();
   }
 
   async function startCheckout() {
     setState("loading");
     setMessage("");
-    const response = await fetch("/api/billing/checkout-session", { method: "POST" });
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    try {
+      const response = await fetchWithTimeout("/api/billing/checkout-session", { method: "POST" });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState("error");
+        setMessage(json.error || "Checkout failed");
+        return;
+      }
+      if (json.url) {
+        window.location.href = json.url;
+        return;
+      }
       setState("error");
-      setMessage(json.error || "Checkout failed");
-      return;
+      setMessage("Checkout URL was not returned.");
+    } catch {
+      setState("error");
+      setMessage("Unable to reach billing right now. Please try again.");
     }
-    if (json.url) {
-      window.location.href = json.url;
-      return;
-    }
-    setState("error");
-    setMessage("Checkout URL was not returned.");
   }
 
   return (

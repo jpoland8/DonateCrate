@@ -3,41 +3,59 @@
 import { useState } from "react";
 
 export function PaymentWall() {
+  const allowTestBypass = process.env.NEXT_PUBLIC_ENABLE_TEST_BYPASS === "true";
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  async function fetchWithTimeout(path: string, init?: RequestInit) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    try {
+      return await fetch(path, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 
   async function startCheckout() {
     setStatus("loading");
     setMessage("");
-    const response = await fetch("/api/billing/checkout-session", { method: "POST" });
-    const json = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
+    try {
+      const response = await fetchWithTimeout("/api/billing/checkout-session", { method: "POST" });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus("error");
+        setMessage(json.error || "Unable to open Stripe checkout.");
+        return;
+      }
+      if (json.url) {
+        window.location.href = json.url;
+        return;
+      }
       setStatus("error");
-      setMessage(json.error || "Unable to open Stripe checkout.");
-      return;
+      setMessage("Checkout URL was not returned.");
+    } catch {
+      setStatus("error");
+      setMessage("Unable to reach billing right now. Please try again.");
     }
-
-    if (json.url) {
-      window.location.href = json.url;
-      return;
-    }
-
-    setStatus("error");
-    setMessage("Checkout URL was not returned.");
   }
 
   async function bypassForTesting() {
     setStatus("loading");
     setMessage("");
-    const response = await fetch("/api/billing/test-bypass", { method: "POST" });
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    try {
+      const response = await fetchWithTimeout("/api/billing/test-bypass", { method: "POST" });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus("error");
+        setMessage(json.error || "Could not enable test bypass.");
+        return;
+      }
+      window.location.reload();
+    } catch {
       setStatus("error");
-      setMessage(json.error || "Could not enable test bypass.");
-      return;
+      setMessage("Unable to reach billing right now. Please try again.");
     }
-    window.location.reload();
   }
 
   return (
@@ -56,16 +74,17 @@ export function PaymentWall() {
         >
           {status === "loading" ? "Working..." : "Start $5/month Plan"}
         </button>
-        <button
-          onClick={bypassForTesting}
-          disabled={status === "loading"}
-          className="rounded-xl border border-black px-4 py-2 text-sm font-semibold disabled:opacity-70"
-        >
-          Test Bypass
-        </button>
+        {allowTestBypass ? (
+          <button
+            onClick={bypassForTesting}
+            disabled={status === "loading"}
+            className="rounded-xl border border-black px-4 py-2 text-sm font-semibold disabled:opacity-70"
+          >
+            Test Bypass
+          </button>
+        ) : null}
       </div>
       {message ? <p className="mt-3 text-sm text-red-600">{message}</p> : null}
     </section>
   );
 }
-

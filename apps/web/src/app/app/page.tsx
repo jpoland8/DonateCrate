@@ -16,7 +16,8 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
     : "overview";
   const supabase = await createClient();
   const cookieStore = await cookies();
-  const testBypass = cookieStore.get("dc_test_bypass")?.value === "1";
+  const testBypassEnabled = process.env.ENABLE_TEST_BYPASS === "true";
+  const testBypass = testBypassEnabled && cookieStore.get("dc_test_bypass")?.value === "1";
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -85,8 +86,8 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   if (!portalUnlocked) {
     return (
       <main className="mx-auto w-full max-w-5xl space-y-6">
-        <header className="rounded-2xl border border-black/10 bg-white p-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Customer Dashboard</p>
+        <header className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Customer Dashboard</p>
           <h1 className="mt-2 text-3xl font-bold">Activate Your DonateCrate Plan</h1>
           <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
             Your account is created. Complete billing to unlock pickups, referrals, and account settings.
@@ -99,37 +100,49 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-[var(--dc-gray-700)]">Customer Dashboard</p>
-          <h1 className="text-4xl font-bold">DonateCrate Account</h1>
-          <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{profile?.email ?? user.email}</p>
+      <header className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Customer Dashboard</p>
+            <h1 className="text-3xl font-bold sm:text-4xl">DonateCrate Account</h1>
+            <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{profile?.email ?? user.email}</p>
+          </div>
+          <a href="#cycle-actions" className="rounded-full bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white">
+            Pickup Actions
+          </a>
         </div>
-        <a href="#cycle-actions" className="rounded-full bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white">
-          Pickup Actions
-        </a>
+        <div>
+          <p className="mt-4 max-w-3xl text-sm text-[var(--dc-gray-700)]">
+            Keep your monthly textile donation routine simple: confirm your pickup, manage alerts, and track free-month
+            rewards from referrals.
+          </p>
+        </div>
       </header>
 
-      <section className="rounded-2xl border border-black/10 bg-white p-5">
-        <h2 className="text-xl font-bold">How Your Portal Works</h2>
-        <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-          Each month, mark whether your orange bag is ready. We route pickups by neighborhood density, send updates by
-          email/SMS based on your preferences, and track referrals so you can earn free months.
-        </p>
-      </section>
+      {activeTab === "overview" || activeTab === "pickups" ? (
+        <>
+          <section className="rounded-2xl border border-black/10 bg-white p-4 sm:p-5">
+            <h2 className="text-xl font-bold">How Your Portal Works</h2>
+            <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
+              Each month, mark whether your orange bag is ready. We route pickups by neighborhood density, send updates by
+              email/SMS based on your preferences, and track referrals so you can earn free months.
+            </p>
+          </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {customerCards.map((card) => (
-          <article key={card.title} className="rounded-2xl border border-black/10 bg-white p-5">
-            <p className="text-sm text-[var(--dc-gray-700)]">{card.title}</p>
-            <p className="mt-2 text-2xl font-bold">{card.value}</p>
-            <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{card.detail}</p>
-          </article>
-        ))}
-      </section>
+          <section className="grid gap-4 md:grid-cols-3">
+            {customerCards.map((card) => (
+              <article key={card.title} className="rounded-2xl border border-black/10 bg-white p-4 sm:p-5">
+                <p className="text-sm text-[var(--dc-gray-700)]">{card.title}</p>
+                <p className="mt-2 text-2xl font-bold">{card.value}</p>
+                <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{card.detail}</p>
+              </article>
+            ))}
+          </section>
+        </>
+      ) : null}
 
       {activeTab === "overview" ? (
-        <section className="rounded-3xl border border-black/10 bg-white p-6">
+        <section className="rounded-3xl border border-black/10 bg-white p-5 sm:p-6">
           <h2 className="text-2xl font-bold">Welcome Back</h2>
           <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
             Use the sidebar tabs to manage your monthly pickup, referral rewards, and notification settings.
@@ -138,7 +151,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       ) : null}
 
       {activeTab === "pickups" ? (
-        <section id="cycle-actions" className="rounded-3xl border border-black/10 bg-white p-6">
+        <section id="cycle-actions" className="rounded-3xl border border-black/10 bg-white p-5 sm:p-6">
           <h2 className="text-2xl font-bold">Cycle Actions</h2>
           <div className="mt-4">
             <CustomerActions

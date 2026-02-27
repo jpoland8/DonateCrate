@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[var(--dc-white)]">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-black/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 sm:py-5">
           <Link href="/" className="flex items-center gap-3">
             <Image
               src="/images/logo-provided.png"
@@ -30,13 +30,13 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <Link
               href="/app"
-              className="rounded-lg border border-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--dc-orange)]"
+              className="rounded-lg border border-[var(--dc-orange)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--dc-orange)] sm:px-4 sm:text-sm"
             >
-              Customer Login
+              Portal
             </Link>
             <Link
               href="/admin"
-              className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--dc-orange-strong)]"
+              className="rounded-lg bg-[var(--dc-orange)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--dc-orange-strong)] sm:px-4 sm:text-sm"
             >
               Admin
             </Link>
@@ -61,15 +61,15 @@ export default function Home() {
           <div className="absolute right-[-8rem] top-[-6rem] h-72 w-72 rounded-full bg-[var(--dc-orange)] blur-3xl opacity-30" />
           <div className="absolute bottom-[-10rem] left-[-4rem] h-80 w-80 rounded-full bg-[var(--dc-orange)] blur-3xl opacity-20" />
 
-          <div className="relative mx-auto flex min-h-[82vh] w-full max-w-7xl items-center px-6 py-16">
+          <div className="relative mx-auto flex min-h-[82vh] w-full max-w-7xl items-center px-4 py-12 sm:px-6 sm:py-16">
             <div className="fade-up max-w-3xl text-white">
               <p className="inline-block rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
                 Knoxville Launch | Zip 37922
               </p>
-              <h1 className="mt-6 text-5xl leading-[1.05] font-bold md:text-7xl">
+              <h1 className="mt-6 text-4xl leading-[1.05] font-bold sm:text-5xl md:text-7xl">
                 Put Textile Donations on Autopilot for Your Community.
               </h1>
-              <p className="mt-5 max-w-2xl text-xl leading-8 text-white/90">
+              <p className="mt-5 max-w-2xl text-lg leading-7 text-white/90 sm:text-xl sm:leading-8">
                 DonateCrate is monthly doorstep pickup for clothing, shoes, and linens. We provide the bags,
                 send reminders, and handle the route logistics so your household can give consistently without
                 extra errands.
@@ -80,10 +80,10 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="about" className="mx-auto w-full max-w-7xl px-6 py-20">
+        <section id="about" className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
           <div className="grid gap-8 lg:grid-cols-2">
             <article className="rounded-3xl border border-black/10 bg-white p-8 shadow-sm">
-              <h2 className="text-4xl font-bold text-black">How DonateCrate Works</h2>
+              <h2 className="text-3xl font-bold text-black sm:text-4xl">How DonateCrate Works</h2>
               <p className="mt-4 text-lg leading-8 text-[var(--dc-gray-700)]">
                 No drop-off lines. No guessing where to take items. We make donating as easy as taking out the
                 recycling, with one simple monthly flow.
@@ -133,9 +133,9 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="bg-black py-20 text-white">
-          <div className="mx-auto w-full max-w-7xl px-6">
-            <h2 className="text-4xl font-bold">Built for Communities That Want to Do More</h2>
+        <section className="bg-black py-16 text-white sm:py-20">
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6">
+            <h2 className="text-3xl font-bold sm:text-4xl">Built for Communities That Want to Do More</h2>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-white/80">
               Whether you are a busy resident, apartment manager, or neighborhood organizer, DonateCrate gives your
               community a clean, modern way to donate that people actually use.
@@ -163,7 +163,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="impact" className="mx-auto w-full max-w-7xl px-6 py-20">
+        <section id="impact" className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
           <div className="grid gap-6 md:grid-cols-3">
             <article className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-wide text-[var(--dc-orange)]">Case Study</p>
@@ -189,8 +189,8 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="bg-[var(--dc-gray-100)] py-20">
-          <div className="mx-auto grid w-full max-w-7xl gap-8 px-6 lg:grid-cols-2">
+        <section className="bg-[var(--dc-gray-100)] py-16 sm:py-20">
+          <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-2">
             <article className="rounded-3xl bg-white p-8 shadow-sm">
               <h2 className="text-3xl font-bold">Frequently Asked Questions</h2>
               <div className="mt-5 space-y-4 text-[var(--dc-gray-700)]">
@@ -235,7 +235,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-black/10 bg-white py-8">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 sm:px-6">
           <p className="text-sm text-[var(--dc-gray-700)]">
             DonateCrate | Making donating simple for neighborhoods and apartment communities.
           </p>

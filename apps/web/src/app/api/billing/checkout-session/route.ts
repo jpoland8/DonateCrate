@@ -12,7 +12,11 @@ export async function POST() {
     return NextResponse.json({ error: "Stripe secret key is not configured" }, { status: 500 });
   }
 
-  const stripe = new Stripe(stripeSecretKey);
+  const stripe = new Stripe(stripeSecretKey, {
+    httpClient: Stripe.createFetchHttpClient(),
+    maxNetworkRetries: 1,
+    timeout: 20000,
+  });
   const supabaseAdmin = createSupabaseAdminClient();
 
   const { data: activePlan, error: planError } = await supabaseAdmin

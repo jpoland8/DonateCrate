@@ -14,11 +14,53 @@ export async function GET() {
 
   const { data, error } = await ctx.supabase
     .from("users")
-    .select("id,email,full_name,phone,role,created_at")
+    .select(
+      "id,email,full_name,phone,role,created_at,addresses(address_line1,city,state,postal_code,created_at),zone_memberships(status,service_zones(id,code,name))",
+    )
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ users: data ?? [] });
+
+  const users = (data ?? []).map((row) => {
+    const addresses = Array.isArray(row.addresses) ? row.addresses : [];
+    const zoneMemberships = Array.isArray(row.zone_memberships) ? row.zone_memberships : [];
+    const primaryAddress = addresses[0] ?? null;
+    const zones = zoneMemberships
+      .map((membership) => {
+        const zoneRaw = Array.isArray(membership.service_zones)
+          ? membership.service_zones[0]
+          : membership.service_zones;
+        if (!zoneRaw || typeof zoneRaw !== "object") return null;
+        if (!("id" in zoneRaw) || !("code" in zoneRaw) || !("name" in zoneRaw)) return null;
+        return {
+          id: String(zoneRaw.id),
+          code: String(zoneRaw.code),
+          name: String(zoneRaw.name),
+          membershipStatus: String(membership.status ?? "active"),
+        };
+      })
+      .filter((item): item is { id: string; code: string; name: string; membershipStatus: string } => Boolean(item));
+
+    return {
+      id: row.id,
+      email: row.email,
+      full_name: row.full_name,
+      phone: row.phone,
+      role: row.role,
+      created_at: row.created_at,
+      primary_address: primaryAddress
+        ? {
+            address_line1: primaryAddress.address_line1,
+            city: primaryAddress.city,
+            state: primaryAddress.state,
+            postal_code: primaryAddress.postal_code,
+          }
+        : null,
+      zones,
+    };
+  });
+
+  return NextResponse.json({ users });
 }
 
 export async function PATCH(request: Request) {

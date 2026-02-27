@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Roboto, Roboto_Slab } from "next/font/google";
+import { ClientRecovery } from "@/components/system/client-recovery";
 import "./globals.css";
 
 const headingFont = Roboto_Slab({
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${headingFont.variable} ${bodyFont.variable} antialiased`}>
+        <ClientRecovery />
         {children}
       </body>
     </html>

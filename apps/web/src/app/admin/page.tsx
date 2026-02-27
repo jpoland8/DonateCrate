@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
-import { AdminTools } from "./admin-tools";
 import { KpiPanel } from "./kpi-panel";
 import { AdminWorkspace } from "./admin-workspace";
 
@@ -10,8 +9,8 @@ type AdminPageProps = {
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
   const params = (await searchParams) ?? {};
-  const activeTab = ["overview", "pickups", "people", "zones", "growth"].includes(params.tab || "")
-    ? (params.tab as "overview" | "pickups" | "people" | "zones" | "growth")
+  const activeTab = ["overview", "pickups", "logistics", "people", "zones", "growth"].includes(params.tab || "")
+    ? (params.tab as "overview" | "pickups" | "logistics" | "people" | "zones" | "growth")
     : "overview";
   const supabase = await createClient();
   const {
@@ -104,7 +103,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   return (
     <main className="mx-auto w-full max-w-6xl space-y-8 text-white">
       <header>
-        <p className="text-sm font-medium text-white/70">Operations Console</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Operations Console</p>
         <h1 className="text-4xl font-bold">DonateCrate Admin</h1>
         <p className="mt-1 text-sm text-white/70">{profile.email}</p>
       </header>
@@ -127,7 +126,6 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       </section>
 
       {activeTab === "overview" ? <KpiPanel /> : null}
-      {activeTab === "pickups" ? <AdminTools /> : null}
       <AdminWorkspace section={activeTab} />
     </main>
   );

@@ -15,7 +15,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Stripe webhook secret is not configured" }, { status: 500 });
   }
 
-  const stripe = new Stripe(stripeSecretKey);
+  const stripe = new Stripe(stripeSecretKey, {
+    httpClient: Stripe.createFetchHttpClient(),
+    maxNetworkRetries: 1,
+    timeout: 20000,
+  });
   const signature = (await headers()).get("stripe-signature");
   if (!signature) return NextResponse.json({ error: "Missing stripe signature" }, { status: 400 });
 

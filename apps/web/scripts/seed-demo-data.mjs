@@ -28,6 +28,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistS
 
 const demoUsers = [
   { email: 'admin@donatecrate.app', password: 'DonateCrate!123', role: 'admin', fullName: 'DonateCrate Admin' },
+  { email: 'jake@donatecrate.com', password: 'TempPass123!', role: 'admin', fullName: 'Jake DonateCrate' },
   { email: 'sarah@donatecrate.app', password: 'DonateCrate!123', role: 'customer', fullName: 'Sarah Parker' },
   { email: 'mike@donatecrate.app', password: 'DonateCrate!123', role: 'customer', fullName: 'Mike Johnson' },
   { email: 'driver1@donatecrate.app', password: 'DonateCrate!123', role: 'driver', fullName: 'Driver One' },
