@@ -9,8 +9,10 @@ type AdminPageProps = {
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
   const params = (await searchParams) ?? {};
-  const activeTab = ["overview", "pickups", "logistics", "people", "zones", "growth"].includes(params.tab || "")
-    ? (params.tab as "overview" | "pickups" | "logistics" | "people" | "zones" | "growth")
+  const activeTab = ["overview", "pickups", "logistics", "people", "zones", "billing", "growth", "communication"].includes(
+    params.tab || "",
+  )
+    ? (params.tab as "overview" | "pickups" | "logistics" | "people" | "zones" | "billing" | "growth" | "communication")
     : "overview";
   const supabase = await createClient();
   const {

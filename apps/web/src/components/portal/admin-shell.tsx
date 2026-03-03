@@ -5,7 +5,11 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 
-function NavIcon({ kind }: { kind: "overview" | "pickups" | "logistics" | "people" | "zones" | "growth" | "customer" }) {
+function NavIcon({
+  kind,
+}: {
+  kind: "overview" | "pickups" | "logistics" | "people" | "zones" | "growth" | "communication" | "billing" | "customer";
+}) {
   const base = "h-4 w-4";
   switch (kind) {
     case "overview":
@@ -53,6 +57,19 @@ function NavIcon({ kind }: { kind: "overview" | "pickups" | "logistics" | "peopl
           <path d="M4 19V5M10 19V9M16 19V12M22 19v-4" strokeWidth="2" />
         </svg>
       );
+    case "communication":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={base} aria-hidden>
+          <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z" strokeWidth="2" />
+        </svg>
+      );
+    case "billing":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={base} aria-hidden>
+          <rect x="2.5" y="5" width="19" height="14" rx="2" strokeWidth="2" />
+          <path d="M2.5 10h19M7 15h3M13 15h4" strokeWidth="2" />
+        </svg>
+      );
     default:
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={base} aria-hidden>
@@ -74,7 +91,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: "/admin?tab=logistics", tab: "logistics", label: "Logistics", icon: "logistics" as const },
     { href: "/admin?tab=people", tab: "people", label: "People", icon: "people" as const },
     { href: "/admin?tab=zones", tab: "zones", label: "Zones", icon: "zones" as const },
+    { href: "/admin?tab=billing", tab: "billing", label: "Billing", icon: "billing" as const },
     { href: "/admin?tab=growth", tab: "growth", label: "Growth", icon: "growth" as const },
+    { href: "/admin?tab=communication", tab: "communication", label: "Communication", icon: "communication" as const },
   ];
 
   useEffect(() => {

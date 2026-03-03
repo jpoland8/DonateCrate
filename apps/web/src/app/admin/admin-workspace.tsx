@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type WorkspaceSection = "overview" | "pickups" | "logistics" | "people" | "zones" | "growth";
+type WorkspaceSection = "overview" | "pickups" | "logistics" | "people" | "zones" | "billing" | "growth" | "communication";
 
 type AdminUser = {
   id: string;
@@ -39,7 +39,29 @@ type AdminData = {
     request_cutoff_at: string;
     service_zones?: { code: string; name: string } | Array<{ code: string; name: string }> | null;
   }>;
-  subscriptions: Array<{ id: string; status: string; users: { email: string } }>;
+  subscriptions: Array<{
+    id: string;
+    status: string;
+    updatedAt: string;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    stripeCustomerId: string | null;
+    stripeSubscriptionId: string | null;
+    cancelAtPeriodEnd: boolean;
+    canceledAt: string | null;
+    latestInvoiceStatus: string | null;
+    paymentMethodSummary: string | null;
+    plan: {
+      name: string | null;
+      amountCents: number | null;
+      currency: string;
+    };
+    user: {
+      email: string;
+      fullName: string | null;
+      phone: string | null;
+    };
+  }>;
   referrals: Array<{ id: string; referral_code: string; status: string; referrer_email: string | null; referred_email: string | null }>;
   zones: Array<{
     id: string;
@@ -79,12 +101,45 @@ function localDateTimeISO(d = new Date()) {
   return local.toISOString().slice(0, 16);
 }
 
+function formatCurrency(amountCents: number | null, currency = "usd") {
+  if (amountCents == null) return "Plan not linked";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(amountCents / 100);
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "Not set";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "Not set";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSection }) {
   const singleCycleMonthRef = useRef<HTMLInputElement | null>(null);
   const singlePickupDateRef = useRef<HTMLInputElement | null>(null);
   const recurringStartPickupDateRef = useRef<HTMLInputElement | null>(null);
   const [data, setData] = useState<AdminData | null>(null);
   const [message, setMessage] = useState("");
+  const [subscriptionSearch, setSubscriptionSearch] = useState("");
+  const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState<
+    "all" | "trialing" | "active" | "past_due" | "paused" | "canceled"
+  >("all");
+  const [subscriptionActionState, setSubscriptionActionState] = useState<{ id: string; action: string } | null>(null);
 
   const [selectedCycleId, setSelectedCycleId] = useState("");
   const [selectedRouteId, setSelectedRouteId] = useState("");
@@ -161,6 +216,17 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     cutoffDaysBefore: 7,
   };
   });
+  const [smsTarget, setSmsTarget] = useState<"individual" | "zone" | "all">("individual");
+  const [smsUserIds, setSmsUserIds] = useState<string[]>([]);
+  const [smsZoneId, setSmsZoneId] = useState("");
+  const [smsIncludeStaff, setSmsIncludeStaff] = useState(false);
+  const [smsSearch, setSmsSearch] = useState("");
+  const [smsMessage, setSmsMessage] = useState("");
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsZoneEligibleUsers, setSmsZoneEligibleUsers] = useState<
+    Array<{ id: string; fullName: string; email: string; role: string; phone: string }>
+  >([]);
+  const [smsZonePreviewLoading, setSmsZonePreviewLoading] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [usersRes, waitlistRes, requestsRes, routesRes, driversRes, cyclesRes, subsRes, refsRes, zonesRes] = await Promise.all([
@@ -252,6 +318,46 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     });
   }, [data, roleFilter, userSearch, userZoneFilter]);
 
+  const filteredSubscriptions = useMemo(() => {
+    if (!data) return [];
+    const query = subscriptionSearch.trim().toLowerCase();
+    return data.subscriptions.filter((subscription) => {
+      const matchesQuery =
+        query.length === 0 ||
+        subscription.user.email.toLowerCase().includes(query) ||
+        (subscription.user.fullName || "").toLowerCase().includes(query) ||
+        (subscription.stripeSubscriptionId || "").toLowerCase().includes(query) ||
+        (subscription.stripeCustomerId || "").toLowerCase().includes(query);
+      const matchesStatus = subscriptionStatusFilter === "all" || subscription.status === subscriptionStatusFilter;
+      return matchesQuery && matchesStatus;
+    });
+  }, [data, subscriptionSearch, subscriptionStatusFilter]);
+
+  const smsUsersWithPhones = useMemo(() => {
+    if (!data) return [];
+    const query = smsSearch.trim().toLowerCase();
+    return data.users.filter((user) => {
+      if (!user.phone) return false;
+      if (query.length === 0) return true;
+      return (
+        user.email.toLowerCase().includes(query) ||
+        (user.full_name || "").toLowerCase().includes(query) ||
+        user.phone.toLowerCase().includes(query)
+      );
+    });
+  }, [data, smsSearch]);
+
+  const smsRecipientEstimate = useMemo(() => {
+    if (!data) return 0;
+    if (smsTarget === "individual") {
+      return data.users.filter((u) => smsUserIds.includes(u.id) && Boolean(u.phone)).length;
+    }
+    if (smsTarget === "zone") {
+      return smsZoneEligibleUsers.length;
+    }
+    return data.users.filter((u) => Boolean(u.phone) && (smsIncludeStaff ? true : u.role === "customer")).length;
+  }, [data, smsIncludeStaff, smsTarget, smsUserIds, smsZoneEligibleUsers.length]);
+
   const driverOptions = useMemo(() => data?.drivers ?? [], [data]);
   const routeOptions = useMemo(() => data?.routes ?? [], [data]);
 
@@ -327,6 +433,30 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     return () => controller.abort();
   }, [selectedZone, zoneMemberPage, zoneMemberPagination.pageSize, zoneMemberRole, zoneMemberSearch]);
 
+  useEffect(() => {
+    if (smsTarget !== "zone" || !smsZoneId) {
+      setSmsZoneEligibleUsers([]);
+      return;
+    }
+    const controller = new AbortController();
+    const loadZoneEligible = async () => {
+      setSmsZonePreviewLoading(true);
+      const response = await fetch(`/api/admin/communications/sms?targetType=zone&zoneId=${smsZoneId}`, {
+        signal: controller.signal,
+      });
+      const json = await response.json().catch(() => ({}));
+      setSmsZonePreviewLoading(false);
+      if (!response.ok) {
+        setSmsZoneEligibleUsers([]);
+        setMessage(json.error || "Could not load zone SMS recipients");
+        return;
+      }
+      setSmsZoneEligibleUsers(json.eligibleUsers ?? []);
+    };
+    loadZoneEligible();
+    return () => controller.abort();
+  }, [smsTarget, smsZoneId]);
+
   async function updateUserRole(userId: string, role: "customer" | "admin" | "driver") {
     const response = await fetch("/api/admin/users", {
       method: "PATCH",
@@ -351,16 +481,36 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     await loadAll();
   }
 
-  async function updateSubscriptionStatus(subscriptionId: string, status: string) {
-    const response = await fetch("/api/admin/subscriptions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subscriptionId, status }),
-    });
-    const json = await response.json();
-    if (!response.ok) return setMessage(json.error || "Could not update subscription");
-    setMessage("Subscription updated.");
-    await loadAll();
+  async function runSubscriptionAction(
+    subscriptionId: string,
+    action: "sync" | "schedule_cancel" | "resume" | "cancel_now",
+  ) {
+    setSubscriptionActionState({ id: subscriptionId, action });
+    try {
+      const response = await fetch("/api/admin/subscriptions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscriptionId, action }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(json.error || "Could not update Stripe subscription");
+
+      const successMessage =
+        action === "sync"
+          ? "Billing record refreshed from Stripe."
+          : action === "schedule_cancel"
+            ? "Subscription will end at the close of the current billing period."
+            : action === "resume"
+              ? "Auto-renewal has been restored."
+              : "Subscription canceled immediately.";
+
+      setMessage(successMessage);
+      await loadAll();
+    } catch {
+      setMessage("Could not reach Stripe billing service.");
+    } finally {
+      setSubscriptionActionState(null);
+    }
   }
 
   async function generateRoute() {
@@ -498,6 +648,49 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     await loadAll();
   }
 
+  async function sendSmsCampaign() {
+    if (smsMessage.trim().length === 0) {
+      setMessage("Enter an SMS message first.");
+      return;
+    }
+    if (smsTarget === "individual" && smsUserIds.length === 0) {
+      setMessage("Choose at least one individual recipient.");
+      return;
+    }
+    if (smsTarget === "zone" && !smsZoneId) {
+      setMessage("Choose a zone for zone broadcast.");
+      return;
+    }
+
+    setSmsSending(true);
+    try {
+      const response = await fetch("/api/admin/communications/sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetType: smsTarget,
+          userIds: smsTarget === "individual" ? smsUserIds : undefined,
+          zoneId: smsTarget === "zone" ? smsZoneId : undefined,
+          includeStaff: smsTarget === "all" ? smsIncludeStaff : undefined,
+          message: smsMessage.trim(),
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(json.error || "SMS send failed.");
+        return;
+      }
+
+      setMessage(`SMS campaign complete. Attempted ${json.attempted}, sent ${json.sent}, failed ${json.failed}.`);
+      if (smsTarget === "individual") setSmsUserIds([]);
+      setSmsMessage("");
+    } catch {
+      setMessage("Could not reach SMS service.");
+    } finally {
+      setSmsSending(false);
+    }
+  }
+
   if (!data) return <p className="text-sm text-white/75">Loading admin workspace...</p>;
 
   return (
@@ -598,26 +791,174 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
           </div>
 
           <section className="mt-6 rounded-2xl border border-white/10 bg-black/35 p-4">
-            <p className="text-sm font-semibold">Subscription Health</p>
-            <div className="mt-3 space-y-2">
-              {data.subscriptions.slice(0, 40).map((sub) => (
-                <div key={sub.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-black/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm break-all">{sub.users?.email}</p>
-                  <select
-                    value={sub.status}
-                    onChange={(event) => updateSubscriptionStatus(sub.id, event.target.value)}
-                    className="h-9 w-full rounded-lg border border-white/30 bg-black px-3 text-xs sm:w-auto"
-                  >
-                    <option value="trialing">trialing</option>
-                    <option value="active">active</option>
-                    <option value="past_due">past_due</option>
-                    <option value="paused">paused</option>
-                    <option value="canceled">canceled</option>
-                  </select>
-                </div>
-              ))}
-            </div>
+            <p className="text-sm font-semibold">People vs. Billing</p>
+            <p className="mt-2 text-sm text-white/70">
+              Use this tab for roles, contact details, and zone placement. Use the Billing tab for cancellations,
+              renewals, payment status, and Stripe-backed subscription actions.
+            </p>
           </section>
+        </section>
+      ) : null}
+
+      {section === "billing" ? (
+        <section className="space-y-4">
+          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Billing Control</p>
+            <h2 className="mt-2 text-2xl font-bold">Manage Stripe subscriptions without leaving DonateCrate</h2>
+            <p className="mt-2 max-w-3xl text-sm text-white/75">
+              Search any subscriber, verify renewal timing, see whether cancellation is already scheduled, and take
+              action directly against Stripe. Every action syncs the local app record after Stripe responds.
+            </p>
+          </article>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <article className="rounded-3xl border border-white/15 bg-white/5 p-5">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Active or Trialing</p>
+              <p className="mt-3 text-3xl font-bold">
+                {data.subscriptions.filter((subscription) => ["active", "trialing"].includes(subscription.status)).length}
+              </p>
+            </article>
+            <article className="rounded-3xl border border-white/15 bg-white/5 p-5">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Ending This Period</p>
+              <p className="mt-3 text-3xl font-bold">
+                {data.subscriptions.filter((subscription) => subscription.cancelAtPeriodEnd).length}
+              </p>
+            </article>
+            <article className="rounded-3xl border border-white/15 bg-white/5 p-5">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Needs Attention</p>
+              <p className="mt-3 text-3xl font-bold">
+                {data.subscriptions.filter((subscription) => ["past_due", "canceled"].includes(subscription.status)).length}
+              </p>
+            </article>
+          </div>
+
+          <article className="rounded-3xl border border-white/15 bg-white/5 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold">Subscriber billing roster</p>
+                <p className="mt-1 text-xs text-white/65">
+                  Search by subscriber, Stripe customer ID, or Stripe subscription ID.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  value={subscriptionSearch}
+                  onChange={(event) => setSubscriptionSearch(event.target.value)}
+                  placeholder="Search billing records"
+                  className="h-11 min-w-0 rounded-xl border border-white/20 bg-black/40 px-3 text-sm"
+                />
+                <select
+                  value={subscriptionStatusFilter}
+                  onChange={(event) =>
+                    setSubscriptionStatusFilter(
+                      event.target.value as "all" | "trialing" | "active" | "past_due" | "paused" | "canceled",
+                    )
+                  }
+                  className="h-11 rounded-xl border border-white/20 bg-black/40 px-3 text-sm"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="trialing">Trialing</option>
+                  <option value="active">Active</option>
+                  <option value="past_due">Past due</option>
+                  <option value="paused">Paused</option>
+                  <option value="canceled">Canceled</option>
+                </select>
+              </div>
+            </div>
+          </article>
+
+          <div className="space-y-3">
+            {filteredSubscriptions.map((subscription) => {
+              const actionBusy = subscriptionActionState?.id === subscription.id;
+              const isEnded = subscription.status === "canceled";
+              const canScheduleCancel =
+                !isEnded && !subscription.cancelAtPeriodEnd && !!subscription.stripeSubscriptionId;
+              const canResume =
+                !isEnded && subscription.cancelAtPeriodEnd && !!subscription.stripeSubscriptionId;
+
+              return (
+                <article key={subscription.id} className="rounded-3xl border border-white/15 bg-black/35 p-5">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-lg font-semibold">{subscription.user.fullName || subscription.user.email}</p>
+                        <p className="text-sm text-white/70">{subscription.user.email}</p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Plan</p>
+                          <p className="mt-2 text-sm font-semibold">{subscription.plan.name || "Launch Monthly"}</p>
+                          <p className="mt-1 text-xs text-white/65">
+                            {formatCurrency(subscription.plan.amountCents, subscription.plan.currency)}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Status</p>
+                          <p className="mt-2 text-sm font-semibold capitalize">{subscription.status.replaceAll("_", " ")}</p>
+                          <p className="mt-1 text-xs text-white/65">
+                            {subscription.cancelAtPeriodEnd ? "Ends after current cycle" : "Auto-renews"}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Next billing milestone</p>
+                          <p className="mt-2 text-sm font-semibold">{formatDate(subscription.currentPeriodEnd)}</p>
+                          <p className="mt-1 text-xs text-white/65">
+                            Last synced {formatDateTime(subscription.updatedAt)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid gap-2 text-xs text-white/65 sm:grid-cols-2 xl:grid-cols-4">
+                        <p>Payment method: {subscription.paymentMethodSummary || "Not available"}</p>
+                        <p>Latest invoice: {subscription.latestInvoiceStatus || "Not available"}</p>
+                        <p>Customer ID: {subscription.stripeCustomerId || "Not linked"}</p>
+                        <p>Subscription ID: {subscription.stripeSubscriptionId || "Not linked"}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2 xl:w-[320px] xl:grid-cols-1">
+                      <button
+                        type="button"
+                        onClick={() => runSubscriptionAction(subscription.id, "sync")}
+                        disabled={actionBusy}
+                        className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {actionBusy && subscriptionActionState?.action === "sync" ? "Refreshing..." : "Refresh from Stripe"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => runSubscriptionAction(subscription.id, "schedule_cancel")}
+                        disabled={actionBusy || !canScheduleCancel}
+                        className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {subscription.cancelAtPeriodEnd ? "Cancellation scheduled" : "End after current period"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => runSubscriptionAction(subscription.id, "resume")}
+                        disabled={actionBusy || !canResume}
+                        className="rounded-xl border border-emerald-400/35 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Restore auto-renew
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => runSubscriptionAction(subscription.id, "cancel_now")}
+                        disabled={actionBusy || isEnded || !subscription.stripeSubscriptionId}
+                        className="rounded-xl border border-red-400/35 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100 hover:bg-red-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {actionBusy && subscriptionActionState?.action === "cancel_now" ? "Canceling..." : "Cancel immediately"}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+            {filteredSubscriptions.length === 0 ? (
+              <article className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-white/65">
+                No billing records match the current search or status filters.
+              </article>
+            ) : null}
+          </div>
         </section>
       ) : null}
 
@@ -1236,6 +1577,144 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                   {referral.referrer_email ?? "Unknown"} {"->"} {referral.referred_email ?? "Pending user"} ({referral.referral_code}) - {referral.status}
                 </div>
               ))}
+            </div>
+          </article>
+        </section>
+      ) : null}
+
+      {section === "communication" ? (
+        <section className="space-y-6">
+          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+            <h3 className="text-xl font-bold">SMS Campaigns</h3>
+            <p className="mt-1 text-sm text-white/70">
+              Send one-off SMS updates to individual users, active users in a zone, or your full audience.
+            </p>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <label className="text-xs text-white/70">
+                Target Type
+                <select
+                  value={smsTarget}
+                  onChange={(event) => setSmsTarget(event.target.value as "individual" | "zone" | "all")}
+                  className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                >
+                  <option value="individual">Individual users</option>
+                  <option value="zone">Single zone group</option>
+                  <option value="all">All audience</option>
+                </select>
+              </label>
+              {smsTarget === "zone" ? (
+                <label className="text-xs text-white/70">
+                  Zone
+                  <select
+                    value={smsZoneId}
+                    onChange={(event) => setSmsZoneId(event.target.value)}
+                    className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                  >
+                    <option value="">Select zone</option>
+                    {data.zones.map((zone) => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {smsTarget === "all" ? (
+                <label className="inline-flex items-center gap-2 text-xs text-white/80 md:mt-6">
+                  <input
+                    type="checkbox"
+                    checked={smsIncludeStaff}
+                    onChange={(event) => setSmsIncludeStaff(event.target.checked)}
+                  />
+                  Include admin + driver accounts
+                </label>
+              ) : null}
+              <div className="rounded-lg border border-white/15 bg-black/35 px-3 py-2 text-xs text-white/80 md:mt-6">
+                Eligible recipients: {smsRecipientEstimate}
+              </div>
+            </div>
+
+            {smsTarget === "individual" ? (
+              <div className="mt-4 space-y-3">
+                <input
+                  value={smsSearch}
+                  onChange={(event) => setSmsSearch(event.target.value)}
+                  placeholder="Search users by name, email, or phone"
+                  className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm"
+                />
+                <div className="max-h-56 overflow-auto rounded-xl border border-white/15 bg-black/35 p-2">
+                  {smsUsersWithPhones.slice(0, 120).map((user) => (
+                    <label
+                      key={user.id}
+                      className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-white/10"
+                    >
+                      <span className="pr-2">
+                        {user.full_name || user.email}
+                        <span className="ml-2 text-xs text-white/70">{user.phone}</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={smsUserIds.includes(user.id)}
+                        onChange={(event) => {
+                          setSmsUserIds((prev) =>
+                            event.target.checked ? [...prev, user.id] : prev.filter((id) => id !== user.id),
+                          );
+                        }}
+                      />
+                    </label>
+                  ))}
+                  {smsUsersWithPhones.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-white/65">No users with phone numbers match this search.</p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {smsTarget === "zone" ? (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Active eligible users in zone</p>
+                <div className="mt-2 max-h-56 overflow-auto rounded-xl border border-white/15 bg-black/35 p-2">
+                  {smsZonePreviewLoading ? (
+                    <p className="px-2 py-3 text-sm text-white/65">Loading zone recipients...</p>
+                  ) : smsZoneEligibleUsers.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-white/65">No active subscribed + SMS opted-in users found.</p>
+                  ) : (
+                    smsZoneEligibleUsers.map((user) => (
+                      <div key={user.id} className="rounded-lg px-2 py-2 text-sm hover:bg-white/10">
+                        <span>{user.fullName || user.email}</span>
+                        <span className="ml-2 text-xs text-white/70">{user.phone}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-4">
+              <label className="text-xs text-white/70">
+                SMS Message
+                <textarea
+                  value={smsMessage}
+                  onChange={(event) => setSmsMessage(event.target.value)}
+                  rows={5}
+                  maxLength={600}
+                  placeholder="Write your operational update or reminder"
+                  className="mt-1 w-full rounded-xl border border-white/30 bg-black px-3 py-3 text-sm"
+                />
+              </label>
+              <p className="mt-1 text-xs text-white/60">{smsMessage.length}/600 characters</p>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={sendSmsCampaign}
+                disabled={smsSending}
+                className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {smsSending ? "Sending..." : "Send SMS Campaign"}
+              </button>
             </div>
           </article>
         </section>
