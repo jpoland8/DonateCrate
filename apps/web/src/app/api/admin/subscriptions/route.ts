@@ -11,6 +11,8 @@ const patchSchema = z.object({
 
 type StripeSubscriptionRow = {
   id: string;
+  user_id?: string;
+  pricing_plan_id?: string | null;
   status: string;
   updated_at: string;
   current_period_start: string | null;
@@ -27,13 +29,56 @@ type StripeSubscriptionRow = {
         name: string;
         amount_cents: number;
         currency: string;
+        stripe_price_id: string | null;
       }
     | null
     | Array<{
         name: string;
         amount_cents: number;
         currency: string;
+        stripe_price_id: string | null;
       }>;
+};
+
+type SubscriptionViewModel = {
+  id: string;
+  status: string;
+  updatedAt: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+  latestInvoiceStatus: string | null;
+  paymentMethodSummary: string | null;
+  paymentMethod: {
+    type: string | null;
+    brand: string | null;
+    last4: string | null;
+    expMonth: number | null;
+    expYear: number | null;
+    funding: string | null;
+    country: string | null;
+  } | null;
+  latestInvoice: {
+    status: string | null;
+    amountDueCents: number | null;
+    amountPaidCents: number | null;
+    currency: string | null;
+    hostedInvoiceUrl: string | null;
+  } | null;
+  plan: {
+    name: string | null;
+    amountCents: number | null;
+    currency: string;
+    stripePriceId: string | null;
+  };
+  user: {
+    email: string;
+    fullName: string | null;
+    phone: string | null;
+  };
 };
 
 function getStripeClient() {
@@ -77,6 +122,7 @@ function getPlanMeta(row: StripeSubscriptionRow) {
     name: plan?.name ?? null,
     amountCents: plan?.amount_cents ?? null,
     currency: plan?.currency ?? "usd",
+    stripePriceId: plan?.stripe_price_id ?? null,
   };
 }
 
@@ -86,11 +132,72 @@ function getPaymentMethodSummary(paymentMethod: Stripe.Subscription["default_pay
   return `${paymentMethod.card.brand} ending in ${paymentMethod.card.last4}`;
 }
 
+function getPaymentMethodDetails(paymentMethod: Stripe.Subscription["default_payment_method"]) {
+  if (!paymentMethod || typeof paymentMethod === "string") return null;
+  if (paymentMethod.type !== "card" || !paymentMethod.card) {
+    return {
+      type: paymentMethod.type,
+      brand: null,
+      last4: null,
+      expMonth: null,
+      expYear: null,
+      funding: null,
+      country: null,
+    };
+  }
+
+  return {
+    type: paymentMethod.type,
+    brand: paymentMethod.card.brand ?? null,
+    last4: paymentMethod.card.last4 ?? null,
+    expMonth: paymentMethod.card.exp_month ?? null,
+    expYear: paymentMethod.card.exp_year ?? null,
+    funding: paymentMethod.card.funding ?? null,
+    country: paymentMethod.card.country ?? null,
+  };
+}
+
+function getLatestInvoiceDetails(latestInvoice: Stripe.Subscription["latest_invoice"]) {
+  if (!latestInvoice || typeof latestInvoice === "string") return null;
+  return {
+    status: latestInvoice.status ?? null,
+    amountDueCents: latestInvoice.amount_due ?? null,
+    amountPaidCents: latestInvoice.amount_paid ?? null,
+    currency: latestInvoice.currency ?? null,
+    hostedInvoiceUrl: latestInvoice.hosted_invoice_url ?? null,
+  };
+}
+
+async function getRestartPaymentMethodId(stripe: Stripe, customerId: string) {
+  const customer = await stripe.customers.retrieve(customerId);
+  if (!customer.deleted && customer.invoice_settings.default_payment_method) {
+    return typeof customer.invoice_settings.default_payment_method === "string"
+      ? customer.invoice_settings.default_payment_method
+      : customer.invoice_settings.default_payment_method.id;
+  }
+
+  const paymentMethods = await stripe.paymentMethods.list({
+    customer: customerId,
+    type: "card",
+    limit: 1,
+  });
+  const paymentMethodId = paymentMethods.data[0]?.id ?? null;
+  if (!paymentMethodId) return null;
+
+  await stripe.customers.update(customerId, {
+    invoice_settings: {
+      default_payment_method: paymentMethodId,
+    },
+  });
+
+  return paymentMethodId;
+}
+
 async function syncSubscriptionRowFromStripe(args: {
   stripe: Stripe;
   supabase: ReturnType<typeof createSupabaseAdminClient>;
   row: StripeSubscriptionRow;
-}) {
+}): Promise<SubscriptionViewModel> {
   const { stripe, supabase, row } = args;
 
   if (!row.stripe_subscription_id) {
@@ -106,6 +213,8 @@ async function syncSubscriptionRowFromStripe(args: {
       canceledAt: null,
       latestInvoiceStatus: null,
       paymentMethodSummary: null,
+      paymentMethod: null,
+      latestInvoice: null,
       plan: getPlanMeta(row),
       user: {
         email: row.users?.email ?? "Unknown",
@@ -152,6 +261,8 @@ async function syncSubscriptionRowFromStripe(args: {
       canceledAt: isoFromStripeTimestamp(stripeSubscription.canceled_at),
       latestInvoiceStatus: latestInvoice?.status ?? null,
       paymentMethodSummary: getPaymentMethodSummary(stripeSubscription.default_payment_method),
+      paymentMethod: getPaymentMethodDetails(stripeSubscription.default_payment_method),
+      latestInvoice: getLatestInvoiceDetails(stripeSubscription.latest_invoice),
       plan: getPlanMeta(row),
       user: {
         email: row.users?.email ?? "Unknown",
@@ -172,6 +283,8 @@ async function syncSubscriptionRowFromStripe(args: {
       canceledAt: null,
       latestInvoiceStatus: `Stripe sync failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       paymentMethodSummary: null,
+      paymentMethod: null,
+      latestInvoice: null,
       plan: getPlanMeta(row),
       user: {
         email: row.users?.email ?? "Unknown",
@@ -191,7 +304,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("subscriptions")
     .select(
-      "id,status,updated_at,current_period_start,current_period_end,stripe_customer_id,stripe_subscription_id,users(email,full_name,phone),pricing_plans(name,amount_cents,currency)",
+      "id,user_id,pricing_plan_id,status,updated_at,current_period_start,current_period_end,stripe_customer_id,stripe_subscription_id,users(email,full_name,phone),pricing_plans(name,amount_cents,currency,stripe_price_id)",
     )
     .order("updated_at", { ascending: false })
     .limit(150);
@@ -215,6 +328,8 @@ export async function GET() {
           canceledAt: null,
           latestInvoiceStatus: null,
           paymentMethodSummary: null,
+          paymentMethod: null,
+          latestInvoice: null,
           plan: getPlanMeta(typedRow),
           user: {
             email: typedRow.users?.email ?? "Unknown",
@@ -255,7 +370,7 @@ export async function PATCH(request: Request) {
   const { data: subscriptionRow, error } = await supabaseAdmin
     .from("subscriptions")
     .select(
-      "id,status,updated_at,current_period_start,current_period_end,stripe_customer_id,stripe_subscription_id,users(email,full_name,phone),pricing_plans(name,amount_cents,currency)",
+      "id,user_id,pricing_plan_id,status,updated_at,current_period_start,current_period_end,stripe_customer_id,stripe_subscription_id,users(email,full_name,phone),pricing_plans(name,amount_cents,currency,stripe_price_id)",
     )
     .eq("id", parsed.data.subscriptionId)
     .maybeSingle();
@@ -272,8 +387,67 @@ export async function PATCH(request: Request) {
     if (parsed.data.action === "schedule_cancel") {
       await stripe.subscriptions.update(row.stripe_subscription_id, { cancel_at_period_end: true });
     }
-    if (parsed.data.action === "resume") {
+    if (parsed.data.action === "resume" && row.status !== "canceled") {
       await stripe.subscriptions.update(row.stripe_subscription_id, { cancel_at_period_end: false });
+    }
+    if (parsed.data.action === "resume" && row.status === "canceled") {
+      const plan = getPlanMeta(row);
+      if (!row.stripe_customer_id) {
+        return NextResponse.json({ error: "This canceled subscription is missing a Stripe customer" }, { status: 400 });
+      }
+      if (!plan.stripePriceId) {
+        return NextResponse.json({ error: "This canceled subscription is not linked to a Stripe price" }, { status: 400 });
+      }
+      const defaultPaymentMethodId = await getRestartPaymentMethodId(stripe, row.stripe_customer_id);
+      if (!defaultPaymentMethodId) {
+        return NextResponse.json(
+          { error: "This customer does not have a reusable default payment method on file in Stripe" },
+          { status: 400 },
+        );
+      }
+
+      const restarted = await stripe.subscriptions.create({
+        customer: row.stripe_customer_id,
+        items: [{ price: plan.stripePriceId }],
+        collection_method: "charge_automatically",
+        default_payment_method: defaultPaymentMethodId,
+      });
+
+      const restartStatus = normalizeSubscriptionStatus(restarted);
+      const { error: restartUpdateError } = await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          stripe_subscription_id: restarted.id,
+          status: restartStatus,
+          current_period_start: isoFromStripeTimestamp(restarted.items.data[0]?.current_period_start),
+          current_period_end: isoFromStripeTimestamp(restarted.items.data[0]?.current_period_end),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      if (restartUpdateError) {
+        return NextResponse.json({ error: restartUpdateError.message }, { status: 500 });
+      }
+
+      const { data: persistedRow, error: persistedRowError } = await supabaseAdmin
+        .from("subscriptions")
+        .select(
+          "id,user_id,pricing_plan_id,status,updated_at,current_period_start,current_period_end,stripe_customer_id,stripe_subscription_id,users(email,full_name,phone),pricing_plans(name,amount_cents,currency,stripe_price_id)",
+        )
+        .eq("id", row.id)
+        .maybeSingle();
+      if (persistedRowError) {
+        return NextResponse.json({ error: persistedRowError.message }, { status: 500 });
+      }
+      if (!persistedRow) {
+        return NextResponse.json({ error: "Updated subscription record could not be reloaded" }, { status: 500 });
+      }
+
+      const updated = await syncSubscriptionRowFromStripe({
+        stripe,
+        supabase: supabaseAdmin,
+        row: persistedRow as unknown as StripeSubscriptionRow,
+      });
+      return NextResponse.json({ ok: true, subscription: updated, restarted: true });
     }
     if (parsed.data.action === "cancel_now") {
       await stripe.subscriptions.cancel(row.stripe_subscription_id);

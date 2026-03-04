@@ -26,6 +26,36 @@ body {
   font-family: var(--font-body);
 }
 
+.admin-theme-dark {
+  --admin-bg: radial-gradient(circle at 20% 0%, #272727 0%, #111111 45%, #0a0a0a 100%);
+  --admin-topbar: rgba(0, 0, 0, 0.85);
+  --admin-sidebar: rgba(0, 0, 0, 0.7);
+  --admin-surface: rgba(255, 255, 255, 0.05);
+  --admin-surface-strong: rgba(255, 255, 255, 0.08);
+  --admin-panel: rgba(0, 0, 0, 0.28);
+  --admin-border: rgba(255, 255, 255, 0.14);
+  --admin-border-strong: rgba(255, 255, 255, 0.22);
+  --admin-text: #ffffff;
+  --admin-muted: rgba(255, 255, 255, 0.72);
+  --admin-soft-text: rgba(255, 255, 255, 0.56);
+  --admin-sidebar-text: rgba(255, 255, 255, 0.9);
+}
+
+.admin-theme-light {
+  --admin-bg: radial-gradient(circle at 0% 0%, #fff4eb 0%, #ffffff 36%, #f4f1ed 100%);
+  --admin-topbar: rgba(255, 255, 255, 0.92);
+  --admin-sidebar: rgba(255, 255, 255, 0.88);
+  --admin-surface: rgba(255, 255, 255, 0.88);
+  --admin-surface-strong: rgba(255, 255, 255, 0.97);
+  --admin-panel: rgba(255, 255, 255, 0.82);
+  --admin-border: rgba(24, 24, 27, 0.09);
+  --admin-border-strong: rgba(24, 24, 27, 0.16);
+  --admin-text: #171717;
+  --admin-muted: rgba(23, 23, 23, 0.72);
+  --admin-soft-text: rgba(23, 23, 23, 0.56);
+  --admin-sidebar-text: rgba(23, 23, 23, 0.88);
+}
+
 h1,
 h2,
 h3,

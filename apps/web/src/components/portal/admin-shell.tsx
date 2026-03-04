@@ -84,6 +84,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const activeTab = searchParams.get("tab") || "overview";
   const navItems = [
     { href: "/admin?tab=overview", tab: "overview", label: "Overview", icon: "overview" as const },
@@ -105,22 +106,56 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     };
   }, [mobileMenuOpen]);
 
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem("dc-admin-theme");
+    if (storedTheme === "light" || storedTheme === "dark") {
+      setTheme(storedTheme);
+      return;
+    }
+    const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+    setTheme(prefersLight ? "light" : "dark");
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("dc-admin-theme", theme);
+  }, [theme]);
+
   return (
-    <div className="min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_20%_0%,#272727_0%,#111_45%,#0a0a0a_100%)] text-white">
+    <div
+      className={`min-h-screen overflow-x-clip ${theme === "light" ? "admin-theme-light" : "admin-theme-dark"}`}
+      style={{
+        background: "var(--admin-bg)",
+        color: "var(--admin-text)",
+      }}
+    >
       <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
-        <div className="fixed inset-x-0 top-0 z-40 border-b border-white/15 bg-black/85 px-4 py-3 backdrop-blur md:hidden">
+        <div
+          className="fixed inset-x-0 top-0 z-40 border-b px-4 py-3 backdrop-blur md:hidden"
+          style={{ borderColor: "var(--admin-border)", background: "var(--admin-topbar)" }}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
               <p className="text-base font-bold">Operations Admin</p>
             </div>
-            <button
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="rounded-md border border-white/25 px-3 py-2 text-xs font-semibold"
-              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            >
-              {mobileMenuOpen ? "Close" : "Menu"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                className="rounded-full border px-3 py-2 text-xs font-semibold"
+                style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
+              >
+                {theme === "dark" ? "Day" : "Night"}
+              </button>
+              <button
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+                className="rounded-md border px-3 py-2 text-xs font-semibold"
+                style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              >
+                {mobileMenuOpen ? "Close" : "Menu"}
+              </button>
+            </div>
           </div>
         </div>
         {mobileMenuOpen ? (
@@ -132,23 +167,37 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           />
         ) : null}
         <aside
-          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[340px] overflow-y-auto border-r border-white/10 bg-black/70 backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[300px] md:max-w-none ${
+          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[340px] overflow-y-auto border-r backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[300px] md:max-w-none ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           } ${collapsed ? "md:w-[84px]" : ""
           }`}
+          style={{ borderColor: "var(--admin-border)", background: "var(--admin-sidebar)", color: "var(--admin-sidebar-text)" }}
         >
-          <div className="flex items-center justify-between border-b border-white/15 px-4 py-4">
+          <div className="flex items-center justify-between border-b px-4 py-4" style={{ borderColor: "var(--admin-border)" }}>
             <div className={collapsed ? "hidden" : "block"}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
               <p className="font-bold">Operations Admin</p>
             </div>
-            <button
-              onClick={() => setCollapsed((prev) => !prev)}
-              className="hidden rounded-md border border-white/30 px-2 py-1 text-xs font-semibold hover:bg-white/10 md:inline-flex"
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {collapsed ? ">" : "<"}
-            </button>
+            <div className="hidden items-center gap-2 md:flex">
+              {!collapsed ? (
+                <button
+                  type="button"
+                  onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold"
+                  style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
+                >
+                  {theme === "dark" ? "Day mode" : "Night mode"}
+                </button>
+              ) : null}
+              <button
+                onClick={() => setCollapsed((prev) => !prev)}
+                className="hidden rounded-md border px-2 py-1 text-xs font-semibold md:inline-flex"
+                style={{ borderColor: "var(--admin-border-strong)" }}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {collapsed ? ">" : "<"}
+              </button>
+            </div>
           </div>
 
           <nav className="space-y-2 px-3 py-4">
@@ -162,8 +211,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
                     isActive
                       ? "bg-[var(--dc-orange)] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.15)]"
-                      : "border border-white/15 text-white/90 hover:bg-white/10"
+                      : "border hover:bg-white/10"
                   }`}
+                  style={
+                    isActive
+                      ? undefined
+                      : { borderColor: "var(--admin-border)", color: "var(--admin-sidebar-text)" }
+                  }
                   aria-label={item.label}
                   title={item.label}
                 >
@@ -175,7 +229,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/app"
               onClick={() => setMobileMenuOpen(false)}
-              className="mt-2 flex items-center gap-2 rounded-lg border border-white/20 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
+              className="mt-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-white/10"
+              style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
               aria-label="Customer View"
               title="Customer View"
             >
@@ -186,9 +241,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
           {!collapsed ? (
             <div className="px-3">
-              <details className="rounded-xl border border-white/15 bg-white/5 p-3" open>
+              <details className="rounded-xl border p-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} open>
                 <summary className="cursor-pointer text-sm font-semibold">How to run ops here</summary>
-                <ul className="mt-2 space-y-2 text-xs text-white/75">
+                <ul className="mt-2 space-y-2 text-xs" style={{ color: "var(--admin-muted)" }}>
                   <li>1. People: view all users, filter by zone, and assign roles.</li>
                   <li>2. Zones: manage one zone at a time and inspect zone members.</li>
                   <li>3. Pickups: schedule one-time or recurring cycles, then dispatch routes.</li>
@@ -198,7 +253,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           ) : null}
 
           <div className="mt-4 px-3">
-            <SignOutButton tone="dark" />
+            <SignOutButton tone={theme === "dark" ? "dark" : "light"} />
           </div>
         </aside>
 

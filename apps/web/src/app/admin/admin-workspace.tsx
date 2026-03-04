@@ -51,10 +51,27 @@ type AdminData = {
     canceledAt: string | null;
     latestInvoiceStatus: string | null;
     paymentMethodSummary: string | null;
+    paymentMethod: {
+      type: string | null;
+      brand: string | null;
+      last4: string | null;
+      expMonth: number | null;
+      expYear: number | null;
+      funding: string | null;
+      country: string | null;
+    } | null;
+    latestInvoice: {
+      status: string | null;
+      amountDueCents: number | null;
+      amountPaidCents: number | null;
+      currency: string | null;
+      hostedInvoiceUrl: string | null;
+    } | null;
     plan: {
       name: string | null;
       amountCents: number | null;
       currency: string;
+      stripePriceId?: string | null;
     };
     user: {
       email: string;
@@ -129,6 +146,63 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function formatCardExpiry(month: number | null, year: number | null) {
+  if (!month || !year) return "Not available";
+  return `${String(month).padStart(2, "0")}/${String(year).slice(-2)}`;
+}
+
+function formatStatusLabel(status: string) {
+  return status.replaceAll("_", " ");
+}
+
+function getBillingStatusTone(status: string) {
+  switch (status) {
+    case "active":
+      return "border-emerald-400/35 bg-emerald-400/12 text-emerald-100";
+    case "trialing":
+      return "border-sky-400/35 bg-sky-400/12 text-sky-100";
+    case "past_due":
+      return "border-amber-400/35 bg-amber-400/12 text-amber-100";
+    case "paused":
+      return "border-indigo-400/35 bg-indigo-400/12 text-indigo-100";
+    case "canceled":
+      return "border-red-400/35 bg-red-400/12 text-red-100";
+    default:
+      return "border-white/15 bg-white/10 text-white";
+  }
+}
+
+function getBillingStatusExplanation(subscription: AdminData["subscriptions"][number]) {
+  if (subscription.cancelAtPeriodEnd) {
+    return `Cancellation is scheduled. Access continues until ${formatDate(subscription.currentPeriodEnd)}.`;
+  }
+
+  switch (subscription.status) {
+    case "active":
+      return "Account is in good standing and should renew automatically on the next billing date.";
+    case "trialing":
+      return `Customer is in trial. Stripe should start charging at the end of the current period on ${formatDate(subscription.currentPeriodEnd)}.`;
+    case "past_due":
+      return "Stripe could not collect the latest invoice. Payment details and invoice status need review.";
+    case "paused":
+      return "Collection is paused in Stripe. Billing will not continue until the subscription is resumed.";
+    case "canceled":
+      return subscription.canceledAt
+        ? `Subscription was canceled on ${formatDateTime(subscription.canceledAt)}.`
+        : "Subscription is canceled and no further renewals will occur.";
+    default:
+      return "Subscription state is available but should be refreshed from Stripe for confirmation.";
+  }
+}
+
+function getPaymentPreviewLabel(subscription: AdminData["subscriptions"][number]) {
+  if (!subscription.paymentMethod) return "Payment method unavailable";
+  if (subscription.paymentMethod.type !== "card") {
+    return subscription.paymentMethod.type || "Stored payment method";
+  }
+  return `${subscription.paymentMethod.brand || "card"} ending in ${subscription.paymentMethod.last4 || "----"}`;
+}
+
 export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSection }) {
   const singleCycleMonthRef = useRef<HTMLInputElement | null>(null);
   const singlePickupDateRef = useRef<HTMLInputElement | null>(null);
@@ -140,6 +214,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     "all" | "trialing" | "active" | "past_due" | "paused" | "canceled"
   >("all");
   const [subscriptionActionState, setSubscriptionActionState] = useState<{ id: string; action: string } | null>(null);
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState("");
 
   const [selectedCycleId, setSelectedCycleId] = useState("");
   const [selectedRouteId, setSelectedRouteId] = useState("");
@@ -223,6 +298,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   const [smsSearch, setSmsSearch] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
   const [smsSending, setSmsSending] = useState(false);
+  const [smsConfigError, setSmsConfigError] = useState<string | null>(null);
   const [smsZoneEligibleUsers, setSmsZoneEligibleUsers] = useState<
     Array<{ id: string; fullName: string; email: string; role: string; phone: string }>
   >([]);
@@ -332,6 +408,10 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       return matchesQuery && matchesStatus;
     });
   }, [data, subscriptionSearch, subscriptionStatusFilter]);
+  const selectedSubscription = useMemo(
+    () => filteredSubscriptions.find((subscription) => subscription.id === selectedSubscriptionId) ?? null,
+    [filteredSubscriptions, selectedSubscriptionId],
+  );
 
   const smsUsersWithPhones = useMemo(() => {
     if (!data) return [];
@@ -434,6 +514,33 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   }, [selectedZone, zoneMemberPage, zoneMemberPagination.pageSize, zoneMemberRole, zoneMemberSearch]);
 
   useEffect(() => {
+    if (filteredSubscriptions.length === 0 || selectedSubscriptionId.length === 0) {
+      setSelectedSubscriptionId("");
+      return;
+    }
+    if (!filteredSubscriptions.some((subscription) => subscription.id === selectedSubscriptionId)) {
+      setSelectedSubscriptionId(filteredSubscriptions[0].id);
+    }
+  }, [filteredSubscriptions, selectedSubscriptionId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadSmsConfig = async () => {
+      const response = await fetch("/api/admin/communications/sms?targetType=all", {
+        signal: controller.signal,
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setSmsConfigError(typeof json.error === "string" ? json.error : null);
+        return;
+      }
+      setSmsConfigError(typeof json.twilioConfigError === "string" ? json.twilioConfigError : null);
+    };
+    loadSmsConfig();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     if (smsTarget !== "zone" || !smsZoneId) {
       setSmsZoneEligibleUsers([]);
       return;
@@ -448,9 +555,11 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       setSmsZonePreviewLoading(false);
       if (!response.ok) {
         setSmsZoneEligibleUsers([]);
+        setSmsConfigError(typeof json.error === "string" ? json.error : null);
         setMessage(json.error || "Could not load zone SMS recipients");
         return;
       }
+      setSmsConfigError(typeof json.twilioConfigError === "string" ? json.twilioConfigError : null);
       setSmsZoneEligibleUsers(json.eligibleUsers ?? []);
     };
     loadZoneEligible();
@@ -485,6 +594,12 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     subscriptionId: string,
     action: "sync" | "schedule_cancel" | "resume" | "cancel_now",
   ) {
+    if (action === "cancel_now") {
+      const confirmed = window.confirm(
+        "Cancel this subscription immediately in Stripe? This stops billing now and can impact customer access.",
+      );
+      if (!confirmed) return;
+    }
     setSubscriptionActionState({ id: subscriptionId, action });
     try {
       const response = await fetch("/api/admin/subscriptions", {
@@ -495,13 +610,28 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       const json = await response.json().catch(() => ({}));
       if (!response.ok) return setMessage(json.error || "Could not update Stripe subscription");
 
+      if (json.subscription) {
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                subscriptions: prev.subscriptions.map((subscription) =>
+                  subscription.id === json.subscription.id ? json.subscription : subscription,
+                ),
+              }
+            : prev,
+        );
+      }
+
       const successMessage =
         action === "sync"
           ? "Billing record refreshed from Stripe."
           : action === "schedule_cancel"
             ? "Subscription will end at the close of the current billing period."
             : action === "resume"
-              ? "Auto-renewal has been restored."
+              ? json.restarted
+                ? "A new Stripe subscription was created and billing has been restarted."
+                : "Auto-renewal has been restored."
               : "Subscription canceled immediately.";
 
       setMessage(successMessage);
@@ -681,7 +811,11 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
         return;
       }
 
-      setMessage(`SMS campaign complete. Attempted ${json.attempted}, sent ${json.sent}, failed ${json.failed}.`);
+      const failedSummary =
+        Array.isArray(json.failedRecipients) && json.failedRecipients.length > 0
+          ? ` First failure: ${json.failedRecipients[0].error}.`
+          : "";
+      setMessage(`SMS campaign complete. Attempted ${json.attempted}, sent ${json.sent}, failed ${json.failed}.${failedSummary}`);
       if (smsTarget === "individual") setSmsUserIds([]);
       setSmsMessage("");
     } catch {
@@ -802,42 +936,51 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
 
       {section === "billing" ? (
         <section className="space-y-4">
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+          <article
+            className="rounded-3xl border p-6"
+            style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text)" }}
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Billing Control</p>
             <h2 className="mt-2 text-2xl font-bold">Manage Stripe subscriptions without leaving DonateCrate</h2>
-            <p className="mt-2 max-w-3xl text-sm text-white/75">
-              Search any subscriber, verify renewal timing, see whether cancellation is already scheduled, and take
-              action directly against Stripe. Every action syncs the local app record after Stripe responds.
+            <p className="mt-2 max-w-3xl text-sm" style={{ color: "var(--admin-muted)" }}>
+              Keep the roster readable in one line. Expand only the subscriber you need to inspect, then manage Stripe
+              actions, invoice state, and payment-method preview inline.
             </p>
           </article>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <article className="rounded-3xl border border-white/15 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Active or Trialing</p>
+          <div className="grid gap-4 lg:grid-cols-4">
+            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+              <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Active or Trialing</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => ["active", "trialing"].includes(subscription.status)).length}
               </p>
             </article>
-            <article className="rounded-3xl border border-white/15 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Ending This Period</p>
+            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+              <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Ending This Period</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => subscription.cancelAtPeriodEnd).length}
               </p>
             </article>
-            <article className="rounded-3xl border border-white/15 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Needs Attention</p>
+            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+              <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Needs Attention</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => ["past_due", "canceled"].includes(subscription.status)).length}
               </p>
             </article>
+            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+              <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Saved Card on File</p>
+              <p className="mt-3 text-3xl font-bold">
+                {data.subscriptions.filter((subscription) => subscription.paymentMethod?.type === "card").length}
+              </p>
+            </article>
           </div>
 
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-4">
+          <article className="rounded-3xl border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm font-semibold">Subscriber billing roster</p>
-                <p className="mt-1 text-xs text-white/65">
-                  Search by subscriber, Stripe customer ID, or Stripe subscription ID.
+                <p className="mt-1 text-xs" style={{ color: "var(--admin-soft-text)" }}>
+                  Search by subscriber, Stripe customer ID, or Stripe subscription ID. Click any row to expand the full billing detail.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -845,7 +988,8 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                   value={subscriptionSearch}
                   onChange={(event) => setSubscriptionSearch(event.target.value)}
                   placeholder="Search billing records"
-                  className="h-11 min-w-0 rounded-xl border border-white/20 bg-black/40 px-3 text-sm"
+                  className="h-11 min-w-0 rounded-xl border px-3 text-sm"
+                  style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
                 />
                 <select
                   value={subscriptionStatusFilter}
@@ -854,7 +998,8 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                       event.target.value as "all" | "trialing" | "active" | "past_due" | "paused" | "canceled",
                     )
                   }
-                  className="h-11 rounded-xl border border-white/20 bg-black/40 px-3 text-sm"
+                  className="h-11 rounded-xl border px-3 text-sm"
+                  style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
                 >
                   <option value="all">All statuses</option>
                   <option value="trialing">Trialing</option>
@@ -867,98 +1012,234 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
             </div>
           </article>
 
-          <div className="space-y-3">
+          <section className="space-y-3">
             {filteredSubscriptions.map((subscription) => {
+              const isOpen = selectedSubscription?.id === subscription.id;
               const actionBusy = subscriptionActionState?.id === subscription.id;
               const isEnded = subscription.status === "canceled";
-              const canScheduleCancel =
-                !isEnded && !subscription.cancelAtPeriodEnd && !!subscription.stripeSubscriptionId;
+              const canScheduleCancel = !isEnded && !subscription.cancelAtPeriodEnd && !!subscription.stripeSubscriptionId;
               const canResume =
-                !isEnded && subscription.cancelAtPeriodEnd && !!subscription.stripeSubscriptionId;
+                (subscription.cancelAtPeriodEnd && !!subscription.stripeSubscriptionId) ||
+                (isEnded && !!subscription.stripeCustomerId && !!subscription.plan.stripePriceId);
 
               return (
-                <article key={subscription.id} className="rounded-3xl border border-white/15 bg-black/35 p-5">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="space-y-3">
+                <article
+                  key={subscription.id}
+                  className="overflow-hidden rounded-3xl border transition"
+                  style={{
+                    borderColor: isOpen ? "var(--dc-orange)" : "var(--admin-border)",
+                    background: isOpen
+                      ? "linear-gradient(160deg, rgba(255,106,0,0.1), var(--admin-surface-strong))"
+                      : "var(--admin-surface)",
+                    boxShadow: isOpen ? "0 18px 45px rgba(0,0,0,0.12)" : "none",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubscriptionId(isOpen ? "" : subscription.id)}
+                    className="w-full px-4 py-4 text-left"
+                  >
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_120px_170px_170px_220px_32px] xl:items-center">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{subscription.user.fullName || subscription.user.email}</p>
+                        <p className="truncate text-xs" style={{ color: "var(--admin-soft-text)" }}>{subscription.user.email}</p>
+                      </div>
                       <div>
-                        <p className="text-lg font-semibold">{subscription.user.fullName || subscription.user.email}</p>
-                        <p className="text-sm text-white/70">{subscription.user.email}</p>
+                        <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--admin-soft-text)" }}>Status</p>
+                        <span className={`mt-1 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${getBillingStatusTone(subscription.status)}`}>
+                          {formatStatusLabel(subscription.status)}
+                        </span>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Plan</p>
-                          <p className="mt-2 text-sm font-semibold">{subscription.plan.name || "Launch Monthly"}</p>
-                          <p className="mt-1 text-xs text-white/65">
-                            {formatCurrency(subscription.plan.amountCents, subscription.plan.currency)}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Status</p>
-                          <p className="mt-2 text-sm font-semibold capitalize">{subscription.status.replaceAll("_", " ")}</p>
-                          <p className="mt-1 text-xs text-white/65">
-                            {subscription.cancelAtPeriodEnd ? "Ends after current cycle" : "Auto-renews"}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Next billing milestone</p>
-                          <p className="mt-2 text-sm font-semibold">{formatDate(subscription.currentPeriodEnd)}</p>
-                          <p className="mt-1 text-xs text-white/65">
-                            Last synced {formatDateTime(subscription.updatedAt)}
-                          </p>
-                        </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--admin-soft-text)" }}>Plan</p>
+                        <p className="mt-1 text-sm font-medium">{formatCurrency(subscription.plan.amountCents, subscription.plan.currency)}</p>
                       </div>
-                      <div className="grid gap-2 text-xs text-white/65 sm:grid-cols-2 xl:grid-cols-4">
-                        <p>Payment method: {subscription.paymentMethodSummary || "Not available"}</p>
-                        <p>Latest invoice: {subscription.latestInvoiceStatus || "Not available"}</p>
-                        <p>Customer ID: {subscription.stripeCustomerId || "Not linked"}</p>
-                        <p>Subscription ID: {subscription.stripeSubscriptionId || "Not linked"}</p>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--admin-soft-text)" }}>Renews / ends</p>
+                        <p className="mt-1 text-sm font-medium">{formatDate(subscription.currentPeriodEnd)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--admin-soft-text)" }}>Payment preview</p>
+                        <p className="mt-1 truncate text-sm font-medium">{getPaymentPreviewLabel(subscription)}</p>
+                      </div>
+                      <div className="text-right text-lg font-semibold" style={{ color: "var(--admin-soft-text)" }}>
+                        {isOpen ? "−" : "+"}
                       </div>
                     </div>
+                  </button>
 
-                    <div className="grid gap-2 sm:grid-cols-2 xl:w-[320px] xl:grid-cols-1">
-                      <button
-                        type="button"
-                        onClick={() => runSubscriptionAction(subscription.id, "sync")}
-                        disabled={actionBusy}
-                        className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {actionBusy && subscriptionActionState?.action === "sync" ? "Refreshing..." : "Refresh from Stripe"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => runSubscriptionAction(subscription.id, "schedule_cancel")}
-                        disabled={actionBusy || !canScheduleCancel}
-                        className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {subscription.cancelAtPeriodEnd ? "Cancellation scheduled" : "End after current period"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => runSubscriptionAction(subscription.id, "resume")}
-                        disabled={actionBusy || !canResume}
-                        className="rounded-xl border border-emerald-400/35 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Restore auto-renew
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => runSubscriptionAction(subscription.id, "cancel_now")}
-                        disabled={actionBusy || isEnded || !subscription.stripeSubscriptionId}
-                        className="rounded-xl border border-red-400/35 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100 hover:bg-red-400/15 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {actionBusy && subscriptionActionState?.action === "cancel_now" ? "Canceling..." : "Cancel immediately"}
-                      </button>
+                  {isOpen ? (
+                    <div className="border-t px-4 pb-4 pt-4" style={{ borderColor: "var(--admin-border)" }}>
+                      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+                        <div className="space-y-4">
+                          <article className="rounded-[28px] border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-strong)" }}>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Subscription Overview</p>
+                                <h3 className="mt-2 text-2xl font-bold">{subscription.user.fullName || subscription.user.email}</h3>
+                                <p className="mt-1 text-sm" style={{ color: "var(--admin-muted)" }}>{subscription.user.phone || "Phone not on file"}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize ${getBillingStatusTone(subscription.status)}`}>
+                                  {formatStatusLabel(subscription.status)}
+                                </span>
+                                <span className="rounded-full border px-3 py-1.5 text-xs font-semibold" style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-muted)" }}>
+                                  {subscription.cancelAtPeriodEnd ? "Cancellation scheduled" : "Recurring billing on"}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="mt-4 text-sm leading-6" style={{ color: "var(--admin-muted)" }}>
+                              {getBillingStatusExplanation(subscription)}
+                            </p>
+                          </article>
+
+                          <article className="rounded-[28px] border p-5" style={{ borderColor: "var(--admin-border)", background: "linear-gradient(135deg,#ff6a00 0%, #d45a07 38%, #f4ede7 100%)", color: "#ffffff" }}>
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.25em] text-white/70">Payment method preview</p>
+                                <p className="mt-2 text-2xl font-bold capitalize">
+                                  {subscription.paymentMethod?.brand || subscription.paymentMethod?.type || "Unavailable"}
+                                </p>
+                              </div>
+                              <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white/85">
+                                {subscription.paymentMethod?.funding || "stored"}
+                              </span>
+                            </div>
+                            <p className="mt-12 font-mono text-2xl tracking-[0.28em] text-white/95">
+                              •••• •••• •••• {subscription.paymentMethod?.last4 || "----"}
+                            </p>
+                            <div className="mt-6 grid gap-3 sm:grid-cols-3 text-sm">
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Card expires</p>
+                                <p className="mt-1 font-semibold">{formatCardExpiry(subscription.paymentMethod?.expMonth ?? null, subscription.paymentMethod?.expYear ?? null)}</p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Country</p>
+                                <p className="mt-1 font-semibold">{subscription.paymentMethod?.country || "Unknown"}</p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Charge amount</p>
+                                <p className="mt-1 font-semibold">{formatCurrency(subscription.plan.amountCents, subscription.plan.currency)}</p>
+                              </div>
+                            </div>
+                          </article>
+                        </div>
+
+                        <div className="space-y-4">
+                          <article className="rounded-[28px] border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-strong)" }}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold">Timeline and invoice</p>
+                                <p className="mt-1 text-xs" style={{ color: "var(--admin-soft-text)" }}>Renewal timing, latest invoice status, and Stripe record links.</p>
+                              </div>
+                              {subscription.latestInvoice?.hostedInvoiceUrl ? (
+                                <a
+                                  href={subscription.latestInvoice.hostedInvoiceUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-full border px-3 py-2 text-xs font-semibold hover:bg-white/10"
+                                  style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-text)" }}
+                                >
+                                  Open invoice
+                                </a>
+                              ) : null}
+                            </div>
+                            <div className="mt-4 space-y-3">
+                              {[
+                                ["Period started", formatDate(subscription.currentPeriodStart)],
+                                ["Next renewal / access end", formatDate(subscription.currentPeriodEnd)],
+                                ["Latest invoice status", subscription.latestInvoiceStatus || "Unavailable"],
+                                ["Last Stripe sync", formatDateTime(subscription.updatedAt)],
+                                [
+                                  "Invoice amount due",
+                                  subscription.latestInvoice
+                                    ? formatCurrency(subscription.latestInvoice.amountDueCents, subscription.latestInvoice.currency || subscription.plan.currency)
+                                    : "Not available",
+                                ],
+                                [
+                                  "Invoice amount paid",
+                                  subscription.latestInvoice
+                                    ? formatCurrency(subscription.latestInvoice.amountPaidCents, subscription.latestInvoice.currency || subscription.plan.currency)
+                                    : "Not available",
+                                ],
+                              ].map(([label, value]) => (
+                                <div
+                                  key={label}
+                                  className="flex items-center justify-between rounded-2xl border px-4 py-3 text-sm"
+                                  style={{ borderColor: "var(--admin-border)", background: "var(--admin-panel)" }}
+                                >
+                                  <span style={{ color: "var(--admin-muted)" }}>{label}</span>
+                                  <span className="font-semibold" style={{ color: "var(--admin-text)" }}>{value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </article>
+
+                          <article className="rounded-[28px] border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-strong)" }}>
+                            <p className="text-sm font-semibold">Stripe controls</p>
+                            <p className="mt-1 text-xs" style={{ color: "var(--admin-soft-text)" }}>
+                              Refresh the Stripe record, schedule end-of-term cancellation, restore auto-renew, or cancel immediately.
+                            </p>
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                              <button
+                                type="button"
+                                onClick={() => runSubscriptionAction(subscription.id, "sync")}
+                                disabled={actionBusy}
+                                className="rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
+                              >
+                                {actionBusy && subscriptionActionState?.action === "sync" ? "Refreshing..." : "Refresh from Stripe"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => runSubscriptionAction(subscription.id, "schedule_cancel")}
+                                disabled={actionBusy || !canScheduleCancel}
+                                className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {subscription.cancelAtPeriodEnd ? "Cancellation scheduled" : "End after current period"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => runSubscriptionAction(subscription.id, "resume")}
+                                disabled={actionBusy || !canResume}
+                                className="rounded-xl border border-emerald-400/35 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {isEnded ? "Restart subscription" : "Restore auto-renew"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => runSubscriptionAction(subscription.id, "cancel_now")}
+                                disabled={actionBusy || isEnded || !subscription.stripeSubscriptionId}
+                                className="rounded-xl border border-red-400/35 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100 hover:bg-red-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {actionBusy && subscriptionActionState?.action === "cancel_now" ? "Canceling..." : "Cancel immediately"}
+                              </button>
+                            </div>
+                            <div className="mt-4 grid gap-3 text-xs" style={{ color: "var(--admin-soft-text)" }}>
+                              <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-panel)" }}>
+                                Stripe customer: <span className="font-mono" style={{ color: "var(--admin-text)" }}>{subscription.stripeCustomerId || "Not linked"}</span>
+                              </div>
+                              <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-panel)" }}>
+                                Stripe subscription: <span className="font-mono" style={{ color: "var(--admin-text)" }}>{subscription.stripeSubscriptionId || "Not linked"}</span>
+                              </div>
+                            </div>
+                          </article>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
                 </article>
               );
             })}
             {filteredSubscriptions.length === 0 ? (
-              <article className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-white/65">
+              <article
+                className="rounded-3xl border border-dashed p-8 text-sm"
+                style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-soft-text)" }}
+              >
                 No billing records match the current search or status filters.
               </article>
             ) : null}
-          </div>
+          </section>
         </section>
       ) : null}
 
@@ -1589,6 +1870,11 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
             <p className="mt-1 text-sm text-white/70">
               Send one-off SMS updates to individual users, active users in a zone, or your full audience.
             </p>
+            {smsConfigError ? (
+              <div className="mt-4 rounded-xl border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                SMS is not ready in this environment: {smsConfigError}.
+              </div>
+            ) : null}
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <label className="text-xs text-white/70">
@@ -1710,7 +1996,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
               <button
                 type="button"
                 onClick={sendSmsCampaign}
-                disabled={smsSending}
+                disabled={smsSending || !!smsConfigError}
                 className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {smsSending ? "Sending..." : "Send SMS Campaign"}

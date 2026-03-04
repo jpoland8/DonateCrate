@@ -41,18 +41,31 @@ function normalizeToE164US(input: string | null): string | null {
   return null;
 }
 
-async function sendTwilioSms(params: { to: string; body: string }) {
+function getTwilioConfigError() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_FROM_NUMBER;
   const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
   if (!accountSid || !authToken) {
-    throw new Error("Twilio credentials are not configured");
+    return "Twilio credentials are not configured";
   }
   if (!from && !messagingServiceSid) {
-    throw new Error("Set TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID");
+    return "Set TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID";
   }
+  return null;
+}
+
+async function sendTwilioSms(params: { to: string; body: string }) {
+  const configError = getTwilioConfigError();
+  if (configError) {
+    throw new Error(configError);
+  }
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID!;
+  const authToken = process.env.TWILIO_AUTH_TOKEN!;
+  const from = process.env.TWILIO_FROM_NUMBER;
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
   const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const body = new URLSearchParams({
@@ -207,6 +220,8 @@ export async function GET(request: Request) {
   if (resolved.error) return NextResponse.json({ error: resolved.error }, { status: 400 });
 
   return NextResponse.json({
+    twilioReady: !getTwilioConfigError(),
+    twilioConfigError: getTwilioConfigError(),
     eligibleUsers: resolved.recipients.map((r) => ({
       id: r.userId,
       email: r.email,
@@ -222,6 +237,11 @@ export async function POST(request: Request) {
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const twilioConfigError = getTwilioConfigError();
+  if (twilioConfigError) {
+    return NextResponse.json({ error: twilioConfigError }, { status: 500 });
+  }
 
   const payload = await request.json().catch(() => null);
   const parsed = sendSmsSchema.safeParse(payload);

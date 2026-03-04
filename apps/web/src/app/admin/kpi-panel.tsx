@@ -31,25 +31,25 @@ export function KpiPanel() {
   }
 
   if (!data) {
-    return <p className="text-sm text-white/70">Loading KPI summary...</p>;
+    return <p className="text-sm" style={{ color: "var(--admin-muted)" }}>Loading KPI summary...</p>;
   }
 
   return (
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <article className="rounded-2xl border border-white/15 bg-white/5 p-4">
-        <p className="text-xs uppercase tracking-wide text-white/70">Active Subscribers</p>
+      <article className="rounded-2xl border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+        <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Active Subscribers</p>
         <p className="mt-1 text-2xl font-bold">{data.activeSubscribers}</p>
       </article>
-      <article className="rounded-2xl border border-white/15 bg-white/5 p-4">
-        <p className="text-xs uppercase tracking-wide text-white/70">Waitlist</p>
+      <article className="rounded-2xl border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+        <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Waitlist</p>
         <p className="mt-1 text-2xl font-bold">{data.waitlistCount}</p>
       </article>
-      <article className="rounded-2xl border border-white/15 bg-white/5 p-4">
-        <p className="text-xs uppercase tracking-wide text-white/70">Routes</p>
+      <article className="rounded-2xl border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+        <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Routes</p>
         <p className="mt-1 text-2xl font-bold">{data.routeCount}</p>
       </article>
-      <article className="rounded-2xl border border-white/15 bg-white/5 p-4">
-        <p className="text-xs uppercase tracking-wide text-white/70">Picked Up Stops</p>
+      <article className="rounded-2xl border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+        <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Picked Up Stops</p>
         <p className="mt-1 text-2xl font-bold">{data.pickupSuccessCount}</p>
       </article>
     </section>

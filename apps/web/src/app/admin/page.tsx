@@ -44,31 +44,31 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       : undefined;
 
     return (
-      <main className="mx-auto w-full max-w-5xl space-y-6 text-white">
+      <main className="mx-auto w-full max-w-5xl space-y-6" style={{ color: "var(--admin-text)" }}>
         <header>
-          <p className="text-sm font-medium text-white/70">Driver Console</p>
+          <p className="text-sm font-medium" style={{ color: "var(--admin-muted)" }}>Driver Console</p>
           <h1 className="text-4xl font-bold">DonateCrate Driver Operations</h1>
-          <p className="mt-1 text-sm text-white/70">{profile.email}</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--admin-muted)" }}>{profile.email}</p>
         </header>
 
         <section className="grid gap-4 md:grid-cols-3">
-          <article className="rounded-2xl border border-white/15 bg-white/5 p-5">
-            <p className="text-sm text-white/70">Employee ID</p>
+          <article className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <p className="text-sm" style={{ color: "var(--admin-muted)" }}>Employee ID</p>
             <p className="mt-2 text-2xl font-bold">{driver?.employee_id ?? "Unassigned"}</p>
           </article>
-          <article className="rounded-2xl border border-white/15 bg-white/5 p-5">
-            <p className="text-sm text-white/70">Driver Status</p>
+          <article className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <p className="text-sm" style={{ color: "var(--admin-muted)" }}>Driver Status</p>
             <p className="mt-2 text-2xl font-bold">{driver?.active ? "Active" : "Inactive"}</p>
           </article>
-          <article className="rounded-2xl border border-white/15 bg-white/5 p-5">
-            <p className="text-sm text-white/70">Routes in System</p>
+          <article className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <p className="text-sm" style={{ color: "var(--admin-muted)" }}>Routes in System</p>
             <p className="mt-2 text-2xl font-bold">{routeCount ?? 0}</p>
           </article>
         </section>
 
-        <section className="rounded-2xl border border-white/15 bg-white/5 p-5">
+        <section className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
           <h2 className="text-xl font-bold">Next Route</h2>
-          <p className="mt-2 text-sm text-white/80">
+          <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>
             {nextRoute
               ? `Status: ${nextRoute.status} | Pickup Date: ${nextPickupDate ?? "TBD"}`
               : "No route assigned yet. Check back after dispatch planning."}
@@ -103,16 +103,16 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   ];
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-8 text-white">
+    <main className="mx-auto w-full max-w-6xl space-y-8" style={{ color: "var(--admin-text)" }}>
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Operations Console</p>
         <h1 className="text-4xl font-bold">DonateCrate Admin</h1>
-        <p className="mt-1 text-sm text-white/70">{profile.email}</p>
+        <p className="mt-1 text-sm" style={{ color: "var(--admin-muted)" }}>{profile.email}</p>
       </header>
 
-      <section className="rounded-2xl border border-white/15 bg-white/5 p-5">
+      <section className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
         <h2 className="text-xl font-bold">How Admin Portal Works</h2>
-        <p className="mt-2 text-sm text-white/80">
+        <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>
           Manage the full Knoxville launch operation in one workspace: create pickup cycles, triage request statuses,
           assign drivers, and monitor subscription health so routes stay dense and profitable.
         </p>
@@ -120,8 +120,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
       <section className="grid gap-4 md:grid-cols-2">
         {adminTiles.map((tile) => (
-          <article key={tile.title} className="rounded-2xl border border-white/15 bg-white/5 p-5">
-            <p className="text-sm text-white/70">{tile.title}</p>
+          <article key={tile.title} className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <p className="text-sm" style={{ color: "var(--admin-muted)" }}>{tile.title}</p>
             <p className="mt-2 text-2xl font-bold">{tile.value}</p>
           </article>
         ))}
