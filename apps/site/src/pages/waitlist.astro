@@ -1,0 +1,32 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { WaitlistFormIsland } from "../components/marketing/WaitlistFormIsland";
+const apiBaseUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:3000";
+---
+
+<SiteLayout
+  title="DonateCrate Waitlist"
+  description="Join the DonateCrate waitlist and help shape where monthly pickup opens next."
+>
+  <main class="simple-page">
+    <span class="eyebrow">Pending Zone</span>
+    <h1>Join the waitlist and help open the next neighborhood route.</h1>
+    <p class="simple-page__lede">
+      We expand zone by zone to keep routes tight and pickup reliability high. If your address is not active yet,
+      add it here and we will notify you when signup opens.
+    </p>
+    <div class="waitlist-shell">
+      <div class="waitlist-copy">
+        <h2>What happens next</h2>
+        <ul>
+          <li>Your address is saved against a future zone opening signal.</li>
+          <li>We use waitlist density to prioritize which neighborhood activates next.</li>
+          <li>You get notified before public expansion if your address becomes eligible.</li>
+        </ul>
+      </div>
+      <div class="waitlist-card">
+        <WaitlistFormIsland client:load apiBaseUrl={apiBaseUrl} />
+      </div>
+    </div>
+  </main>
+</SiteLayout>

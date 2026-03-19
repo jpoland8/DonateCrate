@@ -5,6 +5,16 @@ const bodySchema = z.object({
   placeId: z.string().min(8),
 });
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "http://localhost:4321",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 function componentValue(
   components: Array<{ long_name: string; short_name: string; types: string[] }>,
   type: string,
@@ -17,11 +27,11 @@ function componentValue(
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(payload);
-  if (!parsed.success) return NextResponse.json({ error: "Invalid placeId" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Invalid placeId" }, { status: 400, headers: corsHeaders });
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "Google Places API key not configured" }, { status: 500 });
+    return NextResponse.json({ error: "Google Places API key not configured" }, { status: 500, headers: corsHeaders });
   }
 
   const placeId = encodeURIComponent(parsed.data.placeId);
@@ -33,7 +43,7 @@ export async function POST(request: Request) {
       "X-Goog-FieldMask": "id,formattedAddress,addressComponents,location",
     },
   });
-  if (!response.ok) return NextResponse.json({ error: "Place details request failed" }, { status: 502 });
+  if (!response.ok) return NextResponse.json({ error: "Place details request failed" }, { status: 502, headers: corsHeaders });
 
   const json = (await response.json()) as {
     id?: string;
@@ -43,8 +53,8 @@ export async function POST(request: Request) {
     error?: { message?: string };
   };
 
-  if (json.error?.message) return NextResponse.json({ error: json.error.message }, { status: 502 });
-  if (!json.id) return NextResponse.json({ error: "Place details unavailable" }, { status: 502 });
+  if (json.error?.message) return NextResponse.json({ error: json.error.message }, { status: 502, headers: corsHeaders });
+  if (!json.id) return NextResponse.json({ error: "Place details unavailable" }, { status: 502, headers: corsHeaders });
 
   const components = (json.addressComponents ?? []).map((item) => ({
     long_name: item.longText,
@@ -71,5 +81,5 @@ export async function POST(request: Request) {
     postalCode,
     lat: json.location?.latitude ?? null,
     lng: json.location?.longitude ?? null,
-  });
+  }, { headers: corsHeaders });
 }

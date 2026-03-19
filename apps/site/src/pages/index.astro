@@ -1,0 +1,158 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { ServiceCheckIsland } from "../components/marketing/ServiceCheckIsland";
+
+const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUBLIC_APP_URL || "http://localhost:3000";
+const apiBaseUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:3000";
+---
+
+<SiteLayout
+  title="DonateCrate | Monthly Donation Pickup"
+  description="Monthly doorstep pickup for clothing, shoes, and linens. Check your address and see if DonateCrate is live in your neighborhood."
+>
+  <main>
+    <section class="hero">
+      <div class="hero__backdrop"></div>
+      <div class="hero__media">
+        <img src="/images/hero-doorstep.jpg" alt="DonateCrate bag on a doorstep" />
+        <div class="hero__glow hero__glow--one"></div>
+        <div class="hero__glow hero__glow--two"></div>
+      </div>
+      <div class="hero__content">
+        <div class="hero__copy">
+          <span class="eyebrow">Knoxville Launch</span>
+          <h1>Turn overflowing closets into a simple monthly habit.</h1>
+          <p class="hero__lede">
+            DonateCrate makes it easy to give away the clothes, shoes, and household linens you no longer need.
+            Check your address, join in minutes, and leave your bag out on pickup day. We take care of the rest.
+          </p>
+          <div class="hero__stats">
+            <div>
+              <strong>Easy to keep up with</strong>
+              <span>One clear pickup rhythm instead of another errand on your list.</span>
+            </div>
+            <div>
+              <strong>Built around your address</strong>
+              <span>Instantly see whether you can join now or when your area is next.</span>
+            </div>
+            <div>
+              <strong>Reliable by design</strong>
+              <span>Neighborhood-by-neighborhood pickup keeps the experience dependable.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero__panel">
+          <ServiceCheckIsland client:load apiBaseUrl={apiBaseUrl} accountBaseUrl={accountBaseUrl} />
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--market">
+      <div class="section-heading">
+        <span class="eyebrow">Launch Snapshot</span>
+        <h2>A cleaner way to donate, designed to feel simple from the first click.</h2>
+      </div>
+      <div class="market-grid">
+        <article>
+          <span>Know where you stand</span>
+          <strong>Pick an address and get an answer right away.</strong>
+          <p>You should not have to guess whether service is live. The search flow tells you what is available now and what to do next.</p>
+        </article>
+        <article>
+          <span>Made for real households</span>
+          <strong>No drop-off trip. No confusing process.</strong>
+          <p>Once you are set up, donating feels more like putting out recycling than planning a separate weekend chore.</p>
+        </article>
+        <article>
+          <span>Growing the right way</span>
+          <strong>Neighborhood rollout keeps service strong.</strong>
+          <p>We expand carefully so pickup quality stays high, reminders stay useful, and your area gets a dependable schedule.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section--split">
+      <div class="section-heading">
+        <span class="eyebrow">Why It Works</span>
+        <h2>Made for people who want to donate more often without thinking about it all month.</h2>
+      </div>
+      <div class="benefit-grid">
+        <article>
+          <h3>A routine you can actually keep</h3>
+          <p>No donation-center trip. No pile in the trunk. Just one simple pickup day you can plan around.</p>
+        </article>
+        <article>
+          <h3>Clear answers up front</h3>
+          <p>The address check tells you whether you can sign up today or whether your neighborhood is next in line.</p>
+        </article>
+        <article>
+          <h3>Better service as we grow</h3>
+          <p>We expand carefully so pickups stay predictable and the experience feels polished, not patched together.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section--dark">
+      <div class="section-heading">
+        <span class="eyebrow">The Monthly Flow</span>
+        <h2>What using DonateCrate should feel like.</h2>
+      </div>
+      <div class="timeline-grid">
+        <article>
+          <span>01</span>
+          <h3>Check your address</h3>
+          <p>Choose your address and we will tell you whether you can join now or whether your area is opening soon.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Create your account</h3>
+          <p>Your address carries into signup so you are not starting over. The setup stays quick and clear.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Set out your bag</h3>
+          <p>When pickup day comes around, leave your bag out and we will keep you updated from reminder to completion.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section--gallery">
+      <div class="section-heading">
+        <span class="eyebrow">Accepted Items</span>
+        <h2>The things most households always seem to have too much of.</h2>
+      </div>
+      <div class="gallery-grid">
+        <article>
+          <h3>Clothing</h3>
+          <p>Everyday clothes, jackets, kids items, and other clean, dry apparel ready to bag up.</p>
+        </article>
+        <article>
+          <h3>Linens</h3>
+          <p>Towels, sheets, blankets, and home textiles that are clean, dry, and ready for a second life.</p>
+        </article>
+        <article>
+          <h3>Shoes</h3>
+          <p>Paired shoes and wearable footwear that can be packed neatly with the rest of your pickup bag.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section--cta">
+      <div>
+        <span class="eyebrow">Launch Area</span>
+        <h2>Starting in Knoxville, then growing one strong neighborhood at a time.</h2>
+      </div>
+      <div class="cta-card">
+        <p>
+          If your address is not active yet, join the waitlist. That helps us decide where pickup should open next and lets
+          you hear about availability early.
+        </p>
+        <div class="cta-card__actions">
+          <a class="button" href="/">Check My Address</a>
+          <a class="button button--quiet" href="/faq">See common questions</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</SiteLayout>

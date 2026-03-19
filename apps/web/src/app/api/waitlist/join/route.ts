@@ -17,6 +17,16 @@ const bodySchema = z.object({
   referralCode: z.string().optional(),
 });
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "http://localhost:4321",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(payload);
@@ -24,7 +34,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten().fieldErrors },
-      { status: 400 },
+      { status: 400, headers: corsHeaders },
     );
   }
 
@@ -42,7 +52,7 @@ export async function POST(request: Request) {
           error: "Address is already eligible",
           message: "This address appears active. Continue to signup instead of waitlist.",
         },
-        { status: 409 },
+        { status: 409, headers: corsHeaders },
       );
     }
 
@@ -72,15 +82,15 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 
     return NextResponse.json({
       ok: true,
       waitlistEntry: data,
       message: "You are on the waitlist. We will notify you when your zone opens.",
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json({ error: String(error) }, { status: 500, headers: corsHeaders });
   }
 }

@@ -69,12 +69,12 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <div className="flex gap-2">
+      <div className="inline-flex rounded-full bg-[var(--dc-gray-100)] p-1">
         <button
           type="button"
           onClick={() => setMode("password")}
-          className={`rounded-lg px-3 py-2 text-sm font-semibold ${
-            mode === "password" ? "bg-black text-white" : "bg-[var(--dc-gray-100)] text-black"
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            mode === "password" ? "bg-black text-white shadow-sm" : "text-black"
           }`}
         >
           Password
@@ -82,35 +82,47 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => setMode("magic_link")}
-          className={`rounded-lg px-3 py-2 text-sm font-semibold ${
-            mode === "magic_link" ? "bg-black text-white" : "bg-[var(--dc-gray-100)] text-black"
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            mode === "magic_link" ? "bg-black text-white shadow-sm" : "text-black"
           }`}
         >
           Magic Link
         </button>
       </div>
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        placeholder="you@example.com"
-        className="h-12 w-full rounded-xl border border-black/20 px-4 outline-none transition focus:border-[var(--dc-orange)]"
-      />
-      {mode === "password" ? (
+      <div className="space-y-1.5">
+        <label htmlFor="login-email" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+          Email
+        </label>
         <input
-          type="password"
+          id="login-email"
+          type="email"
           required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Password"
-          className="h-12 w-full rounded-xl border border-black/20 px-4 outline-none transition focus:border-[var(--dc-orange)]"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="you@example.com"
+          className="h-12 w-full rounded-2xl border border-black/15 px-4 outline-none transition focus:border-[var(--dc-orange)]"
         />
+      </div>
+      {mode === "password" ? (
+        <div className="space-y-1.5">
+          <label htmlFor="login-password" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+            Password
+          </label>
+          <input
+            id="login-password"
+            type="password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Password"
+            className="h-12 w-full rounded-2xl border border-black/15 px-4 outline-none transition focus:border-[var(--dc-orange)]"
+          />
+        </div>
       ) : null}
       <button
         type="submit"
         disabled={status === "sending"}
-        className="h-12 w-full rounded-xl bg-[var(--dc-orange)] font-semibold text-white transition hover:bg-[var(--dc-orange-strong)] disabled:opacity-60"
+        className="h-12 w-full rounded-2xl bg-[var(--dc-orange)] font-semibold text-white transition hover:bg-[var(--dc-orange-strong)] disabled:opacity-60"
       >
         {status === "sending"
           ? "Working..."

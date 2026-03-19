@@ -1,0 +1,57 @@
+---
+import "../styles/global.css";
+
+type Props = {
+  title: string;
+  description: string;
+};
+
+const { title, description } = Astro.props;
+const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUBLIC_APP_URL || "http://localhost:3000";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+  </head>
+  <body>
+    <header class="site-header">
+      <a href="/" class="site-logo">
+        <img src="/images/logo-provided.png" alt="DonateCrate" />
+      </a>
+      <nav class="site-nav">
+        <a href="/how-it-works">How It Works</a>
+        <a href="/what-we-take">What We Take</a>
+        <a href="/neighborhoods">Neighborhoods</a>
+        <a href="/faq">FAQ</a>
+      </nav>
+      <div class="site-actions">
+        <a class="button button--quiet" href={`${accountBaseUrl}/login?next=/app`}>Login</a>
+        <a class="button" href={`${accountBaseUrl}/signup`}>Create Account</a>
+      </div>
+    </header>
+    <slot />
+    <footer class="site-footer">
+      <div>
+        <a href="/" class="site-logo site-logo--footer">
+          <img src="/images/logo-provided.png" alt="DonateCrate" />
+        </a>
+        <p>Monthly donation pickup designed for neighborhoods that want a cleaner giving habit.</p>
+      </div>
+      <div class="site-footer__links">
+        <a href="/how-it-works">How It Works</a>
+        <a href="/what-we-take">Accepted Items</a>
+        <a href="/neighborhoods">Neighborhoods</a>
+        <a href="/faq">FAQ</a>
+      </div>
+      <div class="site-footer__links">
+        <a href={`${accountBaseUrl}/login?next=/app`}>Customer Login</a>
+        <a href={`${accountBaseUrl}/signup`}>Signup</a>
+      </div>
+    </footer>
+  </body>
+</html>

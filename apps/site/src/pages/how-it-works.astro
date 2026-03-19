@@ -1,0 +1,30 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUBLIC_APP_URL || "http://localhost:3000";
+---
+
+<SiteLayout
+  title="How DonateCrate Works"
+  description="See how DonateCrate monthly donation pickup works, from address check to pickup day."
+>
+  <main class="simple-page">
+    <a class="back-link" href="/">Back to home</a>
+    <span class="eyebrow">How It Works</span>
+    <h1>From address check to pickup day in three steps.</h1>
+    <div class="simple-grid">
+      <article>
+        <h2>1. Confirm your address</h2>
+        <p>Start with a street address so we can match you to an active or upcoming route area.</p>
+      </article>
+      <article>
+        <h2>2. Create your account</h2>
+        <p>Once service is available, your signup carries forward the address details from the eligibility check.</p>
+      </article>
+      <article>
+        <h2>3. Set out your bag monthly</h2>
+        <p>Confirm each cycle from your account, then leave your donation bag out on the scheduled pickup day.</p>
+      </article>
+    </div>
+    <a class="button" href={`${accountBaseUrl}/signup`}>Start account setup</a>
+  </main>
+</SiteLayout>

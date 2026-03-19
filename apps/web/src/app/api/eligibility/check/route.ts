@@ -12,6 +12,16 @@ const bodySchema = z.object({
   lng: z.number().optional(),
 });
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "http://localhost:4321",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(payload);
@@ -19,7 +29,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid payload", details: parsed.error.flatten().fieldErrors },
-      { status: 400 },
+      { status: 400, headers: corsHeaders },
     );
   }
 
@@ -44,11 +54,11 @@ export async function POST(request: Request) {
           : refinedResult.zone
             ? "This address is in a planned pickup area, but signup is not open yet. Join the waitlist for launch access."
             : "This address is outside active service areas. Join the waitlist.",
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
     return NextResponse.json(
       { error: "Eligibility check failed", details: String(error) },
-      { status: 500 },
+      { status: 500, headers: corsHeaders },
     );
   }
 }

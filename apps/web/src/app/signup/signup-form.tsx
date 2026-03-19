@@ -66,53 +66,88 @@ export function SignupForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <input
-        type="text"
-        required
-        value={fullName}
-        onChange={(event) => setFullName(event.target.value)}
-        placeholder="Full name"
-        className="h-12 w-full rounded-xl border border-black/20 px-4"
-      />
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        placeholder="you@example.com"
-        className="h-12 w-full rounded-xl border border-black/20 px-4"
-      />
-      <input
-        type="password"
-        required
-        minLength={8}
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        placeholder="Create a password (min 8 chars)"
-        className="h-12 w-full rounded-xl border border-black/20 px-4"
-      />
-      <input
-        type="tel"
-        value={phone}
-        onChange={(event) => setPhone(event.target.value)}
-        placeholder="Phone number"
-        className="h-12 w-full rounded-xl border border-black/20 px-4"
-      />
-      <input
-        type="text"
-        required
-        value={addressLine1}
-        onChange={(event) => setAddressLine1(event.target.value)}
-        placeholder="Address line 1"
-        className="h-12 w-full rounded-xl border border-black/20 px-4"
-      />
-      <input
-        type="text"
-        value={addressLine2}
-        onChange={(event) => setAddressLine2(event.target.value)}
-        placeholder="Address line 2 (optional)"
-        className="h-12 w-full rounded-xl border border-black/20 px-4"
-      />
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1.5 md:col-span-2">
+          <label htmlFor="signup-full-name" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+            Full name
+          </label>
+          <input
+            id="signup-full-name"
+            type="text"
+            required
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            placeholder="Full name"
+            className="h-12 w-full rounded-2xl border border-black/15 px-4"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="signup-email" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+            Email
+          </label>
+          <input
+            id="signup-email"
+            type="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            className="h-12 w-full rounded-2xl border border-black/15 px-4"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="signup-phone" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+            Phone
+          </label>
+          <input
+            id="signup-phone"
+            type="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="Phone number"
+            className="h-12 w-full rounded-2xl border border-black/15 px-4"
+          />
+        </div>
+        <div className="space-y-1.5 md:col-span-2">
+          <label htmlFor="signup-password" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+            Password
+          </label>
+          <input
+            id="signup-password"
+            type="password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Create a password (min 8 chars)"
+            className="h-12 w-full rounded-2xl border border-black/15 px-4"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-black/10 bg-[var(--dc-gray-100)]/70 p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Pickup Address</p>
+        <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
+          This is the address used for eligibility, route planning, and pickup reminders.
+        </p>
+        <div className="mt-4 space-y-3">
+          <input
+            type="text"
+            required
+            value={addressLine1}
+            onChange={(event) => setAddressLine1(event.target.value)}
+            placeholder="Address line 1"
+            className="h-12 w-full rounded-2xl border border-black/15 bg-white px-4"
+          />
+          <input
+            type="text"
+            value={addressLine2}
+            onChange={(event) => setAddressLine2(event.target.value)}
+            placeholder="Address line 2 (optional)"
+            className="h-12 w-full rounded-2xl border border-black/15 bg-white px-4"
+          />
+        </div>
+      </div>
       <div className="grid gap-3 md:grid-cols-3">
         <input
           type="text"
@@ -120,7 +155,7 @@ export function SignupForm() {
           value={city}
           onChange={(event) => setCity(event.target.value)}
           placeholder="City"
-          className="h-12 w-full rounded-xl border border-black/20 px-4 md:col-span-1"
+          className="h-12 w-full rounded-2xl border border-black/15 px-4 md:col-span-1"
         />
         <input
           type="text"
@@ -129,7 +164,7 @@ export function SignupForm() {
           value={stateValue}
           onChange={(event) => setStateValue(event.target.value.toUpperCase())}
           placeholder="State"
-          className="h-12 w-full rounded-xl border border-black/20 px-4 md:col-span-1"
+          className="h-12 w-full rounded-2xl border border-black/15 px-4 md:col-span-1"
         />
         <input
           type="text"
@@ -137,13 +172,13 @@ export function SignupForm() {
           value={postalCode}
           onChange={(event) => setPostalCode(event.target.value)}
           placeholder="Postal code"
-          className="h-12 w-full rounded-xl border border-black/20 px-4 md:col-span-1"
+          className="h-12 w-full rounded-2xl border border-black/15 px-4 md:col-span-1"
         />
       </div>
       <button
         type="submit"
         disabled={status === "saving"}
-        className="h-12 w-full rounded-xl bg-[var(--dc-orange)] font-semibold text-white disabled:opacity-70"
+        className="h-12 w-full rounded-2xl bg-[var(--dc-orange)] font-semibold text-white disabled:opacity-70"
       >
         {status === "saving" ? "Creating..." : "Create Account"}
       </button>
