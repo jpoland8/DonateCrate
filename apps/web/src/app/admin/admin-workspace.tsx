@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatNotificationEventType, formatNotificationStatus } from "@/lib/notification-labels";
 
 type WorkspaceSection = "overview" | "pickups" | "logistics" | "people" | "zones" | "billing" | "growth" | "communication";
 
@@ -28,8 +29,40 @@ type AdminUser = {
 type AdminData = {
   users: AdminUser[];
   waitlist: Array<{ id: string; full_name: string; status: string; postal_code: string }>;
-  pickupRequests: Array<{ id: string; status: string; users: { email: string }; pickup_cycles: { pickup_date: string } }>;
-  routes: Array<{ id: string; status: string; driver_id: string | null }>;
+  pickupRequests: Array<{
+    id: string;
+    status: string;
+    updated_at?: string;
+    user_id?: string;
+    pickup_cycle_id?: string;
+    users: { email: string; full_name?: string | null };
+    pickup_cycles: { pickup_date: string };
+  }>;
+  routes: Array<{
+    id: string;
+    status: string;
+    driver_id: string | null;
+    pickup_cycle_id?: string;
+    zone_id?: string;
+    created_at?: string;
+    stopCount?: number;
+    drivers?: { employee_id?: string | null } | null;
+    service_zones?: { code?: string | null; name?: string | null } | Array<{ code?: string | null; name?: string | null }> | null;
+    pickup_cycles?: { pickup_date?: string | null } | Array<{ pickup_date?: string | null }> | null;
+  }>;
+  notificationEvents?: Array<{
+    id: string;
+    user_id: string | null;
+    channel: string;
+    event_type: string;
+    status: string;
+    provider_message_id: string | null;
+    attempt_count: number | null;
+    last_attempt_at: string | null;
+    last_error: string | null;
+    correlation_id: string | null;
+    created_at: string;
+  }>;
   drivers: Array<{ id: string; employee_id: string; users: { email: string } }>;
   pickupCycles: Array<{
     id: string;
@@ -155,6 +188,52 @@ function formatStatusLabel(status: string) {
   return status.replaceAll("_", " ");
 }
 
+function formatRouteStatusLabel(status: string) {
+  switch (status) {
+    case "draft":
+      return "Draft route";
+    case "assigned":
+      return "Driver assigned";
+    case "in_progress":
+      return "In progress";
+    case "completed":
+      return "Completed";
+    default:
+      return formatStatusLabel(status);
+  }
+}
+
+function formatPickupRequestLabel(status: string) {
+  switch (status) {
+    case "requested":
+      return "Ready for pickup";
+    case "skipped":
+      return "Skipped this month";
+    case "confirmed":
+      return "Confirmed by ops";
+    case "picked_up":
+      return "Collected";
+    case "not_ready":
+      return "Not ready";
+    case "missed":
+      return "Missed";
+    default:
+      return formatStatusLabel(status);
+  }
+}
+
+function getCycleDisplayLabel(cycle: AdminData["pickupCycles"][number]) {
+  const zoneMeta = Array.isArray(cycle.service_zones) ? cycle.service_zones[0] : cycle.service_zones;
+  return `${zoneMeta?.name || "Zone"} | ${formatDate(cycle.pickup_date)}`;
+}
+
+function getRouteDisplayLabel(route: AdminData["routes"][number] | null | undefined) {
+  if (!route) return "No route built yet";
+  const zoneMeta = Array.isArray(route.service_zones) ? route.service_zones[0] : route.service_zones;
+  const pickupCycle = Array.isArray(route.pickup_cycles) ? route.pickup_cycles[0] : route.pickup_cycles;
+  return `${zoneMeta?.name || "Zone"} | ${pickupCycle?.pickup_date ? formatDate(pickupCycle.pickup_date) : "No date"}`;
+}
+
 function getBillingStatusTone(status: string) {
   switch (status) {
     case "active":
@@ -207,8 +286,10 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   const singleCycleMonthRef = useRef<HTMLInputElement | null>(null);
   const singlePickupDateRef = useRef<HTMLInputElement | null>(null);
   const recurringStartPickupDateRef = useRef<HTMLInputElement | null>(null);
+  const logisticsPreviewAbortRef = useRef<AbortController | null>(null);
   const [data, setData] = useState<AdminData | null>(null);
   const [message, setMessage] = useState("");
+  const [logisticsMessage, setLogisticsMessage] = useState("");
   const [subscriptionSearch, setSubscriptionSearch] = useState("");
   const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState<
     "all" | "trialing" | "active" | "past_due" | "paused" | "canceled"
@@ -217,18 +298,19 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   const [selectedSubscriptionId, setSelectedSubscriptionId] = useState("");
 
   const [selectedCycleId, setSelectedCycleId] = useState("");
-  const [selectedRouteId, setSelectedRouteId] = useState("");
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [selectedZoneCode, setSelectedZoneCode] = useState("knoxville-37922");
   const [selectedZoneId, setSelectedZoneId] = useState("");
   const [selectedLogisticsRouteId, setSelectedLogisticsRouteId] = useState("");
   const [logisticsRoutePreview, setLogisticsRoutePreview] = useState<{
     route?: { id: string; status: string };
+    googleMapsUrl?: string | null;
     stops?: Array<{
       id: string;
       stopOrder: number;
       stopStatus: string;
       requestStatus: string | null;
+      requestNote?: string | null;
       email: string | null;
       fullName: string | null;
       address: {
@@ -303,9 +385,12 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     Array<{ id: string; fullName: string; email: string; role: string; phone: string }>
   >([]);
   const [smsZonePreviewLoading, setSmsZonePreviewLoading] = useState(false);
+  const [notificationActionLoading, setNotificationActionLoading] = useState(false);
+  const [notificationSelection, setNotificationSelection] = useState<string[]>([]);
+  const [mapLoadError, setMapLoadError] = useState(false);
 
   const loadAll = useCallback(async () => {
-    const [usersRes, waitlistRes, requestsRes, routesRes, driversRes, cyclesRes, subsRes, refsRes, zonesRes] = await Promise.all([
+    const [usersRes, waitlistRes, requestsRes, routesRes, driversRes, cyclesRes, subsRes, refsRes, zonesRes, notificationRes] = await Promise.all([
       fetch("/api/admin/users"),
       fetch("/api/admin/waitlist"),
       fetch("/api/admin/pickup-requests"),
@@ -315,9 +400,10 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       fetch("/api/admin/subscriptions"),
       fetch("/api/admin/referrals"),
       fetch("/api/admin/zones"),
+      fetch("/api/admin/notifications"),
     ]);
 
-    const [users, waitlist, pickupRequests, routes, drivers, pickupCycles, subscriptions, referrals, zones] = await Promise.all([
+    const [users, waitlist, pickupRequests, routes, drivers, pickupCycles, subscriptions, referrals, zones, notifications] = await Promise.all([
       usersRes.json(),
       waitlistRes.json(),
       requestsRes.json(),
@@ -327,6 +413,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       subsRes.json(),
       refsRes.json(),
       zonesRes.json(),
+      notificationRes.json(),
     ]);
 
     const zoneRows = zones.zones ?? [];
@@ -344,6 +431,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       waitlist: waitlist.waitlist ?? [],
       pickupRequests: pickupRequests.pickupRequests ?? [],
       routes: routes.routes ?? [],
+      notificationEvents: notifications.notificationEvents ?? [],
       drivers: drivers.drivers ?? [],
       pickupCycles: pickupCycles.pickupCycles ?? [],
       subscriptions: subscriptions.subscriptions ?? [],
@@ -353,11 +441,59 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAll();
   }, [loadAll]);
 
+  const driverOptions = useMemo(() => data?.drivers ?? [], [data]);
+  const routeOptions = useMemo(() => data?.routes ?? [], [data]);
   const selectedZone = useMemo(() => data?.zones.find((zone) => zone.id === selectedZoneId) ?? null, [data, selectedZoneId]);
+  const logisticsCycles = useMemo(() => {
+    if (!data) return [];
+    return data.pickupCycles.filter((cycle) => {
+      if (!selectedZoneCode) return true;
+      const zoneMeta = Array.isArray(cycle.service_zones) ? cycle.service_zones[0] : cycle.service_zones;
+      return zoneMeta?.code === selectedZoneCode;
+    });
+  }, [data, selectedZoneCode]);
+  const selectedCycleMeta = useMemo(
+    () => logisticsCycles.find((cycle) => cycle.id === selectedCycleId) ?? null,
+    [logisticsCycles, selectedCycleId],
+  );
+  const selectedCycleRequestSummary = useMemo(() => {
+    if (!data || !selectedCycleId) {
+      return { requested: 0, skipped: 0, exceptions: 0, total: 0 };
+    }
+    const matching = data.pickupRequests.filter((request) => request.pickup_cycle_id === selectedCycleId);
+    return {
+      requested: matching.filter((request) => ["requested", "confirmed"].includes(request.status)).length,
+      skipped: matching.filter((request) => request.status === "skipped").length,
+      exceptions: matching.filter((request) => ["not_ready", "missed"].includes(request.status)).length,
+      total: matching.length,
+    };
+  }, [data, selectedCycleId]);
+  const selectedCycleRoutes = useMemo(() => {
+    if (!data || !selectedCycleId) return [];
+    const selectedZone = data.zones.find((zone) => zone.code === selectedZoneCode);
+    return data.routes.filter(
+      (route) => route.pickup_cycle_id === selectedCycleId && (!selectedZone || route.zone_id === selectedZone.id),
+    );
+  }, [data, selectedCycleId, selectedZoneCode]);
+  const selectedLogisticsRoute = useMemo(() => {
+    if (selectedLogisticsRouteId) {
+      return routeOptions.find((route) => route.id === selectedLogisticsRouteId) ?? null;
+    }
+    return selectedCycleRoutes[0] ?? null;
+  }, [routeOptions, selectedLogisticsRouteId, selectedCycleRoutes]);
+  useEffect(() => {
+    const nextRouteId = selectedCycleRoutes[0]?.id ?? "";
+    setSelectedLogisticsRouteId(nextRouteId);
+    if (nextRouteId) {
+      loadLogisticsRoutePreview(nextRouteId);
+    } else {
+      setLogisticsRoutePreview(null);
+      setMapLoadError(false);
+    }
+  }, [selectedCycleRoutes]);
   const timelineRows = useMemo(() => {
     if (!data) return [];
     return data.pickupCycles.filter((cycle) => {
@@ -437,9 +573,15 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     }
     return data.users.filter((u) => Boolean(u.phone) && (smsIncludeStaff ? true : u.role === "customer")).length;
   }, [data, smsIncludeStaff, smsTarget, smsUserIds, smsZoneEligibleUsers.length]);
-
-  const driverOptions = useMemo(() => data?.drivers ?? [], [data]);
-  const routeOptions = useMemo(() => data?.routes ?? [], [data]);
+  const notificationEvents = useMemo(() => data?.notificationEvents ?? [], [data]);
+  const failedNotificationEvents = useMemo(
+    () => notificationEvents.filter((item) => item.status === "failed"),
+    [notificationEvents],
+  );
+  const queuedNotificationEvents = useMemo(
+    () => notificationEvents.filter((item) => item.status === "queued"),
+    [notificationEvents],
+  );
 
   async function fetchPredictions(query: string) {
     const response = await fetch("/api/places/autocomplete", {
@@ -644,43 +786,76 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   }
 
   async function generateRoute() {
-    if (!selectedCycleId) return setMessage("Select a pickup cycle first.");
+    if (!selectedCycleId) return setLogisticsMessage("Select a pickup cycle first.");
+    setLogisticsMessage("");
     const response = await fetch("/api/admin/routes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pickupCycleId: selectedCycleId, zoneCode: selectedZoneCode }),
     });
     const json = await response.json();
-    if (!response.ok) return setMessage(json.error || "Could not generate route");
-    setMessage(
-      `Route generated with ${json.stopCount} stops${json.optimized ? " (Google optimized)" : ""}${
+    if (!response.ok) {
+      setLogisticsMessage(json.error || "Could not build route");
+      return setMessage(json.error || "Could not build route");
+    }
+    setSelectedLogisticsRouteId(json.routeId);
+    setMapLoadError(false);
+    const nextMessage = `Route ${json.regenerated ? "refreshed" : "built"} with ${json.stopCount} stops${json.optimized ? " (Google optimized)" : ""}${
         json.missingCoordinates ? `, ${json.missingCoordinates} without coordinates` : ""
-      }.`,
-    );
+      }.`;
+    setLogisticsMessage(nextMessage);
+    setMessage(nextMessage);
     await loadAll();
   }
 
   async function loadLogisticsRoutePreview(routeId: string) {
-    if (!routeId) return setLogisticsRoutePreview(null);
-    const response = await fetch(`/api/admin/routes/preview?routeId=${routeId}`);
-    const json = await response.json();
-    if (!response.ok) {
-      setMessage(json.error || "Could not load route preview");
+    if (!routeId) {
+      setLogisticsRoutePreview(null);
+      setMapLoadError(false);
       return;
     }
-    setLogisticsRoutePreview(json);
+    logisticsPreviewAbortRef.current?.abort();
+    const controller = new AbortController();
+    logisticsPreviewAbortRef.current = controller;
+    try {
+      const response = await fetch(`/api/admin/routes/preview?routeId=${routeId}`, { signal: controller.signal });
+      const json = await response.json();
+      if (!response.ok) {
+        setLogisticsMessage(json.error || "Could not load route preview");
+        setMessage(json.error || "Could not load route preview");
+        return;
+      }
+      setMapLoadError(false);
+      setLogisticsRoutePreview(json);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      const nextMessage = error instanceof Error ? error.message : "Could not load route preview";
+      setLogisticsMessage(nextMessage);
+      setMessage(nextMessage);
+    }
   }
 
   async function assignDriver() {
-    if (!selectedRouteId || !selectedDriverId) return setMessage("Select route and driver.");
+    const routeId = selectedLogisticsRoute?.id;
+    if (!routeId || !selectedDriverId) {
+      setLogisticsMessage("Build the route first, then choose a driver.");
+      return setMessage("Build the route first, then choose a driver.");
+    }
+    setLogisticsMessage("");
     const response = await fetch("/api/admin/routes/assign-driver", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ routeId: selectedRouteId, driverId: selectedDriverId }),
+      body: JSON.stringify({ routeId, driverId: selectedDriverId }),
     });
     const json = await response.json();
-    if (!response.ok) return setMessage(json.error || "Could not assign driver");
-    setMessage("Driver assigned.");
+    if (!response.ok) {
+      setLogisticsMessage(json.error || "Could not assign driver");
+      return setMessage(json.error || "Could not assign driver");
+    }
+    const assignedDriver = driverOptions.find((driver) => driver.id === selectedDriverId);
+    const successMessage = `Driver assigned: ${assignedDriver?.employee_id || "Selected driver"} -> ${getRouteDisplayLabel(selectedLogisticsRoute)}.`;
+    setLogisticsMessage(successMessage);
+    setMessage(successMessage);
     await loadAll();
   }
 
@@ -822,6 +997,69 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       setMessage("Could not reach SMS service.");
     } finally {
       setSmsSending(false);
+    }
+  }
+
+  async function queueCycleReminders(cadence: "72h" | "24h" | "day_of") {
+    if (!selectedCycleId) return setMessage("Select a pickup cycle in Logistics or Pickups first.");
+    setNotificationActionLoading(true);
+    try {
+      const response = await fetch("/api/admin/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "queue_cycle_reminders", pickupCycleId: selectedCycleId, cadence }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(json.error || "Could not queue reminders");
+      setMessage(`Queued ${json.queued ?? 0} ${cadence} reminder notifications.`);
+      await loadAll();
+    } finally {
+      setNotificationActionLoading(false);
+    }
+  }
+
+  async function retrySelectedNotifications() {
+    if (notificationSelection.length === 0) return setMessage("Select at least one failed notification.");
+    setNotificationActionLoading(true);
+    try {
+      const queueResponse = await fetch("/api/admin/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "retry_events", eventIds: notificationSelection }),
+      });
+      const queueJson = await queueResponse.json().catch(() => ({}));
+      if (!queueResponse.ok) return setMessage(queueJson.error || "Could not queue retries");
+
+      const sendResponse = await fetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventIds: notificationSelection }),
+      });
+      const sendJson = await sendResponse.json().catch(() => ({}));
+      if (!sendResponse.ok) return setMessage(sendJson.error || "Could not process notifications");
+
+      setNotificationSelection([]);
+      setMessage(`Retried ${sendJson.attempted ?? 0} notifications. Sent: ${sendJson.sent ?? 0}, failed: ${sendJson.failed ?? 0}.`);
+      await loadAll();
+    } finally {
+      setNotificationActionLoading(false);
+    }
+  }
+
+  async function processQueuedNotifications() {
+    setNotificationActionLoading(true);
+    try {
+      const response = await fetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 25 }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(json.error || "Could not process queued notifications");
+      setMessage(`Processed ${json.attempted ?? 0} queued notifications. Sent: ${json.sent ?? 0}, failed: ${json.failed ?? 0}.`);
+      await loadAll();
+    } finally {
+      setNotificationActionLoading(false);
     }
   }
 
@@ -1722,9 +1960,11 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
           <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
             <h3 className="text-xl font-bold">Pickup Requests</h3>
             <div className="mt-3 space-y-2">
-              {data.pickupRequests.slice(0, 20).map((item) => (
+                {data.pickupRequests.slice(0, 20).map((item) => (
                 <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-black/35 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm break-all">{item.users?.email} ({item.pickup_cycles?.pickup_date})</p>
+                  <p className="text-sm break-all">
+                    {(item.users?.full_name || item.users?.email) ?? "Unknown member"} ({item.pickup_cycles?.pickup_date})
+                  </p>
                   <select
                     value={item.status}
                     onChange={(event) => updatePickupStatus(item.id, event.target.value)}
@@ -1747,11 +1987,28 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       {section === "logistics" ? (
         <section className="space-y-4">
           <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <h3 className="text-xl font-bold">Route Generation & Dispatch</h3>
+            <h3 className="text-xl font-bold">Dispatch Workflow</h3>
             <p className="mt-1 text-sm text-white/70">
-              Routes are generated from active pickup requests and subscriber addresses in the selected zone.
-              Google route optimization is used when coordinates are available.
+              A pickup cycle is the service day for one zone. A route is the ordered stop list for that cycle. Build or
+              refresh the route first, then assign the driver once the stop order looks right.
             </p>
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">Step 1</p>
+                <p className="mt-2 text-lg font-bold">Select Cycle</p>
+                <p className="mt-1 text-sm text-white/70">Choose the zone and pickup day you are dispatching.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">Step 2</p>
+                <p className="mt-2 text-lg font-bold">Build Route</p>
+                <p className="mt-1 text-sm text-white/70">This creates or refreshes the one route for that zone and cycle.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">Step 3</p>
+                <p className="mt-2 text-lg font-bold">Assign Driver</p>
+                <p className="mt-1 text-sm text-white/70">Assign after the stop list exists so the driver gets a real route.</p>
+              </div>
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <select value={selectedZoneCode} onChange={(event) => setSelectedZoneCode(event.target.value)} className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto">
                 <option value="">Select pickup area</option>
@@ -1761,64 +2018,128 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
               </select>
               <select value={selectedCycleId} onChange={(event) => setSelectedCycleId(event.target.value)} className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto">
                 <option value="">Select cycle</option>
-                {data.pickupCycles.map((cycle) => (
-                  <option key={cycle.id} value={cycle.id}>{cycle.pickup_date}</option>
+                {logisticsCycles.map((cycle) => (
+                  <option key={cycle.id} value={cycle.id}>
+                    {getCycleDisplayLabel(cycle)}
+                  </option>
                 ))}
               </select>
-              <button onClick={generateRoute} className="w-full rounded-lg bg-[var(--dc-orange)] px-3 py-2 text-sm font-semibold sm:w-auto">Generate Optimized Route</button>
+              <button onClick={generateRoute} className="w-full rounded-lg bg-[var(--dc-orange)] px-3 py-2 text-sm font-semibold sm:w-auto">
+                Build or Refresh Route
+              </button>
             </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Ready Households</p>
+                <p className="mt-2 text-2xl font-bold">{selectedCycleRequestSummary.requested}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Skipped</p>
+                <p className="mt-2 text-2xl font-bold">{selectedCycleRequestSummary.skipped}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Exceptions</p>
+                <p className="mt-2 text-2xl font-bold">{selectedCycleRequestSummary.exceptions}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Existing Route</p>
+                <p className="mt-2 text-2xl font-bold">{selectedCycleRoutes.length > 0 ? "Yes" : "No"}</p>
+              </div>
+            </div>
+            {selectedCycleMeta ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/75">
+                <p className="font-semibold text-white">Selected cycle</p>
+                <p className="mt-1">
+                  Pickup date: {new Date(selectedCycleMeta.pickup_date).toLocaleDateString()} | Response cutoff:{" "}
+                  {new Date(selectedCycleMeta.request_cutoff_at).toLocaleString()}
+                </p>
+                <p className="mt-1">
+                  Total request records: {selectedCycleRequestSummary.total}. The recommended flow is to build the route after
+                  the cutoff or once ops is comfortable locking the stop list for dispatch.
+                </p>
+                <p className="mt-1">
+                  Current route status: {selectedLogisticsRoute ? formatRouteStatusLabel(selectedLogisticsRoute.status) : "No route built yet"}.
+                </p>
+              </div>
+            ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
-              <select
-                value={selectedRouteId}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setSelectedRouteId(next);
-                  setSelectedLogisticsRouteId(next);
-                  loadLogisticsRoutePreview(next);
-                }}
-                className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto"
-              >
-                <option value="">Select route</option>
-                {routeOptions.map((route) => (
-                  <option key={route.id} value={route.id}>{route.id.slice(0, 8)} ({route.status})</option>
-                ))}
-              </select>
+              <div className="min-w-[280px] rounded-lg border border-white/20 bg-black/30 px-4 py-2 text-sm text-white/75">
+                {selectedLogisticsRoute
+                  ? `Current cycle route: ${getRouteDisplayLabel(selectedLogisticsRoute)} | ${formatRouteStatusLabel(selectedLogisticsRoute.status)} | ${selectedLogisticsRoute.stopCount ?? 0} stops`
+                  : "Current cycle route: not built yet"}
+              </div>
               <select value={selectedDriverId} onChange={(event) => setSelectedDriverId(event.target.value)} className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto">
                 <option value="">Select driver</option>
                 {driverOptions.map((driver) => (
                   <option key={driver.id} value={driver.id}>{driver.employee_id} ({driver.users?.email})</option>
                 ))}
               </select>
-              <button onClick={assignDriver} className="w-full rounded-lg bg-[var(--dc-orange)] px-3 py-2 text-sm font-semibold sm:w-auto">Assign Driver</button>
+              <button
+                onClick={assignDriver}
+                disabled={!selectedLogisticsRoute}
+                className="w-full rounded-lg bg-[var(--dc-orange)] px-3 py-2 text-sm font-semibold disabled:opacity-60 sm:w-auto"
+              >
+                Assign Driver
+              </button>
             </div>
+            {logisticsMessage ? (
+              <div className="mt-3 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80">
+                {logisticsMessage}
+              </div>
+            ) : null}
           </article>
 
           <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-lg font-bold">Pickup Map & Route Pins</h4>
-              {selectedLogisticsRouteId ? (
+              <h4 className="text-lg font-bold">Route Preview</h4>
+              {logisticsRoutePreview?.googleMapsUrl ? (
                 <a
-                  href={`/api/admin/logistics/static-map?routeId=${selectedLogisticsRouteId}`}
+                  href={logisticsRoutePreview.googleMapsUrl}
                   target="_blank"
                   className="rounded border border-white/25 px-3 py-1 text-xs"
                   rel="noreferrer"
                 >
-                  Open full map
+                  Open in Google Maps
                 </a>
               ) : null}
             </div>
-            {selectedLogisticsRouteId ? (
+            {selectedLogisticsRoute?.id ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={`/api/admin/logistics/static-map?routeId=${selectedLogisticsRouteId}`}
+                src={`/api/admin/logistics/static-map?routeId=${selectedLogisticsRoute.id}`}
                 alt="Pickup route map"
                 className="mt-3 w-full rounded-xl border border-white/10 bg-black/40"
+                onError={() => setMapLoadError(true)}
               />
             ) : (
-              <p className="mt-2 text-sm text-white/65">Select a route above to render pickup pins on the map.</p>
+              <p className="mt-2 text-sm text-white/65">Select a cycle and build the route to preview stops and map output.</p>
             )}
+            {mapLoadError ? (
+              <p className="mt-3 text-sm text-amber-200">
+                The map image could not load in the panel, but the ordered stop list below is still available.
+              </p>
+            ) : null}
 
             <div className="mt-4 space-y-2">
+              {selectedLogisticsRoute ? (
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-white/75">
+                  <p className="font-semibold text-white">
+                    {getRouteDisplayLabel(selectedLogisticsRoute)} | {formatRouteStatusLabel(selectedLogisticsRoute.status)} | {selectedLogisticsRoute.stopCount ?? 0} stops
+                  </p>
+                  <p className="mt-1">
+                    Pickup date:{" "}
+                    {Array.isArray(selectedLogisticsRoute.pickup_cycles)
+                      ? (selectedLogisticsRoute.pickup_cycles[0]?.pickup_date ?? "TBD")
+                      : (selectedLogisticsRoute.pickup_cycles?.pickup_date ?? "TBD")}
+                  </p>
+                  <p className="mt-1">
+                    Driver: {selectedLogisticsRoute.drivers?.employee_id ?? "Unassigned"}
+                  </p>
+                  <p className="mt-1">
+                    Purpose: this route is the single ordered run sheet for the selected cycle and zone.
+                  </p>
+                </div>
+              ) : null}
               {(logisticsRoutePreview?.stops ?? []).map((stop) => (
                 <div key={stop.id} className="rounded-xl border border-white/10 bg-black/35 p-3 text-sm">
                   <p className="font-semibold">Stop {stop.stopOrder}: {stop.fullName || stop.email || "Unknown subscriber"}</p>
@@ -1827,10 +2148,14 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                       ? `${stop.address.addressLine1}, ${stop.address.city}, ${stop.address.state} ${stop.address.postalCode}`
                       : "Address unavailable"}
                   </p>
-                  <p className="mt-1 text-xs text-white/70">Request: {stop.requestStatus ?? "unknown"} | Stop status: {stop.stopStatus}</p>
+                  <p className="mt-1 text-xs text-white/70">
+                    Request: {formatPickupRequestLabel(stop.requestStatus ?? "unknown")} | Stop status:{" "}
+                    {formatRouteStatusLabel(stop.stopStatus)}
+                  </p>
+                  {stop.requestNote ? <p className="mt-1 text-xs text-amber-200">Ops note: {stop.requestNote}</p> : null}
                 </div>
               ))}
-              {selectedLogisticsRouteId && (logisticsRoutePreview?.stops ?? []).length === 0 ? (
+              {selectedLogisticsRoute?.id && (logisticsRoutePreview?.stops ?? []).length === 0 ? (
                 <p className="text-sm text-white/65">No stops found for this route.</p>
               ) : null}
             </div>
@@ -2001,6 +2326,101 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
               >
                 {smsSending ? "Sending..." : "Send SMS Campaign"}
               </button>
+            </div>
+          </article>
+
+          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+            <h3 className="text-xl font-bold">Reminder Queue</h3>
+            <p className="mt-1 text-sm text-white/70">
+              Queue cycle reminders for SMS-eligible households, then process queued events or retry failed deliveries.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => queueCycleReminders("72h")}
+                disabled={notificationActionLoading}
+                className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                Queue 72h Reminder
+              </button>
+              <button
+                type="button"
+                onClick={() => queueCycleReminders("24h")}
+                disabled={notificationActionLoading}
+                className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                Queue 24h Reminder
+              </button>
+              <button
+                type="button"
+                onClick={() => queueCycleReminders("day_of")}
+                disabled={notificationActionLoading}
+                className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                Queue Day-of Reminder
+              </button>
+              <button
+                type="button"
+                onClick={processQueuedNotifications}
+                disabled={notificationActionLoading}
+                className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                Process Queued Events
+              </button>
+              <button
+                type="button"
+                onClick={retrySelectedNotifications}
+                disabled={notificationActionLoading || notificationSelection.length === 0}
+                className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                Retry Selected Failures
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Queued</p>
+                <p className="mt-2 text-2xl font-bold">{queuedNotificationEvents.length}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Failed</p>
+                <p className="mt-2 text-2xl font-bold">{failedNotificationEvents.length}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Selected for Retry</p>
+                <p className="mt-2 text-2xl font-bold">{notificationSelection.length}</p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {notificationEvents.slice(0, 40).map((event) => (
+                <label key={event.id} className="flex cursor-pointer gap-3 rounded-xl border border-white/10 bg-black/35 p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={notificationSelection.includes(event.id)}
+                    disabled={event.status !== "failed"}
+                    onChange={(inputEvent) => {
+                      setNotificationSelection((prev) =>
+                        inputEvent.target.checked ? [...prev, event.id] : prev.filter((id) => id !== event.id),
+                      );
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">
+                      {formatNotificationEventType(event.event_type)} | {event.channel} | {formatNotificationStatus(event.status)}
+                    </p>
+                    <p className="mt-1 text-xs text-white/70">
+                      Attempts: {event.attempt_count ?? 0} | Last attempt:{" "}
+                      {event.last_attempt_at ? new Date(event.last_attempt_at).toLocaleString() : "Not attempted"}
+                    </p>
+                    <p className="mt-1 text-xs text-white/60">
+                      Correlation: {event.correlation_id ?? "n/a"} | Logged {new Date(event.created_at).toLocaleString()}
+                    </p>
+                    {event.last_error ? <p className="mt-1 text-xs text-amber-200">Error: {event.last_error}</p> : null}
+                  </div>
+                </label>
+              ))}
+              {notificationEvents.length === 0 ? (
+                <p className="text-sm text-white/65">No notification events logged yet.</p>
+              ) : null}
             </div>
           </article>
         </section>

@@ -7,11 +7,38 @@ type ActionState = "idle" | "loading" | "error" | "success";
 type CustomerActionsProps = {
   nextPickupDate: string | null;
   currentStatus: string | null;
+  requestCutoffAt?: string | null;
+  lastUpdatedAt?: string | null;
+  profileComplete?: boolean;
 };
 
-export function CustomerActions({ nextPickupDate, currentStatus }: CustomerActionsProps) {
+function formatStatus(status: string | null) {
+  switch (status) {
+    case "requested":
+      return "Pickup requested";
+    case "skipped":
+      return "Skipped this month";
+    case "completed":
+      return "Pickup completed";
+    case "canceled":
+      return "Pickup canceled";
+    default:
+      return "Ready for response";
+  }
+}
+
+export function CustomerActions({
+  nextPickupDate,
+  currentStatus,
+  requestCutoffAt = null,
+  lastUpdatedAt = null,
+  profileComplete = true,
+}: CustomerActionsProps) {
   const [state, setState] = useState<ActionState>("idle");
   const [message, setMessage] = useState("");
+  const [localStatus, setLocalStatus] = useState(currentStatus);
+  const [localUpdatedAt, setLocalUpdatedAt] = useState(lastUpdatedAt);
+  const cutoffPassed = requestCutoffAt ? new Date() > new Date(requestCutoffAt) : false;
 
   async function fetchWithTimeout(path: string, init?: RequestInit) {
     const controller = new AbortController();
@@ -35,8 +62,15 @@ export function CustomerActions({ nextPickupDate, currentStatus }: CustomerActio
         return;
       }
       setState("success");
-      setMessage("Updated successfully.");
-      window.location.reload();
+      setLocalStatus(json.pickupRequest?.status ?? localStatus);
+      setLocalUpdatedAt(json.pickupRequest?.updated_at ?? new Date().toISOString());
+      if (path.endsWith("/request")) {
+        setMessage("Your household is marked ready for this month.");
+      } else if (path.endsWith("/skip")) {
+        setMessage("This month is marked skipped. Billing stays unchanged.");
+      } else {
+        setMessage("Your skip was removed. This month is back on your route-ready list.");
+      }
     } catch {
       setState("error");
       setMessage("Unable to save right now. Please try again.");
@@ -69,31 +103,51 @@ export function CustomerActions({ nextPickupDate, currentStatus }: CustomerActio
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-black/10 bg-[var(--dc-gray-100)] p-3">
-        <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Next Pickup Date</p>
+        <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Current Cycle</p>
         <p className="mt-1 text-lg font-bold">
           {nextPickupDate ? new Date(nextPickupDate).toLocaleDateString() : "Not scheduled"}
         </p>
-        <p className="mt-1 text-xs text-[var(--dc-gray-700)]">Current cycle status: {currentStatus ?? "requested"}</p>
+        <p className="mt-1 text-xs text-[var(--dc-gray-700)]">Status: {formatStatus(localStatus)}</p>
+        {requestCutoffAt ? (
+          <p className="mt-1 text-xs text-[var(--dc-gray-700)]">
+            Response deadline: {new Date(requestCutoffAt).toLocaleString()}
+          </p>
+        ) : null}
+        {localUpdatedAt ? (
+          <p className="mt-1 text-xs text-[var(--dc-gray-700)]">
+            Last updated: {new Date(localUpdatedAt).toLocaleString()}
+          </p>
+        ) : null}
       </div>
+      {!profileComplete ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Add your phone number and full pickup address in Profile before route planning begins.
+        </div>
+      ) : null}
+      {cutoffPassed ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          The response cutoff for this cycle has passed. Contact support if you need a manual change.
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => post("/api/pickup/request")}
-          disabled={state === "loading"}
+          disabled={state === "loading" || cutoffPassed}
           className="rounded-xl border border-black px-4 py-2 text-sm font-semibold"
         >
-          Confirm Pickup This Month
+          {localStatus === "requested" ? "Keep Pickup Requested" : "Confirm Pickup This Month"}
         </button>
         <button
           onClick={() => post("/api/pickup/skip")}
           disabled={state === "loading"}
           className="rounded-xl border border-black px-4 py-2 text-sm font-semibold"
         >
-          Skip Driver Visit
+          {localStatus === "skipped" ? "Keep Month Skipped" : "Skip Driver Visit"}
         </button>
-        {currentStatus === "skipped" ? (
+        {localStatus === "skipped" ? (
           <button
             onClick={() => post("/api/pickup/unskip")}
-            disabled={state === "loading"}
+            disabled={state === "loading" || cutoffPassed}
             className="rounded-xl border border-black px-4 py-2 text-sm font-semibold"
           >
             Undo Skip

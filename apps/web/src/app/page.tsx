@@ -74,6 +74,20 @@ export default function Home() {
                 send reminders, and handle the route logistics so your household can give consistently without
                 extra errands.
               </p>
+              <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold">
+                <a
+                  href="#home"
+                  className="rounded-full bg-[var(--dc-orange)] px-5 py-3 text-white transition hover:bg-[var(--dc-orange-strong)]"
+                >
+                  Check My Address
+                </a>
+                <Link
+                  href="/signup"
+                  className="rounded-full border border-white/30 px-5 py-3 text-white transition hover:border-[var(--dc-orange)] hover:text-[var(--dc-orange)]"
+                >
+                  See Launch Signup Flow
+                </Link>
+              </div>
 
               <EligibilityWidget />
             </div>

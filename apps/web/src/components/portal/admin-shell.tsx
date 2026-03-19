@@ -84,7 +84,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window === "undefined") return "dark";
+    const storedTheme = window.localStorage.getItem("dc-admin-theme");
+    if (storedTheme === "light" || storedTheme === "dark") return storedTheme;
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  });
   const activeTab = searchParams.get("tab") || "overview";
   const navItems = [
     { href: "/admin?tab=overview", tab: "overview", label: "Overview", icon: "overview" as const },
@@ -105,16 +110,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       document.body.style.overflow = original;
     };
   }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    const storedTheme = window.localStorage.getItem("dc-admin-theme");
-    if (storedTheme === "light" || storedTheme === "dark") {
-      setTheme(storedTheme);
-      return;
-    }
-    const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-    setTheme(prefersLight ? "light" : "dark");
-  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("dc-admin-theme", theme);

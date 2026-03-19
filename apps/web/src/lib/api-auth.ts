@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 
+export function createCorrelationId(prefix = "dc") {
+  return `${prefix}_${crypto.randomUUID()}`;
+}
+
 export async function getAuthenticatedContext() {
   const supabase = await createClient();
   const {
@@ -10,7 +14,7 @@ export async function getAuthenticatedContext() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("id,email,role")
+    .select("id,email,full_name,phone,role")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 

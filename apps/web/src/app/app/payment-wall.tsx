@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-export function PaymentWall() {
+export function PaymentWall({
+  checkoutStatus,
+  onboardingCreated,
+}: {
+  checkoutStatus?: "success" | "canceled" | null;
+  onboardingCreated?: boolean;
+}) {
   const allowTestBypass = process.env.NEXT_PUBLIC_ENABLE_TEST_BYPASS === "true";
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -66,6 +72,16 @@ export function PaymentWall() {
         Activate your monthly DonateCrate plan to submit pickup requests, manage route-ready status, and keep your
         notifications synced. Billing is handled securely through Stripe.
       </p>
+      {onboardingCreated ? (
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          Your account is ready. Billing is the final setup step before you can request this month&apos;s pickup.
+        </div>
+      ) : null}
+      {checkoutStatus === "canceled" ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Checkout was canceled before activation. Your account is still available, and you can restart billing below.
+        </div>
+      ) : null}
       <div className="mt-5 flex flex-wrap gap-3">
         <button
           onClick={startCheckout}
@@ -83,6 +99,20 @@ export function PaymentWall() {
             Test Bypass
           </button>
         ) : null}
+      </div>
+      <div className="mt-5 grid gap-3 text-sm text-[var(--dc-gray-700)] sm:grid-cols-3">
+        <div className="rounded-2xl bg-[var(--dc-gray-100)] p-4">
+          <p className="font-semibold text-black">1. Activate plan</p>
+          <p className="mt-1">Secure checkout starts your $5/month household subscription.</p>
+        </div>
+        <div className="rounded-2xl bg-[var(--dc-gray-100)] p-4">
+          <p className="font-semibold text-black">2. Pick your month</p>
+          <p className="mt-1">Return here to request this cycle&apos;s pickup or skip if you are not ready.</p>
+        </div>
+        <div className="rounded-2xl bg-[var(--dc-gray-100)] p-4">
+          <p className="font-semibold text-black">3. Set out your bag</p>
+          <p className="mt-1">We will send reminders before route day so your donation is ready on time.</p>
+        </div>
       </div>
       {message ? <p className="mt-3 text-sm text-red-600">{message}</p> : null}
     </section>

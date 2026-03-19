@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatNotificationEventType, formatNotificationStatus } from "@/lib/notification-labels";
 
 type Prefs = {
   email_enabled: boolean;
@@ -19,6 +20,20 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
   const [latestRequest, setLatestRequest] = useState<{ status: string; updated_at: string } | null>(null);
   const [currentCycle, setCurrentCycle] = useState<{ pickup_date: string } | null>(null);
   const [currentCycleRequest, setCurrentCycleRequest] = useState<{ status: string; updated_at: string } | null>(null);
+  const [notificationEvents, setNotificationEvents] = useState<
+    Array<{
+      id: string;
+      channel: string;
+      event_type: string;
+      status: string;
+      created_at: string;
+      last_attempt_at: string | null;
+      last_error: string | null;
+    }>
+  >([]);
+  const [recentPickupRequests, setRecentPickupRequests] = useState<
+    Array<{ id: string; status: string; updated_at: string; pickup_cycles?: { pickup_date: string } | { pickup_date: string }[] | null }>
+  >([]);
   const [referralCode, setReferralCode] = useState("");
   const [referralLink, setReferralLink] = useState("");
   const [referralStats, setReferralStats] = useState({
@@ -45,6 +60,8 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
     if (overview.latestRequest) setLatestRequest(overview.latestRequest);
     if (overview.currentCycle) setCurrentCycle(overview.currentCycle);
     if (overview.currentCycleRequest) setCurrentCycleRequest(overview.currentCycleRequest);
+    if (overview.notificationEvents) setNotificationEvents(overview.notificationEvents);
+    if (overview.recentPickupRequests) setRecentPickupRequests(overview.recentPickupRequests);
     if (referral.affiliate?.code) setReferralCode(referral.affiliate.code);
     if (referral.shareUrl) setReferralLink(referral.shareUrl);
     if (referral.referralStats) setReferralStats(referral.referralStats);
@@ -177,6 +194,55 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
             ? `${latestRequest.status} (${new Date(latestRequest.updated_at).toLocaleString()})`
             : "No request submitted yet."}
         </p>
+      </section>
+      ) : null}
+
+      {section === "all" || section === "settings" || section === "pickups" ? (
+      <section className="rounded-2xl border border-black/10 bg-white p-5 lg:col-span-2">
+        <h3 className="text-xl font-bold">Recent Account Activity</h3>
+        <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
+          Track reminders, billing alerts, and delivery status changes tied to your DonateCrate account.
+        </p>
+        <div className="mt-4 space-y-2">
+          {recentPickupRequests.map((request) => {
+            const cycle = Array.isArray(request.pickup_cycles) ? request.pickup_cycles[0] : request.pickup_cycles;
+            return (
+              <article key={`pickup-${request.id}`} className="rounded-xl border border-black/10 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Pickup status updated</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--dc-gray-700)]">
+                    {request.status.replaceAll("_", " ")}
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-[var(--dc-gray-700)]">
+                  {cycle?.pickup_date ? `Cycle ${new Date(cycle.pickup_date).toLocaleDateString()} | ` : ""}
+                  Saved {new Date(request.updated_at).toLocaleString()}
+                </p>
+              </article>
+            );
+          })}
+          {notificationEvents.length === 0 ? (
+            recentPickupRequests.length === 0 ? (
+              <p className="text-sm text-[var(--dc-gray-700)]">No account events yet. Reminder and billing activity will appear here.</p>
+            ) : null
+          ) : (
+            notificationEvents.map((event) => (
+              <article key={event.id} className="rounded-xl border border-black/10 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{formatNotificationEventType(event.event_type)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--dc-gray-700)]">
+                    {formatNotificationStatus(event.status)} via {event.channel}
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-[var(--dc-gray-700)]">
+                  Logged {new Date(event.created_at).toLocaleString()}
+                  {event.last_attempt_at ? ` | Last delivery attempt ${new Date(event.last_attempt_at).toLocaleString()}` : ""}
+                </p>
+                {event.last_error ? <p className="mt-1 text-xs text-red-600">Delivery issue: {event.last_error}</p> : null}
+              </article>
+            ))
+          )}
+        </div>
       </section>
       ) : null}
 

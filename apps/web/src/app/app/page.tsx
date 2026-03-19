@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
+import { formatCycleStatus, getNextReminderLabel } from "@/lib/customer-cycle";
 import { CustomerActions } from "./customer-actions";
 import { CustomerPortalTools } from "./customer-portal-tools";
 import { PaymentWall } from "./payment-wall";
 
 type CustomerPageProps = {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{ tab?: string; checkout?: string; onboarding?: string }>;
 };
 
 export default async function CustomerDashboardPage({ searchParams }: CustomerPageProps) {
@@ -14,6 +15,8 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   const activeTab = ["overview", "pickups", "referrals", "settings"].includes(params.tab || "")
     ? (params.tab as "overview" | "pickups" | "referrals" | "settings")
     : "overview";
+  const checkoutStatus = params.checkout === "success" || params.checkout === "canceled" ? params.checkout : null;
+  const onboardingCreated = params.onboarding === "created";
   const supabase = await createClient();
   const cookieStore = await cookies();
   const testBypassEnabled = process.env.ENABLE_TEST_BYPASS === "true";
@@ -44,27 +47,58 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       .eq("status", "credited"),
     supabase
       .from("pickup_cycles")
-      .select("id,pickup_date")
+      .select("id,pickup_date,request_cutoff_at")
       .gte("pickup_date", today)
       .order("pickup_date", { ascending: true })
       .limit(1)
       .maybeSingle(),
   ]);
 
-  const { data: currentCycleRequest } = latestCycle
-    ? await supabase
-        .from("pickup_requests")
-        .select("status,updated_at")
-        .eq("user_id", profile.id)
-        .eq("pickup_cycle_id", latestCycle.id)
-        .maybeSingle()
-    : { data: null };
+  const [{ data: currentCycleRequest }, { data: notificationPrefs }, { data: address }] = await Promise.all([
+    latestCycle
+      ? supabase
+          .from("pickup_requests")
+          .select("status,updated_at")
+          .eq("user_id", profile.id)
+          .eq("pickup_cycle_id", latestCycle.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("notification_preferences")
+      .select("email_enabled,sms_enabled")
+      .eq("user_id", profile.id)
+      .maybeSingle(),
+    supabase
+      .from("addresses")
+      .select("address_line1,city,state,postal_code")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const profileComplete = Boolean(
+    profile.full_name?.trim() &&
+      profile.phone?.trim() &&
+      address?.address_line1?.trim() &&
+      address?.city?.trim() &&
+      address?.state?.trim() &&
+      address?.postal_code?.trim(),
+  );
+  const nextReminderLabel = getNextReminderLabel(latestCycle?.pickup_date, notificationPrefs, new Date());
 
   const customerCards = [
     {
       title: "Next Pickup",
       value: latestCycle?.pickup_date ?? "TBD",
       detail: "Window assigned closer to route day",
+    },
+    {
+      title: "Cycle Response",
+      value: formatCycleStatus(currentCycleRequest?.status ?? null),
+      detail: latestCycle?.request_cutoff_at
+        ? `Reply by ${new Date(latestCycle.request_cutoff_at).toLocaleString()}`
+        : "No pickup deadline published yet",
     },
     {
       title: "Plan Status",
@@ -75,6 +109,11 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       title: "Referral Credits",
       value: String(creditedReferrals ?? 0),
       detail: "Qualified friend referrals",
+    },
+    {
+      title: "Reminder Status",
+      value: notificationPrefs?.sms_enabled || notificationPrefs?.email_enabled ? "On" : "Off",
+      detail: nextReminderLabel,
     },
   ];
   const hasActiveBilling =
@@ -93,7 +132,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
             Your account is created. Complete billing to unlock pickups, referrals, and account settings.
           </p>
         </header>
-        <PaymentWall />
+        <PaymentWall checkoutStatus={checkoutStatus} onboardingCreated={onboardingCreated} />
       </main>
     );
   }
@@ -117,10 +156,35 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
             rewards from referrals.
           </p>
         </div>
+        {checkoutStatus === "success" ? (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            Billing is active. Your plan is ready, and you can now manage this month&apos;s pickup below.
+          </div>
+        ) : null}
+        {checkoutStatus === "canceled" ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Stripe checkout was canceled before activation. Restart billing when you&apos;re ready.
+          </div>
+        ) : null}
       </header>
 
       {activeTab === "overview" || activeTab === "pickups" ? (
         <>
+          {!profileComplete ? (
+            <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+              <h2 className="text-xl font-bold text-amber-950">Finish Your Pickup Profile</h2>
+              <p className="mt-2 text-sm text-amber-900">
+                Add your phone number and full address so route planning and pickup reminders stay accurate.
+              </p>
+              <a
+                href="/app/profile"
+                className="mt-3 inline-block rounded-full bg-amber-900 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Complete Profile
+              </a>
+            </section>
+          ) : null}
+
           <section className="rounded-2xl border border-black/10 bg-white p-4 sm:p-5">
             <h2 className="text-xl font-bold">How Your Portal Works</h2>
             <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
@@ -129,7 +193,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
             </p>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {customerCards.map((card) => (
               <article key={card.title} className="rounded-2xl border border-black/10 bg-white p-4 sm:p-5">
                 <p className="text-sm text-[var(--dc-gray-700)]">{card.title}</p>
@@ -142,11 +206,30 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       ) : null}
 
       {activeTab === "overview" ? (
-        <section className="rounded-3xl border border-black/10 bg-white p-5 sm:p-6">
-          <h2 className="text-2xl font-bold">Welcome Back</h2>
-          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-            Use the sidebar tabs to manage your monthly pickup, referral rewards, and notification settings.
-          </p>
+        <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <article className="rounded-3xl border border-black/10 bg-white p-5 sm:p-6">
+            <h2 className="text-2xl font-bold">Welcome Back</h2>
+            <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
+              Use the sidebar tabs to manage your monthly pickup, referral rewards, and notification settings.
+            </p>
+            <div className="mt-4 rounded-2xl bg-[var(--dc-gray-100)] p-4 text-sm text-[var(--dc-gray-700)]">
+              <p className="font-semibold text-black">This month&apos;s status</p>
+              <p className="mt-1">{formatCycleStatus(currentCycleRequest?.status ?? null)}</p>
+              {currentCycleRequest?.updated_at ? (
+                <p className="mt-1">Last action saved {new Date(currentCycleRequest.updated_at).toLocaleString()}.</p>
+              ) : (
+                <p className="mt-1">You have not responded to this cycle yet.</p>
+              )}
+            </div>
+          </article>
+          <article className="rounded-3xl border border-black/10 bg-white p-5 sm:p-6">
+            <h2 className="text-2xl font-bold">What Happens Next</h2>
+            <div className="mt-4 space-y-3 text-sm text-[var(--dc-gray-700)]">
+              <p>1. Confirm pickup or skip before the cycle cutoff.</p>
+              <p>2. Watch for reminder messages as pickup day gets closer.</p>
+              <p>3. Set your bag out on route day and track follow-up in this portal.</p>
+            </div>
+          </article>
         </section>
       ) : null}
 
@@ -156,7 +239,10 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
           <div className="mt-4">
             <CustomerActions
               nextPickupDate={latestCycle?.pickup_date ?? null}
-              currentStatus={currentCycleRequest?.status ?? "requested"}
+              currentStatus={currentCycleRequest?.status ?? null}
+              requestCutoffAt={latestCycle?.request_cutoff_at ?? null}
+              lastUpdatedAt={currentCycleRequest?.updated_at ?? null}
+              profileComplete={profileComplete}
             />
           </div>
         </section>

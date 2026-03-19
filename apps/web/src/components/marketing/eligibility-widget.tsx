@@ -187,21 +187,38 @@ export function EligibilityWidget() {
             <p className="mt-1 text-sm text-white/80">Distance to zone center: {result.distanceMiles} miles</p>
           ) : null}
           {result.status !== "active" ? (
-            <Link
-              href={`/waitlist?postalCode=${encodeURIComponent(selected?.postalCode || "")}&addressLine1=${encodeURIComponent(
-                selected?.addressLine1 || "",
-              )}&city=${encodeURIComponent(selected?.city || "")}&state=${encodeURIComponent(selected?.state || "")}`}
-              className="mt-3 inline-block rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-bold text-white"
-            >
-              Join Waitlist
-            </Link>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Link
+                href={`/waitlist?postalCode=${encodeURIComponent(selected?.postalCode || "")}&addressLine1=${encodeURIComponent(
+                  selected?.addressLine1 || "",
+                )}&city=${encodeURIComponent(selected?.city || "")}&state=${encodeURIComponent(selected?.state || "")}`}
+                className="inline-block rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-bold text-white"
+              >
+                Join Waitlist
+              </Link>
+              <p className="self-center text-sm text-white/70">
+                We will save your address details so you do not need to re-enter them later.
+              </p>
+            </div>
           ) : (
-            <Link
-              href="/login?next=/app"
-              className="mt-3 inline-block rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-bold text-white"
-            >
-              Continue to Signup
-            </Link>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Link
+                href={`/signup?addressLine1=${encodeURIComponent(selected?.addressLine1 || "")}&city=${encodeURIComponent(
+                  selected?.city || "",
+                )}&state=${encodeURIComponent(selected?.state || "")}&postalCode=${encodeURIComponent(
+                  selected?.postalCode || "",
+                )}&source=eligibility`}
+                className="inline-block rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-bold text-white"
+              >
+                Create Account
+              </Link>
+              <Link
+                href="/login?next=/app"
+                className="inline-block rounded-lg border border-white/30 px-4 py-2 text-sm font-bold text-white"
+              >
+                I Already Have an Account
+              </Link>
+            </div>
           )}
         </div>
       ) : null}

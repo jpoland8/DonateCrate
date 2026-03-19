@@ -137,6 +137,18 @@
 5. Epic 4
 6. Epic 6
 
+## Current Delivery Update
+
+- Completed:
+  - funnel clarity from eligibility to signup to billing return state
+  - customer portal cycle status, cutoff visibility, and profile readiness prompts
+  - admin dispatch readiness summaries, route preview clarity, and driver assignment validation
+  - reliability groundwork with correlation IDs plus richer webhook/notification event tracking
+- Next:
+  - quality gate sprint for lint hygiene and a first automated test path
+  - driver workflow execution and stop outcome tooling
+  - notification retry jobs and reminder automation
+
 ## Definition of Done (MVP)
 
 - A user in active zone can sign up, pay, request pickup, receive reminders, and get a completed pickup confirmation.

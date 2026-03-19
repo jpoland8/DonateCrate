@@ -15,11 +15,27 @@ export async function GET() {
 
   const { data, error } = await ctx.supabase
     .from("routes")
-    .select("id,status,created_at,pickup_cycle_id,driver_id,drivers(employee_id),pickup_cycles(pickup_date)")
+    .select("id,status,created_at,pickup_cycle_id,zone_id,driver_id,drivers(employee_id),pickup_cycles(pickup_date)")
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ routes: data ?? [] });
+  const routeIds = (data ?? []).map((route) => route.id);
+  const { data: stops } =
+    routeIds.length > 0
+      ? await ctx.supabase.from("pickup_stops").select("route_id").in("route_id", routeIds)
+      : { data: [] as Array<{ route_id: string }> };
+
+  const stopCountByRouteId = new Map<string, number>();
+  for (const stop of stops ?? []) {
+    stopCountByRouteId.set(stop.route_id, (stopCountByRouteId.get(stop.route_id) ?? 0) + 1);
+  }
+
+  return NextResponse.json({
+    routes: (data ?? []).map((route) => ({
+      ...route,
+      stopCount: stopCountByRouteId.get(route.id) ?? 0,
+    })),
+  });
 }
 
 export async function POST(request: Request) {
@@ -39,17 +55,43 @@ export async function POST(request: Request) {
 
   if (zoneError || !zone) return NextResponse.json({ error: "Zone not found" }, { status: 404 });
 
-  const { data: route, error: routeError } = await ctx.supabase
+  const { data: existingRoutes, error: existingRoutesError } = await ctx.supabase
     .from("routes")
-    .insert({
-      zone_id: zone.id,
-      pickup_cycle_id: parsed.data.pickupCycleId,
-      status: "draft",
-    })
-    .select("id")
-    .single();
+    .select("id,status,driver_id")
+    .eq("zone_id", zone.id)
+    .eq("pickup_cycle_id", parsed.data.pickupCycleId)
+    .order("created_at", { ascending: false })
+  if (existingRoutesError) return NextResponse.json({ error: existingRoutesError.message }, { status: 500 });
 
-  if (routeError || !route) return NextResponse.json({ error: routeError?.message ?? "Route create failed" }, { status: 500 });
+  const existingRoute = existingRoutes?.[0] ?? null;
+  const duplicateRouteIds = (existingRoutes ?? [])
+    .slice(1)
+    .filter((route) => route.status !== "completed")
+    .map((route) => route.id);
+  if (duplicateRouteIds.length > 0) {
+    await ctx.supabase.from("pickup_stops").delete().in("route_id", duplicateRouteIds);
+    await ctx.supabase
+      .from("routes")
+      .update({ status: "canceled", driver_id: null })
+      .in("id", duplicateRouteIds);
+  }
+
+  const route = existingRoute
+    ? { id: existingRoute.id }
+    : await ctx.supabase
+        .from("routes")
+        .insert({
+          zone_id: zone.id,
+          pickup_cycle_id: parsed.data.pickupCycleId,
+          status: "draft",
+        })
+        .select("id")
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) throw new Error(error?.message ?? "Route create failed");
+          return data;
+        });
+  if (!route?.id) return NextResponse.json({ error: "Route create failed" }, { status: 500 });
 
   const { data: requests, error: requestsError } = await ctx.supabase
     .from("pickup_requests")
@@ -183,8 +225,18 @@ export async function POST(request: Request) {
       stop_order: index + 1,
       status: "scheduled",
     }));
+    const { error: deleteStopsError } = await ctx.supabase.from("pickup_stops").delete().eq("route_id", route.id);
+    if (deleteStopsError) return NextResponse.json({ error: deleteStopsError.message }, { status: 500 });
     const { error: stopsError } = await ctx.supabase.from("pickup_stops").insert(stops);
     if (stopsError) return NextResponse.json({ error: stopsError.message }, { status: 500 });
+
+    await ctx.supabase
+      .from("routes")
+      .update({
+        status: existingRoute?.driver_id ? "assigned" : "draft",
+        driver_id: existingRoute?.driver_id ?? null,
+      })
+      .eq("id", route.id);
 
     return NextResponse.json({
       ok: true,
@@ -192,8 +244,26 @@ export async function POST(request: Request) {
       stopCount: finalOrder.length,
       optimized: canOptimize,
       missingCoordinates: remainder.length,
+      regenerated: Boolean(existingRoute),
     });
   }
 
-  return NextResponse.json({ ok: true, routeId: route.id, stopCount: requests?.length ?? 0 });
+  await ctx.supabase
+    .from("pickup_stops")
+    .delete()
+    .eq("route_id", route.id);
+  await ctx.supabase
+    .from("routes")
+    .update({
+      status: existingRoute?.driver_id ? "assigned" : "draft",
+      driver_id: existingRoute?.driver_id ?? null,
+    })
+    .eq("id", route.id);
+
+  return NextResponse.json({
+    ok: true,
+    routeId: route.id,
+    stopCount: requests?.length ?? 0,
+    regenerated: Boolean(existingRoute),
+  });
 }

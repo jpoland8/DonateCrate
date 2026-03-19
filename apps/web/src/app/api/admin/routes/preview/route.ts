@@ -6,6 +6,26 @@ const querySchema = z.object({
   routeId: z.string().uuid(),
 });
 
+function buildGoogleMapsUrl(
+  points: Array<{ lat: number; lng: number }>,
+) {
+  if (points.length === 0) return null;
+  const origin = `${points[0].lat},${points[0].lng}`;
+  const destination = `${points[points.length - 1].lat},${points[points.length - 1].lng}`;
+  const waypoints = points
+    .slice(1, -1)
+    .map((point) => `${point.lat},${point.lng}`)
+    .join("|");
+  const params = new URLSearchParams({
+    api: "1",
+    origin,
+    destination,
+    travelmode: "driving",
+  });
+  if (waypoints.length > 0) params.set("waypoints", waypoints);
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
 export async function GET(request: Request) {
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -74,9 +94,7 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({
-    route,
-    stops: (stops ?? []).map((stop) => {
+  const previewStops = (stops ?? []).map((stop) => {
       const requestItem = requestById.get(stop.pickup_request_id);
       const user = requestItem ? userById.get(requestItem.user_id) : null;
       const address = requestItem ? addressByUserId.get(requestItem.user_id) : null;
@@ -85,6 +103,7 @@ export async function GET(request: Request) {
         stopOrder: stop.stop_order,
         stopStatus: stop.status,
         requestStatus: requestItem?.status ?? null,
+        requestNote: requestItem?.note ?? null,
         email: user?.email ?? null,
         fullName: user?.full_name ?? null,
         address: address
@@ -98,6 +117,16 @@ export async function GET(request: Request) {
             }
           : null,
       };
-    }),
+    });
+
+  const directionsPoints = previewStops
+    .map((stop) => stop.address)
+    .filter((address): address is NonNullable<typeof address> => Boolean(address?.lat != null && address?.lng != null))
+    .map((address) => ({ lat: address.lat as number, lng: address.lng as number }));
+
+  return NextResponse.json({
+    route,
+    googleMapsUrl: buildGoogleMapsUrl(directionsPoints),
+    stops: previewStops,
   });
 }

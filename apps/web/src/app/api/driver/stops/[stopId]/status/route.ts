@@ -1,0 +1,113 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getAuthenticatedContext } from "@/lib/api-auth";
+
+const bodySchema = z.object({
+  status: z.enum(["picked_up", "not_ready", "no_access", "rescheduled"]),
+});
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ stopId: string }> },
+) {
+  const ctx = await getAuthenticatedContext();
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (ctx.profile.role !== "admin" && ctx.profile.role !== "driver") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { stopId } = await context.params;
+  const payload = await request.json().catch(() => null);
+  const parsed = bodySchema.safeParse(payload);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+
+  const { data: stop, error: stopError } = await ctx.supabase
+    .from("pickup_stops")
+    .select("id,route_id,pickup_request_id,status")
+    .eq("id", stopId)
+    .maybeSingle();
+
+  if (stopError || !stop) return NextResponse.json({ error: "Stop not found" }, { status: 404 });
+
+  const { data: route, error: routeError } = await ctx.supabase
+    .from("routes")
+    .select("id,driver_id,status")
+    .eq("id", stop.route_id)
+    .maybeSingle();
+
+  if (routeError || !route) return NextResponse.json({ error: "Route not found" }, { status: 404 });
+
+  if (ctx.profile.role === "driver") {
+    const { data: driver } = await ctx.supabase
+      .from("drivers")
+      .select("id")
+      .eq("user_id", ctx.profile.id)
+      .maybeSingle();
+
+    if (!driver || route.driver_id !== driver.id) {
+      return NextResponse.json({ error: "This stop is not assigned to the current driver" }, { status: 403 });
+    }
+  }
+
+  const nextStatus = parsed.data.status;
+  const completedAt = new Date().toISOString();
+
+  const { data: updatedStop, error: updateStopError } = await ctx.supabase
+    .from("pickup_stops")
+    .update({
+      status: nextStatus,
+      completed_at: completedAt,
+    })
+    .eq("id", stop.id)
+    .select("id,status")
+    .single();
+
+  if (updateStopError) return NextResponse.json({ error: updateStopError.message }, { status: 500 });
+
+  if (nextStatus === "picked_up" || nextStatus === "not_ready" || nextStatus === "no_access") {
+    const pickupRequestUpdate =
+      nextStatus === "picked_up"
+        ? { status: "picked_up", note: null }
+        : nextStatus === "not_ready"
+          ? { status: "not_ready", note: "Driver marked stop as not ready" }
+          : { status: "missed", note: "Driver marked stop as no access" };
+
+    await ctx.supabase
+      .from("pickup_requests")
+      .update({
+        ...pickupRequestUpdate,
+        updated_at: completedAt,
+      })
+      .eq("id", stop.pickup_request_id);
+  } else if (nextStatus === "rescheduled") {
+    await ctx.supabase
+      .from("pickup_requests")
+      .update({
+        note: "Driver marked stop for reschedule review",
+        updated_at: completedAt,
+      })
+      .eq("id", stop.pickup_request_id);
+  }
+
+  await ctx.supabase.from("routes").update({ status: "in_progress" }).eq("id", route.id);
+
+  const { data: routeStops } = await ctx.supabase
+    .from("pickup_stops")
+    .select("status")
+    .eq("route_id", route.id);
+
+  const allResolved = (routeStops ?? []).every((item) =>
+    ["picked_up", "not_ready", "no_access", "rescheduled"].includes(item.status),
+  );
+
+  const routeStatus = allResolved ? "completed" : "in_progress";
+  if (allResolved) {
+    await ctx.supabase.from("routes").update({ status: routeStatus }).eq("id", route.id);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    stop: updatedStop,
+    routeStatus,
+  });
+}

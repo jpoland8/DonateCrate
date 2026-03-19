@@ -26,13 +26,76 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+
 const demoUsers = [
   { email: 'admin@donatecrate.app', password: 'DonateCrate!123', role: 'admin', fullName: 'DonateCrate Admin' },
   { email: 'jake@donatecrate.com', password: 'TempPass123!', role: 'admin', fullName: 'Jake DonateCrate' },
-  { email: 'sarah@donatecrate.app', password: 'DonateCrate!123', role: 'customer', fullName: 'Sarah Parker' },
-  { email: 'mike@donatecrate.app', password: 'DonateCrate!123', role: 'customer', fullName: 'Mike Johnson' },
+  {
+    email: 'sarah@donatecrate.app',
+    password: 'DonateCrate!123',
+    role: 'customer',
+    fullName: 'Sarah Parker',
+    phone: '865-555-0101',
+    address: { address_line1: '1210 Cedar Bluff Rd', city: 'Knoxville', state: 'TN', postal_code: '37922' },
+  },
+  {
+    email: 'mike@donatecrate.app',
+    password: 'DonateCrate!123',
+    role: 'customer',
+    fullName: 'Mike Johnson',
+    phone: '865-555-0102',
+    address: { address_line1: '2000 Northshore Dr', city: 'Knoxville', state: 'TN', postal_code: '37922' },
+  },
+  {
+    email: 'lisa@donatecrate.app',
+    password: 'DonateCrate!123',
+    role: 'customer',
+    fullName: 'Lisa Carter',
+    phone: '865-555-0103',
+    address: { address_line1: '9621 Westland Dr', city: 'Knoxville', state: 'TN', postal_code: '37922' },
+  },
+  {
+    email: 'evan@donatecrate.app',
+    password: 'DonateCrate!123',
+    role: 'customer',
+    fullName: 'Evan Brooks',
+    phone: '865-555-0104',
+    address: { address_line1: '9430 South Northshore Dr', city: 'Knoxville', state: 'TN', postal_code: '37922' },
+  },
+  {
+    email: 'nina@donatecrate.app',
+    password: 'DonateCrate!123',
+    role: 'customer',
+    fullName: 'Nina Foster',
+    phone: '865-555-0105',
+    address: { address_line1: '150 Major Reynolds Pl', city: 'Knoxville', state: 'TN', postal_code: '37922' },
+  },
+  {
+    email: 'ryan@donatecrate.app',
+    password: 'DonateCrate!123',
+    role: 'customer',
+    fullName: 'Ryan Turner',
+    phone: '865-555-0106',
+    address: { address_line1: '11124 Turkey Dr', city: 'Knoxville', state: 'TN', postal_code: '37934' },
+  },
   { email: 'driver1@donatecrate.app', password: 'DonateCrate!123', role: 'driver', fullName: 'Driver One' },
 ];
+
+async function geocodeAddress(address) {
+  if (!GOOGLE_PLACES_API_KEY) return { lat: null, lng: null };
+  const query = encodeURIComponent(
+    `${address.address_line1}, ${address.city}, ${address.state} ${address.postal_code}, USA`,
+  );
+  const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${GOOGLE_PLACES_API_KEY}`);
+  if (!response.ok) return { lat: null, lng: null };
+  const json = await response.json();
+  const location = json?.results?.[0]?.geometry?.location;
+  return {
+    lat: typeof location?.lat === 'number' ? location.lat : null,
+    lng: typeof location?.lng === 'number' ? location.lng : null,
+  };
+}
 
 async function ensureAuthUser(user) {
   const { data: existingList } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
@@ -62,7 +125,7 @@ async function seed() {
           email: user.email,
           full_name: user.fullName,
           role: user.role,
-          phone: '865-555-0100',
+          phone: user.phone ?? '865-555-0100',
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'auth_user_id' },
@@ -92,18 +155,34 @@ async function seed() {
     .single();
 
   for (const customer of customerUsers) {
-    await supabase.from('addresses').upsert(
-      {
-        user_id: customer.userId,
-        address_line1: customer.email.includes('sarah') ? '1210 Cedar Bluff Rd' : '2000 Northshore Dr',
-        city: 'Knoxville',
-        state: 'TN',
-        postal_code: '37922',
-        lat: 35.8736,
-        lng: -84.1764,
-      },
-      { onConflict: 'user_id,address_line1,postal_code' },
-    );
+    const sourceUser = demoUsers.find((user) => user.email === customer.email);
+    const geocoded = sourceUser?.address ? await geocodeAddress(sourceUser.address) : { lat: null, lng: null };
+    const addressPayload = {
+      user_id: customer.userId,
+      address_line1: sourceUser?.address?.address_line1 ?? '1210 Cedar Bluff Rd',
+      city: sourceUser?.address?.city ?? 'Knoxville',
+      state: sourceUser?.address?.state ?? 'TN',
+      postal_code: sourceUser?.address?.postal_code ?? '37922',
+      lat: geocoded.lat,
+      lng: geocoded.lng,
+    };
+    const { data: existingAddress } = await supabase
+      .from('addresses')
+      .select('id')
+      .eq('user_id', customer.userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingAddress?.id) {
+      const { error: addressUpdateError } = await supabase
+        .from('addresses')
+        .update(addressPayload)
+        .eq('id', existingAddress.id);
+      if (addressUpdateError) throw addressUpdateError;
+    } else {
+      const { error: addressInsertError } = await supabase.from('addresses').insert(addressPayload);
+      if (addressInsertError) throw addressInsertError;
+    }
 
     await supabase.from('zone_memberships').upsert(
       {
@@ -153,7 +232,9 @@ async function seed() {
       {
         user_id: customer.userId,
         pickup_cycle_id: cycle.id,
-        status: customer.email.includes('sarah') ? 'requested' : 'confirmed',
+        status: customer.email.includes('sarah') || customer.email.includes('lisa') || customer.email.includes('nina')
+          ? 'requested'
+          : 'confirmed',
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,pickup_cycle_id' },
@@ -219,34 +300,19 @@ async function seed() {
 
   const { data: driver } = await supabase.from('drivers').select('id').eq('employee_id', 'DRV-001').maybeSingle();
 
-  const { data: route } = await supabase
+  const { data: existingRoutes } = await supabase
     .from('routes')
-    .insert({
-      zone_id: zone.id,
-      pickup_cycle_id: cycle.id,
-      driver_id: driver?.id ?? null,
-      status: driver?.id ? 'assigned' : 'draft',
-    })
     .select('id')
-    .single();
+    .eq('zone_id', zone.id)
+    .eq('pickup_cycle_id', cycle.id);
+  if (existingRoutes?.length) {
+    const routeIds = existingRoutes.map((route) => route.id);
+    await supabase.from('pickup_stops').delete().in('route_id', routeIds);
+    await supabase.from('routes').delete().in('id', routeIds);
+  }
 
-  const { data: requestRows } = await supabase
-    .from('pickup_requests')
-    .select('id')
-    .eq('pickup_cycle_id', cycle.id)
-    .order('created_at', { ascending: true });
-
-  if (requestRows?.length) {
-    await supabase.from('pickup_stops').upsert(
-      requestRows.map((row, index) => ({
-        route_id: route.id,
-        pickup_request_id: row.id,
-        stop_order: index + 1,
-        status: index === 0 ? 'scheduled' : 'picked_up',
-        completed_at: index === 0 ? null : new Date().toISOString(),
-      })),
-      { onConflict: 'route_id,stop_order' },
-    );
+  if (driver?.id) {
+    await supabase.from('drivers').update({ active: true }).eq('id', driver.id);
   }
 
   await supabase.from('waitlist_entries').upsert(
@@ -279,6 +345,7 @@ async function seed() {
   for (const user of demoUsers) {
     console.log(`- ${user.email} / ${user.password} (${user.role})`);
   }
+  console.log(`- Seeded ${customerUsers.length} customer accounts with Knoxville-area addresses for route testing.`);
 }
 
 seed().catch((error) => {

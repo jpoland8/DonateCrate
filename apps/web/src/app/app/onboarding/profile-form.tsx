@@ -85,6 +85,9 @@ export function OnboardingForm({
         placeholder="Phone"
         className="h-12 w-full rounded-xl border border-black/15 px-4 outline-none focus:border-[var(--dc-orange)]"
       />
+      <p className="text-xs text-[var(--dc-gray-700)]">
+        Use the phone number where you want pickup reminders and any route exception updates.
+      </p>
       <input
         required
         value={addressLine1}

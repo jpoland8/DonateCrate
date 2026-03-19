@@ -1,19 +1,25 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export function SignupForm() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [addressLine1, setAddressLine1] = useState("");
+  const defaultAddressLine1 = useMemo(() => searchParams.get("addressLine1") || "", [searchParams]);
+  const defaultCity = useMemo(() => searchParams.get("city") || "", [searchParams]);
+  const defaultState = useMemo(() => searchParams.get("state") || "TN", [searchParams]);
+  const defaultPostalCode = useMemo(() => searchParams.get("postalCode") || "37922", [searchParams]);
+  const [addressLine1, setAddressLine1] = useState(defaultAddressLine1);
   const [addressLine2, setAddressLine2] = useState("");
-  const [city, setCity] = useState("");
-  const [stateValue, setStateValue] = useState("TN");
-  const [postalCode, setPostalCode] = useState("37922");
+  const [city, setCity] = useState(defaultCity);
+  const [stateValue, setStateValue] = useState(defaultState);
+  const [postalCode, setPostalCode] = useState(defaultPostalCode);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -54,8 +60,8 @@ export function SignupForm() {
     }
 
     setStatus("success");
-    setMessage("Account created. Redirecting...");
-    window.location.href = "/app";
+    setMessage("Account created. Redirecting to billing...");
+    window.location.href = "/app?onboarding=created";
   }
 
   return (
@@ -143,7 +149,7 @@ export function SignupForm() {
       </button>
       <p className="text-sm text-[var(--dc-gray-700)]">
         Already have an account?{" "}
-        <Link href="/login" className="font-semibold text-black underline">
+        <Link href="/login?next=/app" className="font-semibold text-black underline">
           Sign in
         </Link>
       </p>
