@@ -65,16 +65,25 @@ export function PaymentWall({
   }
 
   return (
-    <section className="rounded-3xl border border-black/10 bg-white p-6">
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Billing Required</p>
-      <h2 className="mt-2 text-3xl font-bold">Unlock Full Customer Portal Access</h2>
-      <p className="mt-3 max-w-3xl text-sm text-[var(--dc-gray-700)]">
-        Activate your monthly DonateCrate plan to submit pickup requests, manage route-ready status, and keep your
-        notifications synced. Billing is handled securely through Stripe.
-      </p>
+    <section className="overflow-hidden rounded-[2rem] border border-black/10 bg-white shadow-[0_20px_50px_rgba(20,14,8,0.06)]">
+      <div className="border-b border-black/6 bg-[linear-gradient(135deg,#fff1e6_0%,#ffffff_52%,#f7f8fb_100%)] p-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Billing Required</p>
+        <h2 className="mt-2 text-3xl font-bold">Finish setup to unlock pickup requests</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--dc-gray-700)]">
+          Activate your monthly DonateCrate plan to request pickups, manage your status for the month, and stay in
+          sync with reminder notifications. Billing is handled securely through Stripe.
+        </p>
+      </div>
+      <div className="p-6">
+      {checkoutStatus === "success" ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          Billing was activated successfully. If your account still looks locked for a moment, refresh the page and we
+          will re-check your status.
+        </div>
+      ) : null}
       {onboardingCreated ? (
         <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          Your account is ready. Billing is the final setup step before you can request this month&apos;s pickup.
+          Your account details are saved. Billing is the last step before you can request this month&apos;s pickup.
         </div>
       ) : null}
       {checkoutStatus === "canceled" ? (
@@ -86,7 +95,7 @@ export function PaymentWall({
         <button
           onClick={startCheckout}
           disabled={status === "loading"}
-          className="rounded-xl bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+          className="rounded-2xl bg-[var(--dc-orange)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-70"
         >
           {status === "loading" ? "Working..." : "Start $5/month Plan"}
         </button>
@@ -94,27 +103,28 @@ export function PaymentWall({
           <button
             onClick={bypassForTesting}
             disabled={status === "loading"}
-            className="rounded-xl border border-black px-4 py-2 text-sm font-semibold disabled:opacity-70"
+            className="rounded-2xl border border-black px-5 py-3 text-sm font-semibold disabled:opacity-70"
           >
             Test Bypass
           </button>
         ) : null}
       </div>
       <div className="mt-5 grid gap-3 text-sm text-[var(--dc-gray-700)] sm:grid-cols-3">
-        <div className="rounded-2xl bg-[var(--dc-gray-100)] p-4">
+        <div className="rounded-[1.5rem] bg-[var(--dc-gray-100)] p-4">
           <p className="font-semibold text-black">1. Activate plan</p>
           <p className="mt-1">Secure checkout starts your $5/month household subscription.</p>
         </div>
-        <div className="rounded-2xl bg-[var(--dc-gray-100)] p-4">
+        <div className="rounded-[1.5rem] bg-[var(--dc-gray-100)] p-4">
           <p className="font-semibold text-black">2. Pick your month</p>
           <p className="mt-1">Return here to request this cycle&apos;s pickup or skip if you are not ready.</p>
         </div>
-        <div className="rounded-2xl bg-[var(--dc-gray-100)] p-4">
+        <div className="rounded-[1.5rem] bg-[var(--dc-gray-100)] p-4">
           <p className="font-semibold text-black">3. Set out your bag</p>
           <p className="mt-1">We will send reminders before route day so your donation is ready on time.</p>
         </div>
       </div>
       {message ? <p className="mt-3 text-sm text-red-600">{message}</p> : null}
+      </div>
     </section>
   );
 }

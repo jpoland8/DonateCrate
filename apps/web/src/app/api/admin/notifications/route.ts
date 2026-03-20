@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createCorrelationId, getAuthenticatedContext } from "@/lib/api-auth";
+import { getNotificationRetryState } from "@/lib/notification-health";
 import { normalizeToE164US } from "@/lib/twilio";
 
 const queueRemindersSchema = z.object({
@@ -52,13 +53,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Select at least one notification event", correlationId }, { status: 400 });
     }
 
+    const { data: events, error: fetchError } = await ctx.supabase
+      .from("notification_events")
+      .select("id,status,attempt_count,last_error")
+      .in("id", eventIds);
+
+    if (fetchError) return NextResponse.json({ error: fetchError.message, correlationId }, { status: 500 });
+
+    const retryableIds = (events ?? []).filter((event) => getNotificationRetryState(event).canRetry).map((event) => event.id);
+    const blocked = (events ?? []).length - retryableIds.length;
+
+    if (retryableIds.length === 0) {
+      return NextResponse.json({ error: "Selected events are no longer retryable", correlationId, queued: 0, blocked }, { status: 400 });
+    }
+
     const { error } = await ctx.supabase
       .from("notification_events")
       .update({ status: "queued", last_error: null })
-      .in("id", eventIds);
+      .in("id", retryableIds);
 
     if (error) return NextResponse.json({ error: error.message, correlationId }, { status: 500 });
-    return NextResponse.json({ ok: true, correlationId, queued: eventIds.length });
+    return NextResponse.json({ ok: true, correlationId, queued: retryableIds.length, blocked });
   }
 
   const pickupCycleId = parsed.data.pickupCycleId;

@@ -90,5 +90,6 @@ export async function GET() {
     notificationEvents: notificationEvents ?? [],
     recentPickupRequests: recentPickupRequests ?? [],
     profileComplete,
+    address: address ?? null,
   });
 }

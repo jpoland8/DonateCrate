@@ -218,3 +218,18 @@
   - admin dispatch usability review after Sprint N
 - Checkpoint 6:
   - messaging/retry test review after Sprint O
+
+## Current Status
+
+- Completed
+  - Sprint J
+  - Sprint K
+  - Sprint L
+  - Sprint M
+  - Sprint N
+  - Sprint O
+- Adjustments made since the plan was written
+  - Sprint N absorbed the newer logistics clarifications already learned during the route-map and Google Maps work, so dispatch UI language now matches the real one-route-per-zone-per-cycle model.
+  - Sprint O expanded from a visibility pass into retry-governance logic plus tests, because flat failed-event lists were not enough once Twilio retries and manual requeue actions were in use.
+- Next planning note
+  - the next sprint block should focus on secondary customer flows, deeper admin tooling, and cross-stack handoff polish rather than more first-pass layout work

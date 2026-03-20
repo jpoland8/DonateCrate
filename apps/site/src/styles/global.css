@@ -476,6 +476,16 @@ a {
   font-size: 0.9rem;
 }
 
+.service-check__explain {
+  margin-top: 0.9rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 38, 0.04);
+  padding: 0.85rem 0.95rem;
+  color: rgba(15, 23, 38, 0.72);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
 .service-check__error {
   margin-top: 1rem;
   padding: 0.9rem 1rem;
@@ -690,6 +700,35 @@ a {
   margin: 2rem 0;
 }
 
+.feature-band {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0 0 2rem;
+}
+
+.feature-band article {
+  border-radius: var(--dc-radius);
+  border: 1px solid var(--dc-border);
+  background:
+    radial-gradient(circle at top right, rgba(255, 107, 0, 0.12), transparent 26%),
+    rgba(255, 255, 255, 0.86);
+  padding: 1.35rem;
+  box-shadow: 0 14px 34px rgba(15, 23, 40, 0.05);
+}
+
+.feature-band h2 {
+  margin: 0.7rem 0 0;
+  font-size: 1.5rem;
+  line-height: 1.15;
+}
+
+.feature-band p {
+  margin: 0.75rem 0 0;
+  color: var(--dc-muted);
+  line-height: 1.7;
+}
+
 .faq-list {
   display: grid;
   gap: 1rem;
@@ -802,6 +841,7 @@ a {
   .timeline-grid,
   .gallery-grid,
   .simple-grid,
+  .feature-band,
   .waitlist-shell,
   .site-footer {
     grid-template-columns: 1fr;

@@ -91,15 +91,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   });
   const activeTab = searchParams.get("tab") || "overview";
-  const navItems = [
-    { href: "/admin?tab=overview", tab: "overview", label: "Overview", icon: "overview" as const },
-    { href: "/admin?tab=pickups", tab: "pickups", label: "Pickups", icon: "pickups" as const },
-    { href: "/admin?tab=logistics", tab: "logistics", label: "Logistics", icon: "logistics" as const },
-    { href: "/admin?tab=people", tab: "people", label: "People", icon: "people" as const },
-    { href: "/admin?tab=zones", tab: "zones", label: "Zones", icon: "zones" as const },
-    { href: "/admin?tab=billing", tab: "billing", label: "Billing", icon: "billing" as const },
-    { href: "/admin?tab=growth", tab: "growth", label: "Growth", icon: "growth" as const },
-    { href: "/admin?tab=communication", tab: "communication", label: "Communication", icon: "communication" as const },
+  const navGroups = [
+    {
+      label: "Run Today",
+      items: [
+        { href: "/admin?tab=overview", tab: "overview", label: "Overview", icon: "overview" as const },
+        { href: "/admin?tab=pickups", tab: "pickups", label: "Pickup Calendar", icon: "pickups" as const },
+        { href: "/admin?tab=logistics", tab: "logistics", label: "Dispatch", icon: "logistics" as const },
+        { href: "/admin?tab=communication", tab: "communication", label: "Messages", icon: "communication" as const },
+      ],
+    },
+    {
+      label: "Operate The Network",
+      items: [
+        { href: "/admin?tab=people", tab: "people", label: "People", icon: "people" as const },
+        { href: "/admin?tab=zones", tab: "zones", label: "Zones", icon: "zones" as const },
+        { href: "/admin?tab=billing", tab: "billing", label: "Billing", icon: "billing" as const },
+        { href: "/admin?tab=growth", tab: "growth", label: "Growth", icon: "growth" as const },
+      ],
+    },
   ];
 
   useEffect(() => {
@@ -168,10 +178,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           }`}
           style={{ borderColor: "var(--admin-border)", background: "var(--admin-sidebar)", color: "var(--admin-sidebar-text)" }}
         >
-          <div className="flex items-center justify-between border-b px-4 py-4" style={{ borderColor: "var(--admin-border)" }}>
+          <div className="border-b px-4 py-4" style={{ borderColor: "var(--admin-border)" }}>
+            <div className="flex items-center justify-between">
             <div className={collapsed ? "hidden" : "block"}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
               <p className="font-bold">Operations Admin</p>
+              <p className="mt-1 text-xs" style={{ color: "var(--admin-muted)" }}>Dispatch, people, growth, and communications.</p>
             </div>
             <div className="hidden items-center gap-2 md:flex">
               {!collapsed ? (
@@ -193,34 +205,44 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 {collapsed ? ">" : "<"}
               </button>
             </div>
+            </div>
           </div>
 
-          <nav className="space-y-2 px-3 py-4">
-            {navItems.map((item) => {
-              const isActive = pathname === "/admin" && activeTab === item.tab;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
-                    isActive
-                      ? "bg-[var(--dc-orange)] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.15)]"
-                      : "border hover:bg-white/10"
-                  }`}
-                  style={
-                    isActive
-                      ? undefined
-                      : { borderColor: "var(--admin-border)", color: "var(--admin-sidebar-text)" }
-                  }
-                  aria-label={item.label}
-                  title={item.label}
-                >
-                  <NavIcon kind={item.icon} />
-                  {!collapsed ? item.label : null}
-                </Link>
-              );
-            })}
+          <nav className="space-y-4 px-3 py-4">
+            {navGroups.map((group) => (
+              <div key={group.label} className="space-y-2">
+                {!collapsed ? (
+                  <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--admin-muted)" }}>
+                    {group.label}
+                  </p>
+                ) : null}
+                {group.items.map((item) => {
+                  const isActive = pathname === "/admin" && activeTab === item.tab;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
+                        isActive
+                          ? "bg-[var(--dc-orange)] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.15)]"
+                          : "border hover:bg-white/10"
+                      }`}
+                      style={
+                        isActive
+                          ? undefined
+                          : { borderColor: "var(--admin-border)", color: "var(--admin-sidebar-text)" }
+                      }
+                      aria-label={item.label}
+                      title={item.label}
+                    >
+                      <NavIcon kind={item.icon} />
+                      {!collapsed ? item.label : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
             <Link
               href="/app"
               onClick={() => setMobileMenuOpen(false)}
@@ -235,13 +257,23 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           {!collapsed ? (
-            <div className="px-3">
+            <div className="space-y-3 px-3">
+              <div
+                className="rounded-xl border p-3"
+                style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-strong)" }}
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Ops Focus</p>
+                <p className="mt-2 text-sm font-semibold">Run one clean pickup day at a time.</p>
+                <p className="mt-1 text-xs" style={{ color: "var(--admin-muted)" }}>
+                  Start in Overview, confirm the pickup calendar, build dispatch, then watch communications and exceptions.
+                </p>
+              </div>
               <details className="rounded-xl border p-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} open>
                 <summary className="cursor-pointer text-sm font-semibold">How to run ops here</summary>
                 <ul className="mt-2 space-y-2 text-xs" style={{ color: "var(--admin-muted)" }}>
-                  <li>1. People: view all users, filter by zone, and assign roles.</li>
-                  <li>2. Zones: manage one zone at a time and inspect zone members.</li>
-                  <li>3. Pickups: schedule one-time or recurring cycles, then dispatch routes.</li>
+                  <li>1. Overview and Pickups show what is ready to run this cycle.</li>
+                  <li>2. Zones and People keep coverage, memberships, and roles accurate.</li>
+                  <li>3. Logistics is where routes are built, reviewed, and assigned.</li>
                 </ul>
               </details>
             </div>

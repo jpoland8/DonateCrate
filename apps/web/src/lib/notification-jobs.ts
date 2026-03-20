@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getNotificationRetryState } from "@/lib/notification-health";
 import { sendTwilioSms } from "@/lib/twilio";
 
 type NotificationEventRow = {
@@ -18,6 +19,18 @@ export async function processNotificationEvent(params: {
   event: NotificationEventRow;
 }) {
   const { supabase, event } = params;
+  const retryState = getNotificationRetryState(event);
+  if (!retryState.canRetry && event.status === "failed") {
+    await supabase
+      .from("notification_events")
+      .update({
+        last_error: retryState.detail,
+      })
+      .eq("id", event.id);
+
+    return { ok: false, status: "skipped" as const, error: retryState.detail };
+  }
+
   const attemptCount = (event.attempt_count ?? 0) + 1;
   const attemptTime = new Date().toISOString();
   const metadata = (event.metadata ?? {}) as Record<string, unknown>;

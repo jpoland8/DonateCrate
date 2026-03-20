@@ -208,12 +208,31 @@ export function ServiceCheckIsland({ apiBaseUrl, accountBaseUrl }: Props) {
 
       {result ? (
         <div className={`service-check__result service-check__result--${result.status}`}>
-          <span className="service-check__pill">{result.status === "active" ? "Open for signup" : result.status}</span>
+          <span className="service-check__pill">
+            {result.status === "active"
+              ? "Open for signup"
+              : result.status === "pending"
+                ? "Coming to your area"
+                : "Not in service yet"}
+          </span>
           <h3>{result.message}</h3>
           <div className="service-check__meta">
             {result.zoneName ? <span>Service area: {result.zoneName}</span> : null}
             {result.distanceMiles != null ? <span>{result.distanceMiles} miles from current pickup coverage</span> : null}
           </div>
+          {result.status === "active" ? (
+            <div className="service-check__explain">
+              Your address is in an active service area. You can create your account now and move straight into billing and pickup setup.
+            </div>
+          ) : result.status === "pending" ? (
+            <div className="service-check__explain">
+              Your address is close to an area we are building toward. Join the waitlist and we will keep your details on file for launch access.
+            </div>
+          ) : (
+            <div className="service-check__explain">
+              We are not serving this address yet. The waitlist still helps because it shows us where people want pickup next.
+            </div>
+          )}
 
           {result.status === "active" ? (
             <div className="service-check__actions">

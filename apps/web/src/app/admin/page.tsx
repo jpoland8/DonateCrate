@@ -165,12 +165,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   const adminTiles = [
     {
-      title: "Active Zone",
+      title: "Primary Launch Zone",
       value: `${zone?.anchor_postal_code ?? "37922"} | ${zone?.radius_miles ?? 3} mi radius`,
     },
-    { title: "Subscribers", value: String(subscribers ?? 0) },
-    { title: "Drivers", value: `${drivers ?? 0} employees assigned` },
-    { title: "Routes (Total)", value: String(routes ?? 0) },
+    { title: "Active Members", value: String(subscribers ?? 0) },
+    { title: "Drivers Ready", value: `${drivers ?? 0} employees assigned` },
+    { title: "Routes Built", value: String(routes ?? 0) },
   ];
 
   return (
@@ -178,14 +178,17 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Operations Console</p>
         <h1 className="text-4xl font-bold">DonateCrate Admin</h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--admin-muted)" }}>{profile.email}</p>
+        <p className="mt-1 max-w-3xl text-sm" style={{ color: "var(--admin-muted)" }}>
+          Run pickup calendars, dispatch routes, customer communications, and subscription recovery from one operational workspace.
+        </p>
+        <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>{profile.email}</p>
       </header>
 
       <section className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
-        <h2 className="text-xl font-bold">How Admin Portal Works</h2>
+        <h2 className="text-xl font-bold">How To Use This Workspace</h2>
         <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>
-          Manage the full Knoxville launch operation in one workspace: create pickup cycles, triage request statuses,
-          assign drivers, and monitor subscription health so routes stay dense and profitable.
+          Overview shows what needs attention first. Pickup Calendar sets the service days, Dispatch turns that calendar into
+          a real route and driver assignment, and Messages tracks reminder delivery plus failures that need follow-up.
         </p>
       </section>
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatNotificationEventType, formatNotificationStatus } from "@/lib/notification-labels";
+import { getNotificationRetryState } from "@/lib/notification-health";
+import { formatNotificationChannel, formatNotificationEventType, formatNotificationStatus } from "@/lib/notification-labels";
 
 type WorkspaceSection = "overview" | "pickups" | "logistics" | "people" | "zones" | "billing" | "growth" | "communication";
 
@@ -232,6 +233,17 @@ function getRouteDisplayLabel(route: AdminData["routes"][number] | null | undefi
   const zoneMeta = Array.isArray(route.service_zones) ? route.service_zones[0] : route.service_zones;
   const pickupCycle = Array.isArray(route.pickup_cycles) ? route.pickup_cycles[0] : route.pickup_cycles;
   return `${zoneMeta?.name || "Zone"} | ${pickupCycle?.pickup_date ? formatDate(pickupCycle.pickup_date) : "No date"}`;
+}
+
+function getNotificationStateTone(severity: "healthy" | "attention" | "blocked") {
+  switch (severity) {
+    case "healthy":
+      return "border-emerald-400/25 bg-emerald-400/10 text-emerald-50";
+    case "blocked":
+      return "border-red-400/25 bg-red-400/10 text-red-50";
+    default:
+      return "border-amber-400/25 bg-amber-400/10 text-amber-50";
+  }
 }
 
 function getBillingStatusTone(status: string) {
@@ -582,6 +594,31 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     () => notificationEvents.filter((item) => item.status === "queued"),
     [notificationEvents],
   );
+  const blockedNotificationEvents = useMemo(
+    () => notificationEvents.filter((item) => getNotificationRetryState(item).severity === "blocked"),
+    [notificationEvents],
+  );
+  const opsOverview = useMemo(() => {
+    if (!data) {
+      return {
+        readyRoutes: 0,
+        draftRoutes: 0,
+        activeZones: 0,
+        attentionSubscriptions: 0,
+        openWaitlist: 0,
+        cycleExceptions: 0,
+      };
+    }
+
+    return {
+      readyRoutes: data.routes.filter((route) => route.status === "assigned" || route.status === "in_progress").length,
+      draftRoutes: data.routes.filter((route) => route.status === "draft").length,
+      activeZones: data.zones.filter((zone) => zone.status === "active").length,
+      attentionSubscriptions: data.subscriptions.filter((subscription) => ["past_due", "canceled"].includes(subscription.status)).length,
+      openWaitlist: data.waitlist.filter((entry) => entry.status !== "converted").length,
+      cycleExceptions: data.pickupRequests.filter((request) => ["not_ready", "missed"].includes(request.status)).length,
+    };
+  }, [data]);
 
   async function fetchPredictions(query: string) {
     const response = await fetch("/api/places/autocomplete", {
@@ -1039,7 +1076,9 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       if (!sendResponse.ok) return setMessage(sendJson.error || "Could not process notifications");
 
       setNotificationSelection([]);
-      setMessage(`Retried ${sendJson.attempted ?? 0} notifications. Sent: ${sendJson.sent ?? 0}, failed: ${sendJson.failed ?? 0}.`);
+      setMessage(
+        `Retried ${sendJson.attempted ?? 0} notifications. Sent: ${sendJson.sent ?? 0}, failed: ${sendJson.failed ?? 0}, skipped: ${sendJson.skipped ?? 0}${queueJson.blocked ? `, blocked from retry: ${queueJson.blocked}` : ""}.`,
+      );
       await loadAll();
     } finally {
       setNotificationActionLoading(false);
@@ -1056,7 +1095,9 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) return setMessage(json.error || "Could not process queued notifications");
-      setMessage(`Processed ${json.attempted ?? 0} queued notifications. Sent: ${json.sent ?? 0}, failed: ${json.failed ?? 0}.`);
+      setMessage(
+        `Processed ${json.attempted ?? 0} queued notifications. Sent: ${json.sent ?? 0}, failed: ${json.failed ?? 0}, skipped: ${json.skipped ?? 0}.`,
+      );
       await loadAll();
     } finally {
       setNotificationActionLoading(false);
@@ -1068,24 +1109,59 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   return (
     <div className="space-y-6">
       {section === "overview" ? (
-        <section className="grid gap-4 xl:grid-cols-3">
+        <section className="space-y-4">
           <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Users</p>
-            <p className="mt-2 text-4xl font-bold">{data.users.length}</p>
-            <p className="mt-2 text-sm text-white/70">All accounts across customers, drivers, and admins.</p>
-          </article>
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Open Requests</p>
-            <p className="mt-2 text-4xl font-bold">
-              {data.pickupRequests.filter((request) => request.status === "requested" || request.status === "confirmed").length}
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Operational Snapshot</p>
+            <h2 className="mt-2 text-2xl font-bold">What needs attention first</h2>
+            <p className="mt-2 max-w-3xl text-sm text-white/70">
+              Treat this page as the top of the day board: confirm cycle volume, clear delivery failures, then move into dispatch once the stop list is stable.
             </p>
-            <p className="mt-2 text-sm text-white/70">Operational stops likely to be on next dispatch run.</p>
           </article>
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Active Zones</p>
-            <p className="mt-2 text-4xl font-bold">{data.zones.filter((zone) => zone.status === "active").length}</p>
-            <p className="mt-2 text-sm text-white/70">Service areas currently open for delivery operations.</p>
-          </article>
+          <section className="grid gap-4 xl:grid-cols-3">
+            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Ready Routes</p>
+              <p className="mt-2 text-4xl font-bold">{opsOverview.readyRoutes}</p>
+              <p className="mt-2 text-sm text-white/70">Routes already assigned or in progress.</p>
+            </article>
+            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Draft Routes</p>
+              <p className="mt-2 text-4xl font-bold">{opsOverview.draftRoutes}</p>
+              <p className="mt-2 text-sm text-white/70">Cycles with a route built but not yet staffed.</p>
+            </article>
+            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Cycle Exceptions</p>
+              <p className="mt-2 text-4xl font-bold">{opsOverview.cycleExceptions}</p>
+              <p className="mt-2 text-sm text-white/70">Households marked not ready or missed and likely needing follow-up.</p>
+            </article>
+          </section>
+          <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+              <h3 className="text-lg font-bold">Recommended workflow</h3>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">1. Calendar</p>
+                  <p className="mt-2 text-sm text-white/80">Check Pickup Calendar for the next service day and request volume.</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">2. Dispatch</p>
+                  <p className="mt-2 text-sm text-white/80">Build one route per zone and cycle, then assign the driver.</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">3. Support</p>
+                  <p className="mt-2 text-sm text-white/80">Use Messages and Billing to clear failures before they snowball.</p>
+                </div>
+              </div>
+            </article>
+            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+              <h3 className="text-lg font-bold">Attention queue</h3>
+              <div className="mt-4 space-y-3 text-sm text-white/75">
+                <p><span className="font-semibold text-white">{opsOverview.activeZones}</span> active zones currently open.</p>
+                <p><span className="font-semibold text-white">{opsOverview.attentionSubscriptions}</span> subscriber accounts need billing review.</p>
+                <p><span className="font-semibold text-white">{failedNotificationEvents.length}</span> message failures are in the log.</p>
+                <p><span className="font-semibold text-white">{opsOverview.openWaitlist}</span> waitlist records still need conversion planning.</p>
+              </div>
+            </article>
+          </section>
         </section>
       ) : null}
 
@@ -1756,8 +1832,10 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       {section === "pickups" ? (
         <>
           <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <h3 className="text-xl font-bold">Pickup Schedule Builder</h3>
-            <p className="mt-1 text-sm text-white/70">Choose one-time scheduling or recurring monthly rules per zone.</p>
+            <h3 className="text-xl font-bold">Pickup Calendar Builder</h3>
+            <p className="mt-1 text-sm text-white/70">
+              A pickup cycle is the actual service day for one zone. Build one cycle at a time, or generate the monthly calendar in advance.
+            </p>
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -1958,7 +2036,10 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
           </section>
 
           <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <h3 className="text-xl font-bold">Pickup Requests</h3>
+            <h3 className="text-xl font-bold">Member Responses</h3>
+            <p className="mt-1 text-sm text-white/70">
+              Review the most recent household responses for published cycles and correct any exception state before dispatch is built.
+            </p>
             <div className="mt-3 space-y-2">
                 {data.pickupRequests.slice(0, 20).map((item) => (
                 <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-black/35 p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2062,6 +2143,26 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                 </p>
               </div>
             ) : null}
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Dispatch checklist</p>
+                <p className="mt-2 text-sm text-white/80">
+                  Confirm that skipped and exception households are intentional before you rebuild the route.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">One route rule</p>
+                <p className="mt-2 text-sm text-white/80">
+                  Each zone and cycle should have one live route. Rebuild refreshes that route instead of creating duplicates.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Driver timing</p>
+                <p className="mt-2 text-sm text-white/80">
+                  Assign the driver only after stops exist so the driver console opens with a real ordered run sheet.
+                </p>
+              </div>
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <div className="min-w-[280px] rounded-lg border border-white/20 bg-black/30 px-4 py-2 text-sm text-white/75">
                 {selectedLogisticsRoute
@@ -2110,13 +2211,14 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                 alt="Pickup route map"
                 className="mt-3 w-full rounded-xl border border-white/10 bg-black/40"
                 onError={() => setMapLoadError(true)}
+                onLoad={() => setMapLoadError(false)}
               />
             ) : (
               <p className="mt-2 text-sm text-white/65">Select a cycle and build the route to preview stops and map output.</p>
             )}
             {mapLoadError ? (
               <p className="mt-3 text-sm text-amber-200">
-                The map image could not load in the panel, but the ordered stop list below is still available.
+                The in-panel map preview could not load, but the ordered stop list below and the Google Maps handoff are still available.
               </p>
             ) : null}
 
@@ -2190,6 +2292,34 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
 
       {section === "communication" ? (
         <section className="space-y-6">
+          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Messaging Control</p>
+            <h3 className="mt-2 text-2xl font-bold">Operate reminders, campaigns, and failures in one place</h3>
+            <p className="mt-2 max-w-3xl text-sm text-white/70">
+              Use this tab to send one-off updates, queue pickup reminders, and separate fixable delivery failures from events that need data cleanup first.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Queued</p>
+                <p className="mt-2 text-2xl font-bold">{queuedNotificationEvents.length}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Retryable failures</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {failedNotificationEvents.filter((event) => getNotificationRetryState(event).canRetry).length}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Blocked failures</p>
+                <p className="mt-2 text-2xl font-bold">{blockedNotificationEvents.length}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Selected for retry</p>
+                <p className="mt-2 text-2xl font-bold">{notificationSelection.length}</p>
+              </div>
+            </div>
+          </article>
+
           <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
             <h3 className="text-xl font-bold">SMS Campaigns</h3>
             <p className="mt-1 text-sm text-white/70">
@@ -2382,13 +2512,18 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                 <p className="mt-2 text-2xl font-bold">{queuedNotificationEvents.length}</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Failed</p>
-                <p className="mt-2 text-2xl font-bold">{failedNotificationEvents.length}</p>
+                <p className="text-xs uppercase tracking-wide text-white/60">Retryable Failures</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {failedNotificationEvents.filter((event) => getNotificationRetryState(event).canRetry).length}
+                </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Selected for Retry</p>
-                <p className="mt-2 text-2xl font-bold">{notificationSelection.length}</p>
+                <p className="text-xs uppercase tracking-wide text-white/60">Needs Manual Fix</p>
+                <p className="mt-2 text-2xl font-bold">{blockedNotificationEvents.length}</p>
               </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/75">
+              Failures with too many attempts are blocked from retry until the underlying problem is fixed, such as a missing phone number or provider configuration issue.
             </div>
             <div className="mt-4 space-y-2">
               {notificationEvents.slice(0, 40).map((event) => (
@@ -2396,7 +2531,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                   <input
                     type="checkbox"
                     checked={notificationSelection.includes(event.id)}
-                    disabled={event.status !== "failed"}
+                    disabled={!getNotificationRetryState(event).canRetry || event.status === "sent" || event.status === "delivered"}
                     onChange={(inputEvent) => {
                       setNotificationSelection((prev) =>
                         inputEvent.target.checked ? [...prev, event.id] : prev.filter((id) => id !== event.id),
@@ -2404,9 +2539,14 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                     }}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold">
-                      {formatNotificationEventType(event.event_type)} | {event.channel} | {formatNotificationStatus(event.status)}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">
+                        {formatNotificationEventType(event.event_type)} | {formatNotificationChannel(event.channel)} | {formatNotificationStatus(event.status)}
+                      </p>
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getNotificationStateTone(getNotificationRetryState(event).severity)}`}>
+                        {getNotificationRetryState(event).label}
+                      </span>
+                    </div>
                     <p className="mt-1 text-xs text-white/70">
                       Attempts: {event.attempt_count ?? 0} | Last attempt:{" "}
                       {event.last_attempt_at ? new Date(event.last_attempt_at).toLocaleString() : "Not attempted"}
@@ -2414,6 +2554,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                     <p className="mt-1 text-xs text-white/60">
                       Correlation: {event.correlation_id ?? "n/a"} | Logged {new Date(event.created_at).toLocaleString()}
                     </p>
+                    <p className="mt-1 text-xs text-white/70">{getNotificationRetryState(event).detail}</p>
                     {event.last_error ? <p className="mt-1 text-xs text-amber-200">Error: {event.last_error}</p> : null}
                   </div>
                 </label>

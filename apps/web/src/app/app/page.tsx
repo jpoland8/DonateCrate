@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
-import { formatCycleStatus, getNextReminderLabel } from "@/lib/customer-cycle";
+import { formatCycleStatus, getCustomerNextStep, getCycleUrgency, getNextReminderLabel } from "@/lib/customer-cycle";
 import { CustomerActions } from "./customer-actions";
 import { CustomerPortalTools } from "./customer-portal-tools";
 import { PaymentWall } from "./payment-wall";
@@ -86,32 +86,29 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       address?.postal_code?.trim(),
   );
   const nextReminderLabel = getNextReminderLabel(latestCycle?.pickup_date, notificationPrefs, new Date());
+  const cycleUrgency = getCycleUrgency(latestCycle?.pickup_date, latestCycle?.request_cutoff_at, new Date());
+  const nextStep = getCustomerNextStep({
+    profileComplete,
+    pickupDate: latestCycle?.pickup_date,
+    requestCutoffAt: latestCycle?.request_cutoff_at,
+    status: currentCycleRequest?.status,
+  });
 
   const customerCards = [
     {
-      title: "Next Pickup",
-      value: latestCycle?.pickup_date ?? "TBD",
-      detail: "Window assigned closer to route day",
-    },
-    {
-      title: "Cycle Response",
+      title: "This Month",
       value: formatCycleStatus(currentCycleRequest?.status ?? null),
       detail: latestCycle?.request_cutoff_at
         ? `Reply by ${new Date(latestCycle.request_cutoff_at).toLocaleString()}`
         : "No pickup deadline published yet",
     },
     {
-      title: "Plan Status",
-      value: subscription?.status ?? "not_started",
-      detail: "Launch plan $5/month",
+      title: "Next Pickup",
+      value: latestCycle?.pickup_date ?? "TBD",
+      detail: cycleUrgency.label,
     },
     {
-      title: "Referral Credits",
-      value: String(creditedReferrals ?? 0),
-      detail: "Qualified friend referrals",
-    },
-    {
-      title: "Reminder Status",
+      title: "Reminders",
       value: notificationPrefs?.sms_enabled || notificationPrefs?.email_enabled ? "On" : "Off",
       detail: nextReminderLabel,
     },
@@ -139,30 +136,60 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-8">
-      <header className="rounded-3xl border border-black/10 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Customer Dashboard</p>
-            <h1 className="text-3xl font-bold sm:text-4xl">DonateCrate Account</h1>
-            <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{profile?.email ?? user.email}</p>
+      <header className="overflow-hidden rounded-[2rem] border border-white/70 bg-[rgba(255,255,255,0.78)] shadow-[0_22px_60px_rgba(17,24,39,0.08)] backdrop-blur">
+        <div className="bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#ff6a00_180%)] p-5 text-white sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Customer Dashboard</p>
+              <h1 className="text-3xl font-bold sm:text-4xl">Your Monthly Pickup Home Base</h1>
+              <p className="mt-2 max-w-3xl text-sm text-white/80">
+                Review this month’s status, keep your profile current, and stay ahead of reminders without hunting through messages.
+              </p>
+            </div>
+            <a href={nextStep.href} className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black">
+              {nextStep.cta}
+            </a>
           </div>
-          <a href="#cycle-actions" className="rounded-full bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white">
-            Pickup Actions
-          </a>
+          <div className="mt-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+            <article className="rounded-[1.75rem] border border-white/15 bg-white/10 p-5 backdrop-blur">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/65">Next Step</p>
+              <h2 className="mt-2 text-2xl font-bold">{nextStep.title}</h2>
+              <p className="mt-2 text-sm text-white/80">{nextStep.detail}</p>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/70">
+                <span className="rounded-full border border-white/20 px-3 py-1">
+                  {latestCycle?.pickup_date ? `Pickup ${new Date(latestCycle.pickup_date).toLocaleDateString()}` : "Pickup date pending"}
+                </span>
+                <span className="rounded-full border border-white/20 px-3 py-1">{nextReminderLabel}</span>
+              </div>
+            </article>
+            <article className="rounded-[1.75rem] border border-white/15 bg-black/20 p-5 backdrop-blur">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/65">Quick Facts</p>
+              <div className="mt-3 space-y-2 text-sm text-white/80">
+                <p>Profile: {profileComplete ? "Ready" : "Needs updates"}</p>
+                <p>Plan: {subscription?.status ?? "not_started"}</p>
+                <p>Referral credits: {creditedReferrals ?? 0}</p>
+              </div>
+            </article>
+          </div>
         </div>
-        <div>
-          <p className="mt-4 max-w-3xl text-sm text-[var(--dc-gray-700)]">
-            Keep your monthly textile donation routine simple: confirm your pickup, manage alerts, and track free-month
-            rewards from referrals.
-          </p>
+        <div className="border-t border-black/5 p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-black">{cycleUrgency.label}</p>
+              <p className="mt-1 max-w-3xl text-sm text-[var(--dc-gray-700)]">{cycleUrgency.detail}</p>
+            </div>
+            <a href="#cycle-actions" className="rounded-full bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white">
+              Review pickup
+            </a>
+          </div>
         </div>
         {checkoutStatus === "success" ? (
-          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <div className="mx-5 mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 sm:mx-6 sm:mb-6">
             Billing is active. Your plan is ready, and you can now manage this month&apos;s pickup below.
           </div>
         ) : null}
         {checkoutStatus === "canceled" ? (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:mx-6 sm:mb-6">
             Stripe checkout was canceled before activation. Restart billing when you&apos;re ready.
           </div>
         ) : null}
@@ -171,7 +198,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       {activeTab === "overview" || activeTab === "pickups" ? (
         <>
           {!profileComplete ? (
-            <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+            <section className="rounded-[1.75rem] border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_100%)] p-4 shadow-sm sm:p-5">
               <h2 className="text-xl font-bold text-amber-950">Finish Your Pickup Profile</h2>
               <p className="mt-2 text-sm text-amber-900">
                 Add your phone number and full address so route planning and pickup reminders stay accurate.
@@ -185,20 +212,15 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
             </section>
           ) : null}
 
-          <section className="rounded-2xl border border-black/10 bg-white p-4 sm:p-5">
-            <h2 className="text-xl font-bold">How Your Portal Works</h2>
-            <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-              Each month, mark whether your orange bag is ready. We route pickups by neighborhood density, send updates by
-              email/SMS based on your preferences, and track referrals so you can earn free months.
-            </p>
-          </section>
-
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-3">
             {customerCards.map((card) => (
-              <article key={card.title} className="rounded-2xl border border-black/10 bg-white p-4 sm:p-5">
-                <p className="text-sm text-[var(--dc-gray-700)]">{card.title}</p>
-                <p className="mt-2 text-2xl font-bold">{card.value}</p>
-                <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{card.detail}</p>
+              <article
+                key={card.title}
+                className="rounded-[1.6rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-4 shadow-[0_16px_35px_rgba(17,24,39,0.05)] backdrop-blur sm:p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-gray-700)]">{card.title}</p>
+                <p className="mt-3 text-2xl font-bold text-[var(--dc-gray-900)]">{card.value}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--dc-gray-700)]">{card.detail}</p>
               </article>
             ))}
           </section>
@@ -206,35 +228,39 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       ) : null}
 
       {activeTab === "overview" ? (
-        <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <article className="rounded-3xl border border-black/10 bg-white p-5 sm:p-6">
-            <h2 className="text-2xl font-bold">Welcome Back</h2>
-            <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-              Use the sidebar tabs to manage your monthly pickup, referral rewards, and notification settings.
-            </p>
-            <div className="mt-4 rounded-2xl bg-[var(--dc-gray-100)] p-4 text-sm text-[var(--dc-gray-700)]">
-              <p className="font-semibold text-black">This month&apos;s status</p>
-              <p className="mt-1">{formatCycleStatus(currentCycleRequest?.status ?? null)}</p>
-              {currentCycleRequest?.updated_at ? (
-                <p className="mt-1">Last action saved {new Date(currentCycleRequest.updated_at).toLocaleString()}.</p>
-              ) : (
-                <p className="mt-1">You have not responded to this cycle yet.</p>
-              )}
+        <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <article className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6">
+            <h2 className="text-2xl font-bold">What to Do</h2>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
+                <p className="text-sm font-semibold text-black">1. Confirm whether your bag is ready</p>
+                <p className="mt-1 text-sm text-[var(--dc-gray-700)]">If you want a pickup this month, keep your stop active before the cutoff.</p>
+              </div>
+              <div className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
+                <p className="text-sm font-semibold text-black">2. Make sure your address and phone are current</p>
+                <p className="mt-1 text-sm text-[var(--dc-gray-700)]">That keeps routing and reminder messages accurate.</p>
+              </div>
             </div>
           </article>
-          <article className="rounded-3xl border border-black/10 bg-white p-5 sm:p-6">
-            <h2 className="text-2xl font-bold">What Happens Next</h2>
+          <article className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6">
+            <h2 className="text-2xl font-bold">Need to change something?</h2>
             <div className="mt-4 space-y-3 text-sm text-[var(--dc-gray-700)]">
-              <p>1. Confirm pickup or skip before the cycle cutoff.</p>
-              <p>2. Watch for reminder messages as pickup day gets closer.</p>
-              <p>3. Set your bag out on route day and track follow-up in this portal.</p>
+              <p><span className="font-semibold text-black">Profile:</span> {profileComplete ? "Ready for routing" : "Needs updates"}</p>
+              <p><span className="font-semibold text-black">Reminders:</span> {notificationPrefs?.sms_enabled || notificationPrefs?.email_enabled ? "On" : "Off"}</p>
+              <p><span className="font-semibold text-black">Billing:</span> {subscription?.status ?? "not_started"}</p>
             </div>
+            <a href="/app/profile" className="mt-4 inline-block rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-black">
+              Review profile
+            </a>
           </article>
         </section>
       ) : null}
 
       {activeTab === "pickups" ? (
-        <section id="cycle-actions" className="rounded-3xl border border-black/10 bg-white p-5 sm:p-6">
+        <section
+          id="cycle-actions"
+          className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6"
+        >
           <h2 className="text-2xl font-bold">Cycle Actions</h2>
           <div className="mt-4">
             <CustomerActions

@@ -10,21 +10,37 @@ const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUB
   <main class="simple-page">
     <a class="back-link" href="/">Back to home</a>
     <span class="eyebrow">How It Works</span>
-    <h1>From address check to pickup day in three steps.</h1>
+    <h1>A monthly routine that feels much easier than making another drop-off trip.</h1>
+    <p class="simple-page__lede">
+      DonateCrate is built to make donating feel simple, predictable, and easy to keep up with. You check your
+      address once, create your account, and then follow the same clear pickup rhythm each month.
+    </p>
     <div class="simple-grid">
       <article>
         <h2>1. Confirm your address</h2>
-        <p>Start with a street address so we can match you to an active or upcoming route area.</p>
+        <p>Start with your street address so we can tell you whether signup is open now or whether your neighborhood is next.</p>
       </article>
       <article>
         <h2>2. Create your account</h2>
-        <p>Once service is available, your signup carries forward the address details from the eligibility check.</p>
+        <p>Your address flows into signup, so you do not have to repeat the same details just to get started.</p>
       </article>
       <article>
         <h2>3. Set out your bag monthly</h2>
-        <p>Confirm each cycle from your account, then leave your donation bag out on the scheduled pickup day.</p>
+        <p>When you are ready for the month, confirm your pickup in the app and place your bag out on the scheduled day.</p>
       </article>
     </div>
+    <section class="feature-band">
+      <article>
+        <span class="eyebrow">Before pickup day</span>
+        <h2>We help you stay on top of it.</h2>
+        <p>You can see your current month, confirm if you are ready, and get reminders ahead of route day.</p>
+      </article>
+      <article>
+        <span class="eyebrow">As we grow</span>
+        <h2>Neighborhood rollout stays intentional.</h2>
+        <p>We expand carefully so pickups stay dependable and each new area gets a service experience worth using.</p>
+      </article>
+    </section>
     <a class="button" href={`${accountBaseUrl}/signup`}>Start account setup</a>
   </main>
 </SiteLayout>

@@ -27,7 +27,20 @@ export function formatNotificationStatus(status: string) {
       return "Delivered";
     case "failed":
       return "Failed";
+    case "skipped":
+      return "Skipped";
     default:
       return status.replaceAll("_", " ");
+  }
+}
+
+export function formatNotificationChannel(channel: string) {
+  switch (channel) {
+    case "sms":
+      return "Text message";
+    case "email":
+      return "Email";
+    default:
+      return channel;
   }
 }

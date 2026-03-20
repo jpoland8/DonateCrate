@@ -51,6 +51,7 @@ export async function POST(request: Request) {
     attempted: results.length,
     sent: results.filter((item) => item.status === "sent").length,
     failed: results.filter((item) => item.status === "failed").length,
+    skipped: results.filter((item) => item.status === "skipped").length,
     results,
   });
 }
