@@ -62,10 +62,12 @@ export async function GET() {
     referredEmail: row.referred_user_id ? (emailByUserId.get(row.referred_user_id) ?? null) : null,
   }));
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
   return NextResponse.json({
     affiliate,
     referralStats,
     recentReferrals,
-    shareUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/waitlist?ref=${affiliate.code}`,
+    shareUrl: `${siteUrl}/waitlist?ref=${affiliate.code}`,
   });
 }
