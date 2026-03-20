@@ -68,6 +68,6 @@ export async function GET() {
     affiliate,
     referralStats,
     recentReferrals,
-    shareUrl: `${siteUrl}/waitlist?ref=${affiliate.code}`,
+    shareUrl: `${siteUrl.replace(/\/$/, "")}/signup?ref=${affiliate.code}`,
   });
 }

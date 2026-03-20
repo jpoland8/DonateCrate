@@ -174,12 +174,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <aside
           className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[340px] overflow-y-auto border-r backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[300px] md:max-w-none ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-          } ${collapsed ? "md:w-[84px]" : ""
+          } ${collapsed ? "md:w-[72px]" : ""
           }`}
           style={{ borderColor: "var(--admin-border)", background: "var(--admin-sidebar)", color: "var(--admin-sidebar-text)" }}
         >
-          <div className="border-b px-4 py-4" style={{ borderColor: "var(--admin-border)" }}>
-            <div className="flex items-center justify-between">
+          <div className={`border-b py-4 ${collapsed ? "px-2" : "px-4"}`} style={{ borderColor: "var(--admin-border)" }}>
+            <div className={`flex ${collapsed ? "justify-center" : "items-center justify-between"}`}>
             <div className={collapsed ? "hidden" : "block"}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
               <p className="font-bold">Operations Admin</p>
@@ -208,7 +208,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <nav className="space-y-4 px-3 py-4">
+          <nav className={`space-y-4 py-4 ${collapsed ? "px-2" : "px-3"}`}>
             {navGroups.map((group) => (
               <div key={group.label} className="space-y-2">
                 {!collapsed ? (
@@ -223,11 +223,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
+                      className={`flex items-center rounded-lg text-sm font-semibold ${
                         isActive
                           ? "bg-[var(--dc-orange)] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.15)]"
                           : "border hover:bg-white/10"
-                      }`}
+                      } ${collapsed ? "justify-center px-0 py-3" : "gap-2 px-3 py-2"}`}
                       style={
                         isActive
                           ? undefined
@@ -246,7 +246,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/app"
               onClick={() => setMobileMenuOpen(false)}
-              className="mt-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-white/10"
+              className={`mt-2 flex items-center rounded-lg border text-sm font-semibold hover:bg-white/10 ${collapsed ? "justify-center px-0 py-3" : "gap-2 px-3 py-2"}`}
               style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
               aria-label="Customer View"
               title="Customer View"
@@ -279,7 +279,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : null}
 
-          <div className="mt-4 px-3">
+          <div className={`mt-4 ${collapsed ? "px-2" : "px-3"}`}>
             <SignOutButton tone={theme === "dark" ? "dark" : "light"} />
           </div>
         </aside>

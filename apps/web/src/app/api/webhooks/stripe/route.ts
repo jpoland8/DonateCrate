@@ -74,6 +74,8 @@ async function handleSubscriptionStatusEvent(params: {
   }
 
   if (event.type === "invoice.payment_failed" && subscriptionRow?.user_id) {
+    const hostedInvoiceUrl =
+      "hosted_invoice_url" in object && typeof object.hosted_invoice_url === "string" ? object.hosted_invoice_url : null;
     await supabase.from("notification_events").insert({
       user_id: subscriptionRow.user_id,
       channel: "email",
@@ -83,6 +85,7 @@ async function handleSubscriptionStatusEvent(params: {
       metadata: {
         stripe_event_type: event.type,
         stripe_subscription_id: subscriptionId,
+        invoice_url: hostedInvoiceUrl,
       },
     });
   }

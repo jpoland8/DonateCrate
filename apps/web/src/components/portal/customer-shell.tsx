@@ -79,8 +79,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
-              <p className="text-base font-bold">Customer Portal</p>
-              <p className="text-xs text-[var(--dc-gray-700)]">{activeLabel}</p>
+              <p className="text-sm font-semibold text-[var(--dc-gray-900)]">{activeLabel}</p>
             </div>
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
@@ -102,10 +101,10 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
         <aside
           className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[320px] overflow-y-auto border-r border-black/10 bg-[rgba(248,245,240,0.97)] backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[280px] md:max-w-none ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-          } ${collapsed ? "md:w-[84px]" : ""}`}
+          } ${collapsed ? "md:w-[72px]" : ""}`}
         >
-          <div className="border-b border-black/10 px-4 py-5">
-            <div className="flex items-center justify-between">
+          <div className={`border-b border-black/10 py-5 ${collapsed ? "px-2" : "px-4"}`}>
+            <div className={`flex ${collapsed ? "justify-center" : "items-center justify-between"}`}>
               <div className={collapsed ? "hidden" : "block"}>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
                 <p className="font-bold text-[1.05rem]">Customer Portal</p>
@@ -122,7 +121,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           </div>
-          <nav className="space-y-2 px-3 py-4">
+          <nav className={`space-y-2 py-4 ${collapsed ? "px-2" : "px-3"}`}>
             {!collapsed ? (
               <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--dc-gray-700)]">
                 Your account
@@ -138,11 +137,11 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold transition ${
+                  className={`flex items-center rounded-2xl text-sm font-semibold transition ${
                     isActive
                       ? "bg-[linear-gradient(135deg,#111827_0%,#273447_55%,#ff6a00_170%)] text-white shadow-[0_16px_30px_rgba(17,24,39,0.14)]"
                       : "border border-black/10 bg-white/70 text-[var(--dc-gray-900)] hover:bg-white"
-                  }`}
+                  } ${collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-3"}`}
                   aria-label={item.label}
                   title={item.label}
                 >
@@ -174,7 +173,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           ) : null}
-          <div className="mt-4 px-3 pb-4">
+          <div className={`mt-4 pb-4 ${collapsed ? "px-2" : "px-3"}`}>
             <SignOutButton />
           </div>
         </aside>

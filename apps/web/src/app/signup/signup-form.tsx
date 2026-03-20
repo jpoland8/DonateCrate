@@ -15,18 +15,36 @@ export function SignupForm() {
   const defaultCity = useMemo(() => searchParams.get("city") || "", [searchParams]);
   const defaultState = useMemo(() => searchParams.get("state") || "TN", [searchParams]);
   const defaultPostalCode = useMemo(() => searchParams.get("postalCode") || "37922", [searchParams]);
+  const defaultReferralCode = useMemo(() => searchParams.get("ref") || "", [searchParams]);
   const [addressLine1, setAddressLine1] = useState(defaultAddressLine1);
   const [addressLine2, setAddressLine2] = useState("");
   const [city, setCity] = useState(defaultCity);
   const [stateValue, setStateValue] = useState(defaultState);
   const [postalCode, setPostalCode] = useState(defaultPostalCode);
+  const [referralCode, setReferralCode] = useState(defaultReferralCode);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [inactiveAddress, setInactiveAddress] = useState<{
+    reason?: string | null;
+    zone?: string | null;
+  } | null>(null);
+
+  const waitlistHref = useMemo(() => {
+    const params = new URLSearchParams({
+      postalCode,
+      addressLine1,
+      city,
+      state: stateValue,
+    });
+    if (referralCode.trim()) params.set("ref", referralCode.trim());
+    return `/waitlist?${params.toString()}`;
+  }, [addressLine1, city, postalCode, referralCode, stateValue]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("saving");
     setMessage("");
+    setInactiveAddress(null);
 
     const registerResponse = await fetch("/api/auth/register", {
       method: "POST",
@@ -41,11 +59,21 @@ export function SignupForm() {
         city,
         state: stateValue,
         postalCode,
+        referralCode: referralCode.trim() || undefined,
       }),
     });
     const registerJson = await registerResponse.json().catch(() => ({}));
 
     if (!registerResponse.ok) {
+      if (registerResponse.status === 409 && registerJson.reason) {
+        setInactiveAddress({
+          reason: registerJson.reason || null,
+          zone: registerJson.zone || null,
+        });
+        setStatus("error");
+        setMessage("This address is not active for signup yet.");
+        return;
+      }
       setStatus("error");
       setMessage(registerJson.error || "Could not create account");
       return;
@@ -128,7 +156,7 @@ export function SignupForm() {
       <div className="rounded-[1.5rem] border border-black/10 bg-[var(--dc-gray-100)]/70 p-4">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Pickup Address</p>
         <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-          This is the address used for eligibility, route planning, and pickup reminders.
+          This is the address we verify for service eligibility, route planning, and pickup reminders.
         </p>
         <div className="mt-4 space-y-3">
           <input
@@ -175,6 +203,19 @@ export function SignupForm() {
           className="h-12 w-full rounded-2xl border border-black/15 px-4 md:col-span-1"
         />
       </div>
+      <div className="space-y-1.5">
+        <label htmlFor="signup-referral" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+          Referral code
+        </label>
+        <input
+          id="signup-referral"
+          type="text"
+          value={referralCode}
+          onChange={(event) => setReferralCode(event.target.value.toUpperCase())}
+          placeholder="Referral code (optional)"
+          className="h-12 w-full rounded-2xl border border-black/15 px-4"
+        />
+      </div>
       <button
         type="submit"
         disabled={status === "saving"}
@@ -182,6 +223,20 @@ export function SignupForm() {
       >
         {status === "saving" ? "Creating..." : "Create Account"}
       </button>
+      {inactiveAddress ? (
+        <div className="rounded-[1.5rem] border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">This address is not in an active pickup zone yet.</p>
+          <p className="mt-1">
+            {inactiveAddress.reason ? `${inactiveAddress.reason}. ` : ""}
+            We can save your details on the waitlist instead and notify you when this area opens.
+          </p>
+          <div className="mt-3">
+            <Link href={waitlistHref} className="font-semibold underline">
+              Continue to the waitlist
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <p className="text-sm text-[var(--dc-gray-700)]">
         Already have an account?{" "}
         <Link href="/login?next=/app" className="font-semibold text-black underline">

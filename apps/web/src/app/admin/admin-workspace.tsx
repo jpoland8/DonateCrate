@@ -142,6 +142,18 @@ type ZoneMember = {
   } | null;
 };
 
+type CommunicationChannelHealth = {
+  configured: boolean;
+  ready: boolean;
+  status: "verified" | "not_configured" | "error";
+  detail: string;
+  fromNumber?: string | null;
+  messagingServiceSid?: string | null;
+  fromEmail?: string | null;
+  fromName?: string | null;
+  host?: string | null;
+};
+
 function localDateISO(d = new Date()) {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
@@ -393,6 +405,10 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   const [smsMessage, setSmsMessage] = useState("");
   const [smsSending, setSmsSending] = useState(false);
   const [smsConfigError, setSmsConfigError] = useState<string | null>(null);
+  const [communicationHealth, setCommunicationHealth] = useState<{
+    sms: CommunicationChannelHealth | null;
+    email: CommunicationChannelHealth | null;
+  }>({ sms: null, email: null });
   const [smsZoneEligibleUsers, setSmsZoneEligibleUsers] = useState<
     Array<{ id: string; fullName: string; email: string; role: string; phone: string }>
   >([]);
@@ -598,6 +614,14 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     () => notificationEvents.filter((item) => getNotificationRetryState(item).severity === "blocked"),
     [notificationEvents],
   );
+  const emailNotificationEvents = useMemo(
+    () => notificationEvents.filter((item) => item.channel === "email"),
+    [notificationEvents],
+  );
+  const smsNotificationEvents = useMemo(
+    () => notificationEvents.filter((item) => item.channel === "sms"),
+    [notificationEvents],
+  );
   const opsOverview = useMemo(() => {
     if (!data) {
       return {
@@ -716,6 +740,29 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       setSmsConfigError(typeof json.twilioConfigError === "string" ? json.twilioConfigError : null);
     };
     loadSmsConfig();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadCommunicationHealth = async () => {
+      const response = await fetch("/api/admin/communications/status", {
+        signal: controller.signal,
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setCommunicationHealth({ sms: null, email: null });
+        return;
+      }
+      setCommunicationHealth({
+        sms: json.channels?.sms ?? null,
+        email: json.channels?.email ?? null,
+      });
+      if (typeof json.channels?.sms?.detail === "string" && json.channels?.sms?.status === "not_configured") {
+        setSmsConfigError(json.channels.sms.detail);
+      }
+    };
+    loadCommunicationHealth();
     return () => controller.abort();
   }, []);
 
@@ -2294,9 +2341,9 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
         <section className="space-y-6">
           <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Messaging Control</p>
-            <h3 className="mt-2 text-2xl font-bold">Operate reminders, campaigns, and failures in one place</h3>
+            <h3 className="mt-2 text-2xl font-bold">Keep reminders, billing alerts, and delivery issues in one place</h3>
             <p className="mt-2 max-w-3xl text-sm text-white/70">
-              Use this tab to send one-off updates, queue pickup reminders, and separate fixable delivery failures from events that need data cleanup first.
+              Customers should get simple, dependable updates. Use this tab to confirm both delivery channels are healthy, queue pickup reminders, and separate retryable failures from events that need account cleanup first.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
@@ -2316,6 +2363,46 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
               <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
                 <p className="text-xs uppercase tracking-wide text-white/60">Selected for retry</p>
                 <p className="mt-2 text-2xl font-bold">{notificationSelection.length}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div className={`rounded-2xl border p-4 ${getNotificationStateTone(communicationHealth.sms?.ready ? "healthy" : communicationHealth.sms?.configured ? "attention" : "blocked")}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/65">Text delivery</p>
+                    <h4 className="mt-2 text-lg font-semibold text-white">Twilio</h4>
+                  </div>
+                  <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
+                    {communicationHealth.sms?.ready ? "Verified" : communicationHealth.sms?.configured ? "Needs attention" : "Setup needed"}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm text-white/80">
+                  {communicationHealth.sms?.detail || "SMS channel status will appear here once loaded."}
+                </p>
+                <p className="mt-3 text-xs text-white/60">
+                  Sender: {communicationHealth.sms?.fromNumber || communicationHealth.sms?.messagingServiceSid || "Not configured"}
+                </p>
+                <p className="mt-2 text-xs text-white/60">{smsNotificationEvents.length} text events logged recently.</p>
+              </div>
+              <div className={`rounded-2xl border p-4 ${getNotificationStateTone(communicationHealth.email?.ready ? "healthy" : communicationHealth.email?.configured ? "attention" : "blocked")}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/65">Email delivery</p>
+                    <h4 className="mt-2 text-lg font-semibold text-white">SMTP relay</h4>
+                  </div>
+                  <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
+                    {communicationHealth.email?.ready ? "Verified" : communicationHealth.email?.configured ? "Needs attention" : "Setup needed"}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm text-white/80">
+                  {communicationHealth.email?.detail || "Email channel status will appear here once loaded."}
+                </p>
+                <p className="mt-3 text-xs text-white/60">
+                  From: {communicationHealth.email?.fromName || "DonateCrate"} {communicationHealth.email?.fromEmail ? `<${communicationHealth.email.fromEmail}>` : ""}
+                </p>
+                <p className="mt-2 text-xs text-white/60">
+                  Relay: {communicationHealth.email?.host || "Not configured"} • {emailNotificationEvents.length} email events logged recently.
+                </p>
               </div>
             </div>
           </article>
@@ -2462,7 +2549,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
           <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
             <h3 className="text-xl font-bold">Reminder Queue</h3>
             <p className="mt-1 text-sm text-white/70">
-              Queue cycle reminders for SMS-eligible households, then process queued events or retry failed deliveries.
+              Queue cycle reminders for opted-in households. If email is connected, pickup reminders will queue for both text and email.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <button

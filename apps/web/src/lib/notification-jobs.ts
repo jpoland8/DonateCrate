@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { buildNotificationEmailContent, sendSmtpEmail } from "@/lib/email";
 import { getNotificationRetryState } from "@/lib/notification-health";
 import { sendTwilioSms } from "@/lib/twilio";
 
@@ -58,7 +59,42 @@ export async function processNotificationEvent(params: {
       return { ok: true, status: "sent" as const, providerMessageId: provider.sid };
     }
 
-    throw new Error("Email delivery provider is not configured yet");
+    const { data: user } = event.user_id
+      ? await supabase.from("users").select("email,full_name").eq("id", event.user_id).maybeSingle()
+      : { data: null };
+    const to = user?.email ?? (typeof metadata.to === "string" ? metadata.to : null);
+
+    if (!to) {
+      throw new Error("Email notification is missing recipient email");
+    }
+
+    const email = buildNotificationEmailContent({
+      eventType: event.event_type,
+      recipient: {
+        email: to,
+        fullName: user?.full_name ?? (typeof metadata.full_name === "string" ? metadata.full_name : null),
+      },
+      metadata,
+    });
+
+    const provider = await sendSmtpEmail({
+      to,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+    await supabase
+      .from("notification_events")
+      .update({
+        status: "sent",
+        provider_message_id: provider.messageId,
+        attempt_count: attemptCount,
+        last_attempt_at: attemptTime,
+        last_error: null,
+      })
+      .eq("id", event.id);
+
+    return { ok: true, status: "sent" as const, providerMessageId: provider.messageId };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown notification send error";
     await supabase

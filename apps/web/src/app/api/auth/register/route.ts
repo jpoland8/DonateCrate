@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { checkEligibility } from "@/lib/eligibility";
 import { geocodeAddress } from "@/lib/geocode";
+import { normalizeCode } from "@/lib/referrals";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const bodySchema = z.object({
@@ -14,6 +15,7 @@ const bodySchema = z.object({
   city: z.string().min(2),
   state: z.string().length(2),
   postalCode: z.string().min(5).max(10),
+  referralCode: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -45,6 +47,25 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const normalizedReferralCode = parsed.data.referralCode ? normalizeCode(parsed.data.referralCode) : null;
+  let referrerUserId: string | null = null;
+
+  if (normalizedReferralCode) {
+    const { data: affiliate, error: affiliateError } = await supabase
+      .from("affiliate_codes")
+      .select("user_id,code")
+      .eq("code", normalizedReferralCode)
+      .maybeSingle();
+
+    if (affiliateError) {
+      return NextResponse.json({ error: affiliateError.message }, { status: 500 });
+    }
+    if (!affiliate) {
+      return NextResponse.json({ error: "Referral code not found" }, { status: 404 });
+    }
+    referrerUserId = affiliate.user_id;
+  }
+
   const { data, error } = await supabase.auth.admin.createUser({
     email: parsed.data.email.toLowerCase(),
     password: parsed.data.password,
@@ -134,6 +155,23 @@ export async function POST(request: Request) {
 
     if (prefsError) {
       return NextResponse.json({ error: prefsError.message }, { status: 500 });
+    }
+
+    if (referrerUserId && referrerUserId !== profile.id) {
+      const { error: referralError } = await supabase.from("referrals").upsert(
+        {
+          referrer_user_id: referrerUserId,
+          referred_user_id: profile.id,
+          referral_code: normalizedReferralCode,
+          status: "qualified",
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "referred_user_id" },
+      );
+
+      if (referralError) {
+        return NextResponse.json({ error: referralError.message }, { status: 500 });
+      }
     }
   }
 

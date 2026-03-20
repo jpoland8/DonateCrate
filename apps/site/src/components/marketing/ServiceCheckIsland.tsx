@@ -144,11 +144,11 @@ export function ServiceCheckIsland({ apiBaseUrl, accountBaseUrl }: Props) {
     await checkEligibility(selected);
   }
 
-  const signupHref = `${accountBaseUrl}/signup?addressLine1=${encodeURIComponent(
-    selected?.addressLine1 || "",
-  )}&city=${encodeURIComponent(selected?.city || "")}&state=${encodeURIComponent(
-    selected?.state || "",
-  )}&postalCode=${encodeURIComponent(selected?.postalCode || "")}&source=eligibility`;
+  const signupHref = `/signup?addressLine1=${encodeURIComponent(selected?.addressLine1 || "")}&city=${encodeURIComponent(
+    selected?.city || "",
+  )}&state=${encodeURIComponent(selected?.state || "")}&postalCode=${encodeURIComponent(
+    selected?.postalCode || "",
+  )}&source=eligibility`;
   const loginHref = `${accountBaseUrl}/login?next=/app`;
   const waitlistHref = `/waitlist?postalCode=${encodeURIComponent(
     selected?.postalCode || "",

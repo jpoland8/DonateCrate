@@ -31,8 +31,23 @@ const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUB
       </nav>
       <div class="site-actions">
         <a class="button button--quiet" href={`${accountBaseUrl}/login?next=/app`}>Login</a>
-        <a class="button" href={`${accountBaseUrl}/signup`}>Create Account</a>
+        <a class="button" href="/signup">Create Account</a>
       </div>
+      <details class="site-mobile-menu">
+        <summary>Menu</summary>
+        <div class="site-mobile-menu__panel">
+          <nav class="site-mobile-nav">
+            <a href="/how-it-works">How It Works</a>
+            <a href="/what-we-take">What We Take</a>
+            <a href="/neighborhoods">Neighborhoods</a>
+            <a href="/faq">FAQ</a>
+          </nav>
+          <div class="site-mobile-actions">
+            <a class="button button--quiet" href={`${accountBaseUrl}/login?next=/app`}>Login</a>
+            <a class="button" href="/signup">Create Account</a>
+          </div>
+        </div>
+      </details>
     </header>
     <slot />
     <footer class="site-footer">
@@ -50,7 +65,7 @@ const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUB
       </div>
       <div class="site-footer__links">
         <a href={`${accountBaseUrl}/login?next=/app`}>Customer Login</a>
-        <a href={`${accountBaseUrl}/signup`}>Signup</a>
+        <a href="/signup">Signup</a>
       </div>
     </footer>
   </body>

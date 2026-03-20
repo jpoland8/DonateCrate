@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createCorrelationId, getAuthenticatedContext } from "@/lib/api-auth";
+import { buildNotificationEmailContent, getSmtpConfigError } from "@/lib/email";
 import { getNotificationRetryState } from "@/lib/notification-health";
 import { normalizeToE164US } from "@/lib/twilio";
 
@@ -104,35 +105,72 @@ export async function POST(request: Request) {
   }
 
   const [{ data: users }, { data: preferences }] = await Promise.all([
-    ctx.supabase.from("users").select("id,phone").in("id", userIds),
-    ctx.supabase.from("notification_preferences").select("user_id,sms_enabled").in("user_id", userIds),
+    ctx.supabase.from("users").select("id,email,full_name,phone").in("id", userIds),
+    ctx.supabase.from("notification_preferences").select("user_id,sms_enabled,email_enabled").in("user_id", userIds),
   ]);
 
-  const smsPreference = new Map((preferences ?? []).map((item) => [item.user_id, item.sms_enabled]));
-  const rows = (users ?? [])
-    .map((user) => {
+  const smtpReady = !getSmtpConfigError();
+  const preferenceMap = new Map((preferences ?? []).map((item) => [item.user_id, item]));
+  const rows = (users ?? []).flatMap((user) => {
+      const prefs = preferenceMap.get(user.id);
       const to = normalizeToE164US(user.phone);
-      const smsEnabled = smsPreference.has(user.id) ? smsPreference.get(user.id) === true : true;
-      if (!to || !smsEnabled) return null;
+      const smsEnabled = prefs ? prefs.sms_enabled === true : true;
+      const emailEnabled = prefs ? prefs.email_enabled === true : true;
+      const eventType =
+        cadence === "72h"
+          ? "pickup_reminder_72h"
+          : cadence === "24h"
+            ? "pickup_reminder_24h"
+            : "pickup_reminder_day_of";
+      const nextRows: Array<Record<string, unknown>> = [];
 
-      return {
-        user_id: user.id,
-        channel: "sms",
-        event_type:
-          cadence === "72h"
-            ? "pickup_reminder_72h"
-            : cadence === "24h"
-              ? "pickup_reminder_24h"
-              : "pickup_reminder_day_of",
-        status: "queued",
-        correlation_id: correlationId,
-        metadata: {
-          to,
-          body: buildReminderMessage(cycle.pickup_date, cadence),
-          pickup_cycle_id: cycle.id,
-          cadence,
-        },
-      };
+      if (to && smsEnabled) {
+        nextRows.push({
+          user_id: user.id,
+          channel: "sms",
+          event_type: eventType,
+          status: "queued",
+          correlation_id: correlationId,
+          metadata: {
+            to,
+            body: buildReminderMessage(cycle.pickup_date, cadence),
+            pickup_cycle_id: cycle.id,
+            pickup_date: cycle.pickup_date,
+            cadence,
+          },
+        });
+      }
+
+      if (smtpReady && user.email && emailEnabled) {
+        const email = buildNotificationEmailContent({
+          eventType,
+          recipient: { email: user.email, fullName: user.full_name },
+          metadata: {
+            pickup_cycle_id: cycle.id,
+            pickup_date: cycle.pickup_date,
+            cadence,
+          },
+        });
+        nextRows.push({
+          user_id: user.id,
+          channel: "email",
+          event_type: eventType,
+          status: "queued",
+          correlation_id: correlationId,
+          metadata: {
+            to: user.email,
+            full_name: user.full_name,
+            pickup_cycle_id: cycle.id,
+            pickup_date: cycle.pickup_date,
+            cadence,
+            subject: email.subject,
+            text: email.text,
+            html: email.html,
+          },
+        });
+      }
+
+      return nextRows;
     })
     .filter(Boolean);
 

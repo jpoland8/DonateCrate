@@ -28,6 +28,47 @@ export function getTwilioConfigError() {
   return null;
 }
 
+export async function getTwilioDeliveryHealth() {
+  const configError = getTwilioConfigError();
+  if (configError) {
+    return { ready: false as const, status: "not_configured" as const, detail: configError };
+  }
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID!;
+  const authToken = process.env.TWILIO_AUTH_TOKEN!;
+  const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+  const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}.json`;
+
+  try {
+    const response = await fetch(endpoint, {
+      headers: {
+        Authorization: `Basic ${auth}`,
+      },
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail =
+        typeof json?.message === "string"
+          ? json.message
+          : typeof json?.error_message === "string"
+            ? json.error_message
+            : "Twilio verification failed";
+      return { ready: false as const, status: "error" as const, detail };
+    }
+    return {
+      ready: true as const,
+      status: "verified" as const,
+      detail: "Twilio credentials authenticated successfully.",
+    };
+  } catch (error) {
+    return {
+      ready: false as const,
+      status: "error" as const,
+      detail: error instanceof Error ? error.message : "Twilio verification failed",
+    };
+  }
+}
+
 export async function sendTwilioSms(params: { to: string; body: string }) {
   const configError = getTwilioConfigError();
   if (configError) {

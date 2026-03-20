@@ -20,10 +20,12 @@ export function AuthShell({
   panelPoints,
   children,
 }: AuthShellProps) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "/";
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f8efe4_0%,#f6f3ee_55%,#f1ece6_100%)] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 pb-4">
-        <Link href="/" className="inline-flex items-center">
+        <a href={siteUrl} className="inline-flex items-center">
           <Image
             src="/images/logo-provided.png"
             alt="DonateCrate"
@@ -31,11 +33,9 @@ export function AuthShell({
             height={48}
             className="h-10 w-auto"
           />
-        </Link>
+        </a>
         <div className="hidden items-center gap-2 text-sm font-semibold text-[var(--dc-gray-700)] sm:flex">
-          <Link href="/" className="rounded-full px-3 py-2 transition hover:bg-white/70 hover:text-black">
-            Marketing Site
-          </Link>
+          <a href={siteUrl} className="rounded-full px-3 py-2 transition hover:bg-white/70 hover:text-black">Home</a>
           <Link href="/login?next=/app" className="rounded-full bg-black px-4 py-2 text-white transition hover:bg-[var(--dc-orange)]">
             Account Access
           </Link>

@@ -121,6 +121,15 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
   }, [notificationEvents, recentPickupRequests]);
 
   const referralValueDollars = (referralStats.totalCreditCents / 100).toFixed(2);
+  const referralLinkLabel = useMemo(() => {
+    if (!referralLink) return "";
+    try {
+      const parsed = new URL(referralLink);
+      return `${parsed.hostname}${parsed.pathname}${parsed.search}`;
+    } catch {
+      return referralLink;
+    }
+  }, [referralLink]);
   const activeSectionMeta =
     section === "referrals"
       ? {
@@ -131,8 +140,8 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
       : section === "settings"
         ? {
             eyebrow: "Settings",
-            title: "Control reminders and review account activity.",
-            detail: "Everything here is about how DonateCrate reaches you and what has happened on your account lately.",
+            title: "Choose how DonateCrate keeps you in the loop.",
+            detail: "Use the simplest setup that works for you. Most households keep billing updates by email and pickup reminders by text.",
           }
         : section === "pickups"
           ? {
@@ -191,15 +200,24 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
 
       {section === "all" || section === "settings" ? (
         <section className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur">
-          <h3 className="text-xl font-bold">Reminder Preferences</h3>
+          <h3 className="text-xl font-bold">How we contact you</h3>
           <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-            Choose how DonateCrate should reach you when your monthly cycle is approaching.
+            Turn reminders on for the channels you actually use. We only send account-related updates such as pickup reminders and billing notices.
           </p>
-          <div className="mt-4 rounded-[1.5rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
-            <p className="text-sm font-semibold text-black">{reminderChannelSummary}</p>
-            <p className="mt-1 text-sm text-[var(--dc-gray-700)]">
-              Quiet hours: {prefs.quiet_hours_start && prefs.quiet_hours_end ? `${prefs.quiet_hours_start} to ${prefs.quiet_hours_end}` : "Not set"}
-            </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <article className="rounded-[1.5rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-gray-700)]">Right now</p>
+              <p className="mt-2 text-sm font-semibold text-black">{reminderChannelSummary}</p>
+              <p className="mt-1 text-sm text-[var(--dc-gray-700)]">
+                Quiet hours: {prefs.quiet_hours_start && prefs.quiet_hours_end ? `${prefs.quiet_hours_start} to ${prefs.quiet_hours_end}` : "Not set"}
+              </p>
+            </article>
+            <article className="rounded-[1.5rem] border border-black/10 bg-white/70 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-gray-700)]">What you can expect</p>
+              <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
+                Email is best for billing and account notices. Text is best for the quick reminder that your bag should go out.
+              </p>
+            </article>
           </div>
           <div className="mt-4 grid gap-3">
             <label className="flex items-start gap-3 rounded-[1.3rem] border border-black/10 bg-white/70 p-4 text-sm shadow-sm">
@@ -256,7 +274,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
                 Copy invite link
               </button>
             </div>
-            <p className="mt-2 break-all text-xs text-white/70">{referralLink}</p>
+            <p className="mt-2 text-xs text-white/70">Share link: {referralLinkLabel}</p>
           </div>
           <div className="grid gap-3 p-5 sm:grid-cols-3">
             <article className="rounded-[1.35rem] border border-black/10 bg-white/70 p-4">
@@ -310,9 +328,9 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
 
       {section === "all" || section === "settings" || section === "pickups" ? (
         <section className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur lg:col-span-2">
-          <h3 className="text-xl font-bold">Recent Account Activity</h3>
+          <h3 className="text-xl font-bold">Recent messages and account activity</h3>
           <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-            Reminders, billing notices, and pickup changes appear here in one running timeline.
+            This is your running history for reminders, billing notices, and pickup changes.
           </p>
           <div className="mt-4 space-y-2">
             {activityFeed.length === 0 ? (
