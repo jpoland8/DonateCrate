@@ -49,6 +49,7 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
   const normalizedReferralCode = parsed.data.referralCode ? normalizeCode(parsed.data.referralCode) : null;
   let referrerUserId: string | null = null;
+  let referralWarning: string | null = null;
 
   if (normalizedReferralCode) {
     const { data: affiliate, error: affiliateError } = await supabase
@@ -61,9 +62,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: affiliateError.message }, { status: 500 });
     }
     if (!affiliate) {
-      return NextResponse.json({ error: "Referral code not found" }, { status: 404 });
+      referralWarning = "Referral code could not be matched, so signup will continue without a referral credit.";
+    } else {
+      referrerUserId = affiliate.user_id;
     }
-    referrerUserId = affiliate.user_id;
   }
 
   const { data, error } = await supabase.auth.admin.createUser({
@@ -175,5 +177,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, userId: data.user?.id ?? null });
+  return NextResponse.json({ ok: true, userId: data.user?.id ?? null, warning: referralWarning });
 }

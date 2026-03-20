@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createCorrelationId, getAuthenticatedContext } from "@/lib/api-auth";
-import { buildNotificationEmailContent, getSmtpConfigError } from "@/lib/email";
+import { buildNotificationEmailContent, getEmailConfigError } from "@/lib/email";
 import { getNotificationRetryState } from "@/lib/notification-health";
 import { normalizeToE164US } from "@/lib/twilio";
 
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     ctx.supabase.from("notification_preferences").select("user_id,sms_enabled,email_enabled").in("user_id", userIds),
   ]);
 
-  const smtpReady = !getSmtpConfigError();
+  const emailReady = !getEmailConfigError();
   const preferenceMap = new Map((preferences ?? []).map((item) => [item.user_id, item]));
   const rows = (users ?? []).flatMap((user) => {
       const prefs = preferenceMap.get(user.id);
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
         });
       }
 
-      if (smtpReady && user.email && emailEnabled) {
+      if (emailReady && user.email && emailEnabled) {
         const email = buildNotificationEmailContent({
           eventType,
           recipient: { email: user.email, fullName: user.full_name },

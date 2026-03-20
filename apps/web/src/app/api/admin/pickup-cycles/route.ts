@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       .from("subscriptions")
       .select("user_id,status")
       .in("user_id", memberUserIds)
-      .in("status", ["trialing", "active", "past_due", "paused"]);
+      .in("status", ["active", "past_due", "paused"]);
 
     if (eligibleSubsError) {
       return NextResponse.json({ error: eligibleSubsError.message }, { status: 500 });

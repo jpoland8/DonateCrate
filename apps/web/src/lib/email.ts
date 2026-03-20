@@ -1,5 +1,3 @@
-import nodemailer from "nodemailer";
-
 type EmailRecipient = {
   email: string | null;
   fullName?: string | null;
@@ -21,17 +19,9 @@ type DeliveryHealth =
   | { ready: false; status: "not_configured" | "error"; detail: string }
   | { ready: true; status: "verified"; detail: string };
 
-let transporterCache: nodemailer.Transporter | null = null;
-
 function getRequiredEnv(name: string) {
   const value = process.env[name];
   return value && value.trim().length > 0 ? value.trim() : null;
-}
-
-function parseSmtpPort(value: string | null) {
-  if (!value) return 587;
-  const port = Number(value);
-  return Number.isFinite(port) && port > 0 ? port : 587;
 }
 
 function escapeHtml(value: string) {
@@ -78,78 +68,82 @@ function buildEmailShell(params: { title: string; intro: string; body: string[];
 </html>`;
 }
 
-export function getSmtpConfigError() {
-  const host = getRequiredEnv("SMTP_HOST");
-  const username = getRequiredEnv("SMTP_USERNAME");
-  const password = getRequiredEnv("SMTP_PASSWORD");
-  const fromEmail = getRequiredEnv("SMTP_FROM_EMAIL");
+export function getEmailConfigError() {
+  const apiKey = getRequiredEnv("RESEND_API_KEY");
+  const from = getRequiredEnv("EMAIL_FROM");
 
-  if (!host) return "SMTP host is not configured";
-  if (!username || !password) return "SMTP username and password are required";
-  if (!fromEmail) return "SMTP from email is not configured";
+  if (!apiKey) return "Resend API key is not configured";
+  if (!from) return "Email from address is not configured";
   return null;
 }
 
-function getTransporter() {
-  if (transporterCache) return transporterCache;
-
-  const configError = getSmtpConfigError();
-  if (configError) {
-    throw new Error(configError);
-  }
-
-  transporterCache = nodemailer.createTransport({
-    host: getRequiredEnv("SMTP_HOST")!,
-    port: parseSmtpPort(getRequiredEnv("SMTP_PORT")),
-    secure: getRequiredEnv("SMTP_SECURE") === "true" || parseSmtpPort(getRequiredEnv("SMTP_PORT")) === 465,
-    auth: {
-      user: getRequiredEnv("SMTP_USERNAME")!,
-      pass: getRequiredEnv("SMTP_PASSWORD")!,
-    },
-  });
-
-  return transporterCache;
-}
-
-export async function getSmtpDeliveryHealth(): Promise<DeliveryHealth> {
-  const configError = getSmtpConfigError();
+export async function getEmailDeliveryHealth(): Promise<DeliveryHealth> {
+  const configError = getEmailConfigError();
   if (configError) {
     return { ready: false, status: "not_configured", detail: configError };
   }
 
   try {
-    await getTransporter().verify();
-    return { ready: true, status: "verified", detail: "SMTP relay authenticated successfully." };
+    const response = await fetch("https://api.resend.com/domains", {
+      headers: {
+        Authorization: `Bearer ${getRequiredEnv("RESEND_API_KEY")!}`,
+      },
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail =
+        typeof json?.message === "string"
+          ? json.message
+          : typeof json?.error === "string"
+            ? json.error
+            : "Resend verification failed";
+      return { ready: false, status: "error", detail };
+    }
+    return { ready: true, status: "verified", detail: "Resend API key authenticated successfully." };
   } catch (error) {
     return {
       ready: false,
       status: "error",
-      detail: error instanceof Error ? error.message : "SMTP verification failed",
+      detail: error instanceof Error ? error.message : "Resend verification failed",
     };
   }
 }
 
-export async function sendSmtpEmail(params: { to: string; subject: string; text: string; html: string }) {
-  const configError = getSmtpConfigError();
+export async function sendEmail(params: { to: string; subject: string; text: string; html: string }) {
+  const configError = getEmailConfigError();
   if (configError) {
     throw new Error(configError);
   }
 
-  const fromName = getRequiredEnv("SMTP_FROM_NAME") || "DonateCrate";
-  const fromEmail = getRequiredEnv("SMTP_FROM_EMAIL")!;
-  const replyTo = getRequiredEnv("SMTP_REPLY_TO") || fromEmail;
-
-  const result = await getTransporter().sendMail({
-    from: `"${fromName}" <${fromEmail}>`,
-    to: params.to,
-    replyTo,
-    subject: params.subject,
-    text: params.text,
-    html: params.html,
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getRequiredEnv("RESEND_API_KEY")!}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: getRequiredEnv("EMAIL_FROM")!,
+      reply_to: getRequiredEnv("EMAIL_REPLY_TO") || undefined,
+      to: [params.to],
+      subject: params.subject,
+      text: params.text,
+      html: params.html,
+    }),
   });
 
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail =
+      typeof json?.message === "string"
+        ? json.message
+        : typeof json?.error === "string"
+          ? json.error
+          : "Resend email request failed";
+    throw new Error(detail);
+  }
+
   return {
-    messageId: typeof result.messageId === "string" ? result.messageId : null,
+    messageId: typeof json?.id === "string" ? json.id : null,
   };
 }
 

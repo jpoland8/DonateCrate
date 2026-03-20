@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
+import { getSafeAppPath } from "@/lib/redirects";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
-  let destination = next || "/home";
+  let destination = getSafeAppPath(next, "/app");
 
   const supabase = await createClient();
   if (code) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  if (destination === "/home") {
+  if (destination === "/app") {
     const {
       data: { user },
     } = await supabase.auth.getUser();

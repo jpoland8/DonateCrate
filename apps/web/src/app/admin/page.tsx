@@ -158,7 +158,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     supabase
       .from("subscriptions")
       .select("id", { count: "exact", head: true })
-      .in("status", ["active", "trialing"]),
+      .in("status", ["active"]),
     supabase.from("drivers").select("id", { count: "exact", head: true }).eq("active", true),
     supabase.from("routes").select("id", { count: "exact", head: true }),
   ]);

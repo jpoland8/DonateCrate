@@ -80,7 +80,7 @@ export async function POST() {
 
   const hasExistingStripeSub =
     Boolean(existingSubscription?.stripe_subscription_id) &&
-    ["trialing", "active", "past_due", "paused"].includes(existingSubscription?.status || "");
+    ["active", "past_due", "paused"].includes(existingSubscription?.status || "");
   if (hasExistingStripeSub) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const billingPortal = await stripe.billingPortal.sessions.create({
@@ -109,17 +109,9 @@ export async function POST() {
       .update({
         pricing_plan_id: activePlan.id,
         stripe_customer_id: stripeCustomerId,
-        status: "trialing",
         updated_at: new Date().toISOString(),
       })
       .eq("id", existingSubscription.id);
-  } else {
-    await supabaseAdmin.from("subscriptions").insert({
-      user_id: ctx.profile.id,
-      pricing_plan_id: activePlan.id,
-      stripe_customer_id: stripeCustomerId,
-      status: "trialing",
-    });
   }
 
   return NextResponse.json({ ok: true, url: checkoutSession.url });

@@ -8,6 +8,11 @@ type Props = {
 
 const { title, description } = Astro.props;
 const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUBLIC_APP_URL || "http://localhost:3000";
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || "https://donatecrate-site.pages.dev";
+const currentUrl = new URL(Astro.request.url);
+const canonicalUrl = new URL(currentUrl.pathname + currentUrl.search, siteUrl).toString();
+const ogImageUrl = new URL("/images/hero-doorstep.jpg", siteUrl).toString();
+const iconUrl = new URL("/favicon.svg", siteUrl).toString();
 ---
 
 <!doctype html>
@@ -17,6 +22,19 @@ const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUB
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" type="image/svg+xml" href={iconUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="DonateCrate" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:alt" content="DonateCrate orange pickup bag at a front door" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
   </head>
   <body>
     <header class="site-header">

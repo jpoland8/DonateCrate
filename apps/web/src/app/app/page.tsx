@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { formatCycleStatus, getCustomerNextStep, getCycleUrgency, getNextReminderLabel } from "@/lib/customer-cycle";
 import { CustomerActions } from "./customer-actions";
@@ -18,9 +17,6 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   const checkoutStatus = params.checkout === "success" || params.checkout === "canceled" ? params.checkout : null;
   const onboardingCreated = params.onboarding === "created";
   const supabase = await createClient();
-  const cookieStore = await cookies();
-  const testBypassEnabled = process.env.ENABLE_TEST_BYPASS === "true";
-  const testBypass = testBypassEnabled && cookieStore.get("dc_test_bypass")?.value === "1";
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -115,9 +111,8 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   ];
   const hasActiveBilling =
     subscription?.status === "active" ||
-    subscription?.status === "trialing" ||
     subscription?.status === "paused";
-  const portalUnlocked = hasActiveBilling || testBypass;
+  const portalUnlocked = hasActiveBilling;
 
   if (!portalUnlocked) {
     return (

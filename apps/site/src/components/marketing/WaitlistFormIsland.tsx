@@ -9,8 +9,12 @@ type Props = {
 export function WaitlistFormIsland({ apiBaseUrl }: Props) {
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [signupUrl, setSignupUrl] = useState("");
   const [defaults, setDefaults] = useState({
     referralCode: "",
+    fullName: "",
+    email: "",
+    phone: "",
     addressLine1: "",
     city: "",
     state: "TN",
@@ -21,6 +25,9 @@ export function WaitlistFormIsland({ apiBaseUrl }: Props) {
     const params = new URLSearchParams(window.location.search);
     setDefaults({
       referralCode: params.get("ref") || "",
+      fullName: params.get("fullName") || "",
+      email: params.get("email") || "",
+      phone: params.get("phone") || "",
       addressLine1: params.get("addressLine1") || "",
       city: params.get("city") || "",
       state: params.get("state") || "TN",
@@ -57,11 +64,13 @@ export function WaitlistFormIsland({ apiBaseUrl }: Props) {
       if (!response.ok) {
         setStatus("error");
         setMessage(json.message || json.error || "Unable to join the waitlist.");
+        setSignupUrl(typeof json.signupUrl === "string" ? json.signupUrl : "");
         return;
       }
 
       setStatus("success");
       setMessage(json.message || "You are on the waitlist.");
+      setSignupUrl("");
       event.currentTarget.reset();
     } catch (error) {
       setStatus("error");
@@ -71,9 +80,9 @@ export function WaitlistFormIsland({ apiBaseUrl }: Props) {
 
   return (
     <form className="waitlist-form" onSubmit={onSubmit}>
-      <input name="fullName" required placeholder="Full name" />
-      <input name="email" type="email" required placeholder="Email" />
-      <input name="phone" placeholder="Phone (optional)" />
+      <input name="fullName" required defaultValue={defaults.fullName} placeholder="Full name" />
+      <input name="email" type="email" required defaultValue={defaults.email} placeholder="Email" />
+      <input name="phone" defaultValue={defaults.phone} placeholder="Phone (optional)" />
       <input name="referralCode" defaultValue={defaults.referralCode} placeholder="Referral code (optional)" />
       <input
         name="addressLine1"
@@ -90,6 +99,13 @@ export function WaitlistFormIsland({ apiBaseUrl }: Props) {
         {status === "sending" ? "Joining..." : "Join Waitlist"}
       </button>
       {message ? <p className={`waitlist-form__message waitlist-form__message--${status}`}>{message}</p> : null}
+      {status === "error" && signupUrl ? (
+        <p className="waitlist-form__message">
+          <a href={signupUrl} style={{ fontWeight: 700, textDecoration: "underline" }}>
+            Continue to signup instead
+          </a>
+        </p>
+      ) : null}
     </form>
   );
 }

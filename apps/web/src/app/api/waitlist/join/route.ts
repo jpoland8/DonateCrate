@@ -46,11 +46,23 @@ export async function POST(request: Request) {
       postalCode: input.postalCode,
     });
 
+    const signupParams = new URLSearchParams({
+      addressLine1: input.addressLine1,
+      city: input.city,
+      state: input.state.toUpperCase(),
+      postalCode: input.postalCode,
+      fullName: input.fullName,
+      email: input.email.toLowerCase(),
+    });
+    if (input.phone) signupParams.set("phone", input.phone);
+    if (input.referralCode) signupParams.set("ref", input.referralCode);
+
     if (eligibility.status === "active") {
       return NextResponse.json(
         {
           error: "Address is already eligible",
           message: "This address appears active. Continue to signup instead of waitlist.",
+          signupUrl: `/signup?${signupParams.toString()}`,
         },
         { status: 409, headers: corsHeaders },
       );

@@ -92,7 +92,7 @@ async function resolveRecipientCandidates(
       .from("subscriptions")
       .select("user_id,status")
       .in("user_id", candidateIds)
-      .in("status", ["active", "trialing"]),
+      .in("status", ["active"]),
     ctx.supabase.from("notification_preferences").select("user_id,sms_enabled").in("user_id", candidateIds),
   ]);
 

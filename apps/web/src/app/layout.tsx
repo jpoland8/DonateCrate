@@ -15,9 +15,33 @@ const bodyFont = Roboto({
   weight: ["300", "400", "500", "700"],
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
   title: "DonateCrate",
   description: "Neighborhood donation pickup built for consistent monthly giving.",
+  metadataBase: new URL(appUrl),
+  icons: {
+    icon: "/favicon.svg",
+  },
+  openGraph: {
+    title: "DonateCrate",
+    description: "Neighborhood donation pickup built for consistent monthly giving.",
+    url: appUrl,
+    siteName: "DonateCrate",
+    images: [
+      {
+        url: "/images/hero-doorstep.jpg",
+        alt: "DonateCrate orange pickup bag at a front door",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DonateCrate",
+    description: "Neighborhood donation pickup built for consistent monthly giving.",
+    images: ["/images/hero-doorstep.jpg"],
+  },
 };
 
 export default function RootLayout({

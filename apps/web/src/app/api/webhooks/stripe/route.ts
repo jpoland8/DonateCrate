@@ -12,18 +12,32 @@ async function handleCheckoutCompleted(params: {
   const { supabase, session } = params;
   const appUserId = session.metadata?.app_user_id;
   const pricingPlanId = session.metadata?.pricing_plan_id;
-  if (!appUserId) return;
+  const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
+  const stripeSubscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+  if (!appUserId || !stripeCustomerId || !stripeSubscriptionId) return;
 
-  await supabase
+  const updateResult = await supabase
     .from("subscriptions")
     .update({
       pricing_plan_id: pricingPlanId ?? null,
-      stripe_subscription_id: typeof session.subscription === "string" ? session.subscription : null,
+      stripe_customer_id: stripeCustomerId,
+      stripe_subscription_id: stripeSubscriptionId,
       status: "active",
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", appUserId)
-    .eq("stripe_customer_id", String(session.customer));
+    .select("id")
+    .limit(1);
+
+  if ((updateResult.data?.length ?? 0) === 0) {
+    await supabase.from("subscriptions").insert({
+      user_id: appUserId,
+      pricing_plan_id: pricingPlanId ?? null,
+      stripe_customer_id: stripeCustomerId,
+      stripe_subscription_id: stripeSubscriptionId,
+      status: "active",
+    });
+  }
 
   await creditQualifiedReferralIfEligible({ supabase, referredUserId: appUserId });
 }
@@ -69,7 +83,7 @@ async function handleSubscriptionStatusEvent(params: {
     .eq("stripe_subscription_id", subscriptionId)
     .maybeSingle();
 
-  if ((normalizedStatus === "active" || normalizedStatus === "trialing") && subscriptionRow?.user_id) {
+  if (normalizedStatus === "active" && subscriptionRow?.user_id) {
     await creditQualifiedReferralIfEligible({ supabase, referredUserId: subscriptionRow.user_id });
   }
 

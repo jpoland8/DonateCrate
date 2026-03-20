@@ -263,7 +263,7 @@ function getBillingStatusTone(status: string) {
     case "active":
       return "border-emerald-400/35 bg-emerald-400/12 text-emerald-100";
     case "trialing":
-      return "border-sky-400/35 bg-sky-400/12 text-sky-100";
+      return "border-slate-400/35 bg-slate-400/12 text-slate-100";
     case "past_due":
       return "border-amber-400/35 bg-amber-400/12 text-amber-100";
     case "paused":
@@ -284,7 +284,7 @@ function getBillingStatusExplanation(subscription: AdminData["subscriptions"][nu
     case "active":
       return "Account is in good standing and should renew automatically on the next billing date.";
     case "trialing":
-      return `Customer is in trial. Stripe should start charging at the end of the current period on ${formatDate(subscription.currentPeriodEnd)}.`;
+      return "Customer began checkout but billing has not fully activated yet. Ask them to complete payment before pickup access is restored.";
     case "past_due":
       return "Stripe could not collect the latest invoice. Payment details and invoice status need review.";
     case "paused":
@@ -316,7 +316,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   const [logisticsMessage, setLogisticsMessage] = useState("");
   const [subscriptionSearch, setSubscriptionSearch] = useState("");
   const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState<
-    "all" | "trialing" | "active" | "past_due" | "paused" | "canceled"
+    "all" | "active" | "past_due" | "paused" | "canceled"
   >("all");
   const [subscriptionActionState, setSubscriptionActionState] = useState<{ id: string; action: string } | null>(null);
   const [selectedSubscriptionId, setSelectedSubscriptionId] = useState("");
@@ -1311,9 +1311,9 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
 
           <div className="grid gap-4 lg:grid-cols-4">
             <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
-              <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Active or Trialing</p>
+              <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Active Subscribers</p>
               <p className="mt-3 text-3xl font-bold">
-                {data.subscriptions.filter((subscription) => ["active", "trialing"].includes(subscription.status)).length}
+                {data.subscriptions.filter((subscription) => subscription.status === "active").length}
               </p>
             </article>
             <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
@@ -1356,14 +1356,13 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                   value={subscriptionStatusFilter}
                   onChange={(event) =>
                     setSubscriptionStatusFilter(
-                      event.target.value as "all" | "trialing" | "active" | "past_due" | "paused" | "canceled",
+                      event.target.value as "all" | "active" | "past_due" | "paused" | "canceled",
                     )
                   }
                   className="h-11 rounded-xl border px-3 text-sm"
                   style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
                 >
                   <option value="all">All statuses</option>
-                  <option value="trialing">Trialing</option>
                   <option value="active">Active</option>
                   <option value="past_due">Past due</option>
                   <option value="paused">Paused</option>
@@ -2388,7 +2387,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-white/65">Email delivery</p>
-                    <h4 className="mt-2 text-lg font-semibold text-white">SMTP relay</h4>
+                    <h4 className="mt-2 text-lg font-semibold text-white">Resend</h4>
                   </div>
                   <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
                     {communicationHealth.email?.ready ? "Verified" : communicationHealth.email?.configured ? "Needs attention" : "Setup needed"}
@@ -2398,10 +2397,10 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                   {communicationHealth.email?.detail || "Email channel status will appear here once loaded."}
                 </p>
                 <p className="mt-3 text-xs text-white/60">
-                  From: {communicationHealth.email?.fromName || "DonateCrate"} {communicationHealth.email?.fromEmail ? `<${communicationHealth.email.fromEmail}>` : ""}
+                  From: {communicationHealth.email?.fromEmail || "Not configured"}
                 </p>
                 <p className="mt-2 text-xs text-white/60">
-                  Relay: {communicationHealth.email?.host || "Not configured"} • {emailNotificationEvents.length} email events logged recently.
+                  Provider: {communicationHealth.email?.host || "Not configured"} • {emailNotificationEvents.length} email events logged recently.
                 </p>
               </div>
             </div>

@@ -7,10 +7,10 @@ import { createClient } from "@/lib/supabase/client";
 
 export function SignupForm() {
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => searchParams.get("email") || "");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState(() => searchParams.get("fullName") || "");
+  const [phone, setPhone] = useState(() => searchParams.get("phone") || "");
   const defaultAddressLine1 = useMemo(() => searchParams.get("addressLine1") || "", [searchParams]);
   const defaultCity = useMemo(() => searchParams.get("city") || "", [searchParams]);
   const defaultState = useMemo(() => searchParams.get("state") || "TN", [searchParams]);
@@ -35,10 +35,13 @@ export function SignupForm() {
       addressLine1,
       city,
       state: stateValue,
+      fullName,
+      email,
     });
+    if (phone.trim()) params.set("phone", phone.trim());
     if (referralCode.trim()) params.set("ref", referralCode.trim());
     return `/waitlist?${params.toString()}`;
-  }, [addressLine1, city, postalCode, referralCode, stateValue]);
+  }, [addressLine1, city, email, fullName, phone, postalCode, referralCode, stateValue]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,7 +91,7 @@ export function SignupForm() {
     }
 
     setStatus("success");
-    setMessage("Account created. Redirecting to billing...");
+    setMessage(registerJson.warning ? `Account created. ${registerJson.warning}` : "Account created. Redirecting to billing...");
     window.location.href = "/app?onboarding=created";
   }
 

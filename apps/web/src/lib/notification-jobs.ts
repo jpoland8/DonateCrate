@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildNotificationEmailContent, sendSmtpEmail } from "@/lib/email";
+import { buildNotificationEmailContent, sendEmail } from "@/lib/email";
 import { getNotificationRetryState } from "@/lib/notification-health";
 import { sendTwilioSms } from "@/lib/twilio";
 
@@ -77,7 +77,7 @@ export async function processNotificationEvent(params: {
       metadata,
     });
 
-    const provider = await sendSmtpEmail({
+    const provider = await sendEmail({
       to,
       subject: email.subject,
       text: email.text,

@@ -3,11 +3,13 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { getSafeAppPath } from "@/lib/redirects";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
   const requestedNextPath = useMemo(() => searchParams.get("next"), [searchParams]);
+  const safeNextPath = useMemo(() => getSafeAppPath(requestedNextPath, "/app"), [requestedNextPath]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"password" | "magic_link">("password");
@@ -26,7 +28,7 @@ export function LoginForm() {
       error = result.error;
       if (!error) {
         if (requestedNextPath) {
-          window.location.href = requestedNextPath;
+          window.location.href = safeNextPath;
           return;
         }
 
@@ -48,7 +50,7 @@ export function LoginForm() {
         return;
       }
     } else {
-      const nextPath = requestedNextPath || "/home";
+      const nextPath = safeNextPath;
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
       const result = await supabase.auth.signInWithOtp({
         email,
@@ -132,7 +134,7 @@ export function LoginForm() {
       </button>
       <p className="text-sm text-[var(--dc-gray-700)]">
         New here?{" "}
-        <Link href="/signup" className="font-semibold text-black underline">
+        <Link href={requestedNextPath ? `/signup?next=${encodeURIComponent(safeNextPath)}` : "/signup"} className="font-semibold text-black underline">
           Create an account
         </Link>
       </p>

@@ -9,7 +9,6 @@ export function PaymentWall({
   checkoutStatus?: "success" | "canceled" | null;
   onboardingCreated?: boolean;
 }) {
-  const allowTestBypass = process.env.NEXT_PUBLIC_ENABLE_TEST_BYPASS === "true";
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -40,24 +39,6 @@ export function PaymentWall({
       }
       setStatus("error");
       setMessage("Checkout URL was not returned.");
-    } catch {
-      setStatus("error");
-      setMessage("Unable to reach billing right now. Please try again.");
-    }
-  }
-
-  async function bypassForTesting() {
-    setStatus("loading");
-    setMessage("");
-    try {
-      const response = await fetchWithTimeout("/api/billing/test-bypass", { method: "POST" });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setStatus("error");
-        setMessage(json.error || "Could not enable test bypass.");
-        return;
-      }
-      window.location.reload();
     } catch {
       setStatus("error");
       setMessage("Unable to reach billing right now. Please try again.");
@@ -99,15 +80,6 @@ export function PaymentWall({
         >
           {status === "loading" ? "Working..." : "Start $5/month Plan"}
         </button>
-        {allowTestBypass ? (
-          <button
-            onClick={bypassForTesting}
-            disabled={status === "loading"}
-            className="rounded-2xl border border-black px-5 py-3 text-sm font-semibold disabled:opacity-70"
-          >
-            Test Bypass
-          </button>
-        ) : null}
       </div>
       <div className="mt-5 grid gap-3 text-sm text-[var(--dc-gray-700)] sm:grid-cols-3">
         <div className="rounded-[1.5rem] bg-[var(--dc-gray-100)] p-4">
