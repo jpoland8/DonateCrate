@@ -1,13 +1,78 @@
 import { redirect } from "next/navigation";
+import Stripe from "stripe";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatCycleStatus, getCustomerNextStep, getCycleUrgency, getNextReminderLabel } from "@/lib/customer-cycle";
 import { CustomerActions } from "./customer-actions";
 import { CustomerPortalTools } from "./customer-portal-tools";
 import { PaymentWall } from "./payment-wall";
 
 type CustomerPageProps = {
-  searchParams?: Promise<{ tab?: string; checkout?: string; onboarding?: string }>;
+  searchParams?: Promise<{ tab?: string; checkout?: string; onboarding?: string; session_id?: string }>;
 };
+
+async function syncCheckoutSuccessIfNeeded(params: { profileId: string; sessionId?: string; checkoutStatus?: "success" | "canceled" | null }) {
+  const { profileId, sessionId, checkoutStatus } = params;
+  if (checkoutStatus !== "success" || !sessionId) return;
+
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecretKey || stripeSecretKey === "placeholder") return;
+
+  const stripe = new Stripe(stripeSecretKey, {
+    httpClient: Stripe.createFetchHttpClient(),
+    maxNetworkRetries: 1,
+    timeout: 20000,
+  });
+  const supabaseAdmin = createSupabaseAdminClient();
+  const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["subscription"] });
+  const appUserId = session.metadata?.app_user_id;
+  if (!appUserId || appUserId !== profileId) return;
+
+  const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
+  const stripeSubscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id ?? null;
+  if (!stripeCustomerId || !stripeSubscriptionId) return;
+
+  const expandedSubscription =
+    session.subscription && typeof session.subscription !== "string"
+      ? (session.subscription as Stripe.Subscription & {
+          current_period_start?: number;
+          current_period_end?: number;
+        })
+      : null;
+  const currentPeriodStart =
+    typeof expandedSubscription?.current_period_start === "number"
+      ? new Date(expandedSubscription.current_period_start * 1000).toISOString()
+      : null;
+  const currentPeriodEnd =
+    typeof expandedSubscription?.current_period_end === "number"
+      ? new Date(expandedSubscription.current_period_end * 1000).toISOString()
+      : null;
+
+  const { data: existingSubscription } = await supabaseAdmin
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", profileId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const payload = {
+    user_id: profileId,
+    pricing_plan_id: session.metadata?.pricing_plan_id ?? null,
+    stripe_customer_id: stripeCustomerId,
+    stripe_subscription_id: stripeSubscriptionId,
+    status: "active",
+    current_period_start: currentPeriodStart,
+    current_period_end: currentPeriodEnd,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existingSubscription?.id) {
+    await supabaseAdmin.from("subscriptions").update(payload).eq("id", existingSubscription.id);
+  } else {
+    await supabaseAdmin.from("subscriptions").insert(payload);
+  }
+}
 
 export default async function CustomerDashboardPage({ searchParams }: CustomerPageProps) {
   const params = (await searchParams) ?? {};
@@ -29,6 +94,13 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   if (!profile?.full_name || profile.full_name.trim().length < 2) {
     redirect("/app/onboarding");
   }
+
+  await syncCheckoutSuccessIfNeeded({
+    profileId: profile.id,
+    sessionId: params.session_id,
+    checkoutStatus,
+  });
+
   const today = new Date().toISOString().slice(0, 10);
   const [{ data: subscription }, { count: creditedReferrals }, { data: latestCycle }] = await Promise.all([
     supabase

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedContext } from "@/lib/api-auth";
 import { getOrCreateAffiliateCode } from "@/lib/referrals";
+import { getSiteUrl } from "@/lib/urls";
 
 export async function GET() {
   const ctx = await getAuthenticatedContext();
@@ -62,7 +63,7 @@ export async function GET() {
     referredEmail: row.referred_user_id ? (emailByUserId.get(row.referred_user_id) ?? null) : null,
   }));
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const siteUrl = getSiteUrl();
 
   return NextResponse.json({
     affiliate,

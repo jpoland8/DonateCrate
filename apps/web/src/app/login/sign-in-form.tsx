@@ -13,8 +13,33 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"password" | "magic_link">("password");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "sending" | "sending_reset" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  async function sendPasswordReset() {
+    if (!email.trim()) {
+      setStatus("error");
+      setMessage("Enter your email first, then use forgot password.");
+      return;
+    }
+
+    setStatus("sending_reset");
+    setMessage("");
+    const response = await fetch("/api/auth/send-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setStatus("error");
+      setMessage(json.error || "Unable to send a password reset right now.");
+      return;
+    }
+
+    setStatus("sent");
+    setMessage(json.message || "Password reset email sent. Check your inbox for the recovery link.");
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,13 +75,19 @@ export function LoginForm() {
         return;
       }
     } else {
-      const nextPath = safeNextPath;
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-      const result = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: redirectTo },
+      const response = await fetch("/api/auth/send-magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, next: safeNextPath }),
       });
-      error = result.error;
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        error = new Error(json.error || "Unable to send a sign-in link right now.");
+      } else {
+        setStatus("sent");
+        setMessage(json.message || "Magic link sent. Check your inbox.");
+        return;
+      }
     }
 
     if (error) {
@@ -119,14 +150,24 @@ export function LoginForm() {
             placeholder="Password"
             className="h-12 w-full rounded-2xl border border-black/15 px-4 outline-none transition focus:border-[var(--dc-orange)]"
           />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={sendPasswordReset}
+              disabled={status === "sending" || status === "sending_reset"}
+              className="text-sm font-semibold text-[var(--dc-orange)] transition hover:text-[var(--dc-orange-strong)] disabled:opacity-60"
+            >
+              {status === "sending_reset" ? "Sending reset..." : "Forgot password?"}
+            </button>
+          </div>
         </div>
       ) : null}
       <button
         type="submit"
-        disabled={status === "sending"}
+        disabled={status === "sending" || status === "sending_reset"}
         className="h-12 w-full rounded-2xl bg-[var(--dc-orange)] font-semibold text-white transition hover:bg-[var(--dc-orange-strong)] disabled:opacity-60"
       >
-        {status === "sending"
+        {status === "sending" || status === "sending_reset"
           ? "Working..."
           : mode === "password"
             ? "Sign In"

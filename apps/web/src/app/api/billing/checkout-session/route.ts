@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { getAppUrl } from "@/lib/urls";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function POST() {
@@ -81,8 +82,8 @@ export async function POST() {
   const hasExistingStripeSub =
     Boolean(existingSubscription?.stripe_subscription_id) &&
     ["active", "past_due", "paused"].includes(existingSubscription?.status || "");
+  const appUrl = getAppUrl();
   if (hasExistingStripeSub) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const billingPortal = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
       return_url: `${appUrl}/app`,
@@ -90,7 +91,6 @@ export async function POST() {
     return NextResponse.json({ ok: true, url: billingPortal.url });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: stripeCustomerId,

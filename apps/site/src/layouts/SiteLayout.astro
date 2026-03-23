@@ -7,8 +7,8 @@ type Props = {
 };
 
 const { title, description } = Astro.props;
-const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUBLIC_APP_URL || "http://localhost:3000";
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || "https://donatecrate-site.pages.dev";
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || "https://donatecrate.com";
+const accountBaseUrl = import.meta.env.PUBLIC_ACCOUNT_URL || import.meta.env.PUBLIC_APP_URL || "https://app.donatecrate.com";
 const currentUrl = new URL(Astro.request.url);
 const canonicalUrl = new URL(currentUrl.pathname + currentUrl.search, siteUrl).toString();
 const ogImageUrl = new URL("/images/hero-doorstep.jpg", siteUrl).toString();
@@ -24,6 +24,14 @@ const iconUrl = new URL("/favicon.svg", siteUrl).toString();
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalUrl} />
     <link rel="icon" type="image/svg+xml" href={iconUrl} />
+    <link
+      rel="preload"
+      as="image"
+      href="/images/hero-doorstep-1200.webp"
+      imagesrcset="/images/hero-doorstep-800.webp 800w, /images/hero-doorstep-1200.webp 1200w"
+      imagesizes="(max-width: 900px) 100vw, 42vw"
+      type="image/webp"
+    />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="DonateCrate" />
     <meta property="og:title" content={title} />
@@ -39,7 +47,14 @@ const iconUrl = new URL("/favicon.svg", siteUrl).toString();
   <body>
     <header class="site-header">
       <a href="/" class="site-logo">
-        <img src="/images/logo-provided.png" alt="DonateCrate" />
+        <picture>
+          <source
+            srcset="/images/logo-provided-260.webp 260w, /images/logo-provided-520.webp 520w"
+            sizes="184px"
+            type="image/webp"
+          />
+          <img src="/images/logo-provided-260.png" alt="DonateCrate" width="184" height="68" />
+        </picture>
       </a>
       <nav class="site-nav">
         <a href="/how-it-works">How It Works</a>
@@ -71,7 +86,14 @@ const iconUrl = new URL("/favicon.svg", siteUrl).toString();
     <footer class="site-footer">
       <div>
         <a href="/" class="site-logo site-logo--footer">
-          <img src="/images/logo-provided.png" alt="DonateCrate" />
+          <picture>
+            <source
+              srcset="/images/logo-provided-260.webp 260w, /images/logo-provided-520.webp 520w"
+              sizes="184px"
+              type="image/webp"
+            />
+            <img src="/images/logo-provided-260.png" alt="DonateCrate" width="184" height="68" />
+          </picture>
         </a>
         <p>Monthly donation pickup designed for neighborhoods that want a cleaner giving habit.</p>
       </div>

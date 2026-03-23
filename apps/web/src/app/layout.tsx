@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Roboto, Roboto_Slab } from "next/font/google";
 import { ClientRecovery } from "@/components/system/client-recovery";
+import { getAppUrl } from "@/lib/urls";
 import "./globals.css";
 
 const headingFont = Roboto_Slab({
@@ -15,7 +16,7 @@ const bodyFont = Roboto({
   weight: ["300", "400", "500", "700"],
 });
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const appUrl = getAppUrl();
 
 export const metadata: Metadata = {
   title: "DonateCrate",

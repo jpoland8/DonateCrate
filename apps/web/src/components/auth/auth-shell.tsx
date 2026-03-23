@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { getSiteUrl } from "@/lib/urls";
 
 type AuthShellProps = {
   eyebrow: string;
@@ -20,14 +21,14 @@ export function AuthShell({
   panelPoints,
   children,
 }: AuthShellProps) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "/";
+  const siteUrl = getSiteUrl();
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f8efe4_0%,#f6f3ee_55%,#f1ece6_100%)] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 pb-4">
         <a href={siteUrl} className="inline-flex items-center">
           <Image
-            src="/images/logo-provided.png"
+            src="/images/logo-provided-520.webp"
             alt="DonateCrate"
             width={190}
             height={48}
@@ -52,10 +53,11 @@ export function AuthShell({
 
             <div className="mt-8 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/6">
               <Image
-                src="/images/hero-doorstep.jpg"
+                src="/images/hero-doorstep-1200.jpg"
                 alt="DonateCrate donation bag waiting on a doorstep"
-                width={900}
-                height={650}
+                width={1200}
+                height={900}
+                sizes="(max-width: 1024px) 100vw, 560px"
                 className="h-64 w-full object-cover"
               />
             </div>

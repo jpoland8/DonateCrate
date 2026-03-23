@@ -4,8 +4,8 @@ export function getSafeAppPath(input: string | null | undefined, fallback = "/ap
   if (input.startsWith("//")) return fallback;
 
   try {
-    const normalized = new URL(input, "https://donatecrate.app");
-    if (normalized.origin !== "https://donatecrate.app") return fallback;
+    const normalized = new URL(input, "https://app.donatecrate.com");
+    if (normalized.origin !== "https://app.donatecrate.com") return fallback;
     return `${normalized.pathname}${normalized.search}${normalized.hash}`;
   } catch {
     return fallback;

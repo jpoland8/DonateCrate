@@ -1,5 +1,12 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getSiteUrl } from "@/lib/urls";
 
-export default function Home() {
-  redirect(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:4321");
+export default async function Home() {
+  const host = (await headers()).get("host") || "";
+  if (host === "app.donatecrate.com") {
+    redirect("/login");
+  }
+
+  redirect(getSiteUrl());
 }

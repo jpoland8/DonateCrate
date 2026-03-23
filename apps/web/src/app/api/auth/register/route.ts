@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { sendBrandedEmail } from "@/lib/email";
 import { checkEligibility } from "@/lib/eligibility";
 import { geocodeAddress } from "@/lib/geocode";
 import { normalizeCode } from "@/lib/referrals";
@@ -174,6 +175,21 @@ export async function POST(request: Request) {
       if (referralError) {
         return NextResponse.json({ error: referralError.message }, { status: 500 });
       }
+    }
+
+    try {
+      await sendBrandedEmail({
+        eventType: "account_welcome",
+        recipient: {
+          email: parsed.data.email.toLowerCase(),
+          fullName: parsed.data.fullName,
+        },
+        metadata: {
+          next_step: "Finish billing to unlock your first pickup request.",
+        },
+      });
+    } catch (emailError) {
+      console.error("Failed to send welcome email", emailError);
     }
   }
 

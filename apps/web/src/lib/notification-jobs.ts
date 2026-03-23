@@ -15,6 +15,39 @@ type NotificationEventRow = {
   metadata?: Record<string, unknown> | null;
 };
 
+export async function createAndProcessNotificationEmail(params: {
+  supabase: SupabaseClient;
+  userId?: string | null;
+  eventType: string;
+  correlationId?: string | null;
+  metadata?: Record<string, unknown> | null;
+}) {
+  const { data: inserted, error: insertError } = await params.supabase
+    .from("notification_events")
+    .insert({
+      user_id: params.userId ?? null,
+      channel: "email",
+      event_type: params.eventType,
+      status: "queued",
+      correlation_id: params.correlationId ?? null,
+      metadata: params.metadata ?? {},
+    })
+    .select("id,user_id,channel,event_type,status,provider_message_id,attempt_count,correlation_id,metadata")
+    .single();
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  return processNotificationEvent({
+    supabase: params.supabase,
+    event: {
+      ...inserted,
+      channel: "email",
+    },
+  });
+}
+
 export async function processNotificationEvent(params: {
   supabase: SupabaseClient;
   event: NotificationEventRow;

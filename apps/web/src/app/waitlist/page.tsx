@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
+import { getSiteUrl } from "@/lib/urls";
 
 export default function WaitlistPage() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:4321";
+  const siteUrl = getSiteUrl();
   redirect(`${siteUrl.replace(/\/$/, "")}/waitlist`);
 }

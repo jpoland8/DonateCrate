@@ -2,14 +2,16 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createCorrelationId } from "@/lib/api-auth";
+import { createAndProcessNotificationEmail } from "@/lib/notification-jobs";
 import { creditQualifiedReferralIfEligible } from "@/lib/referrals";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 async function handleCheckoutCompleted(params: {
   supabase: ReturnType<typeof createSupabaseAdminClient>;
   session: Stripe.Checkout.Session;
+  correlationId: string;
 }) {
-  const { supabase, session } = params;
+  const { supabase, session, correlationId } = params;
   const appUserId = session.metadata?.app_user_id;
   const pricingPlanId = session.metadata?.pricing_plan_id;
   const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
@@ -40,6 +42,20 @@ async function handleCheckoutCompleted(params: {
   }
 
   await creditQualifiedReferralIfEligible({ supabase, referredUserId: appUserId });
+  await createAndProcessNotificationEmail({
+    supabase,
+    userId: appUserId,
+    eventType: "billing_plan_active",
+    correlationId,
+    metadata: {
+      plan_name: "DonateCrate monthly pickup plan",
+      status_label: "Active",
+      dashboard_path: "/app",
+      stripe_customer_id: stripeCustomerId,
+      stripe_subscription_id: stripeSubscriptionId,
+      pricing_plan_id: pricingPlanId ?? null,
+    },
+  });
 }
 
 async function handleSubscriptionStatusEvent(params: {
@@ -90,16 +106,31 @@ async function handleSubscriptionStatusEvent(params: {
   if (event.type === "invoice.payment_failed" && subscriptionRow?.user_id) {
     const hostedInvoiceUrl =
       "hosted_invoice_url" in object && typeof object.hosted_invoice_url === "string" ? object.hosted_invoice_url : null;
-    await supabase.from("notification_events").insert({
-      user_id: subscriptionRow.user_id,
-      channel: "email",
-      event_type: "billing_payment_failed",
-      status: "queued",
-      correlation_id: correlationId,
+    await createAndProcessNotificationEmail({
+      supabase,
+      userId: subscriptionRow.user_id,
+      eventType: "billing_payment_failed",
+      correlationId,
       metadata: {
         stripe_event_type: event.type,
         stripe_subscription_id: subscriptionId,
         invoice_url: hostedInvoiceUrl,
+        plan_name: "DonateCrate monthly pickup plan",
+      },
+    });
+  }
+
+  if (event.type === "customer.subscription.updated" && normalizedStatus === "canceled" && subscriptionRow?.user_id) {
+    await createAndProcessNotificationEmail({
+      supabase,
+      userId: subscriptionRow.user_id,
+      eventType: "billing_subscription_canceled",
+      correlationId,
+      metadata: {
+        stripe_event_type: event.type,
+        stripe_subscription_id: subscriptionId,
+        plan_name: "DonateCrate monthly pickup plan",
+        status_label: "Canceled",
       },
     });
   }
@@ -160,6 +191,7 @@ export async function POST(request: Request) {
         await handleCheckoutCompleted({
           supabase,
           session: event.data.object as Stripe.Checkout.Session,
+          correlationId,
         });
         break;
       }

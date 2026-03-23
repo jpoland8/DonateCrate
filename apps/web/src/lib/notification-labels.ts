@@ -1,7 +1,17 @@
 export function formatNotificationEventType(eventType: string) {
   switch (eventType) {
+    case "account_welcome":
+      return "Account welcome";
+    case "auth_magic_link":
+      return "Magic link sign-in";
+    case "auth_password_reset":
+      return "Password reset";
+    case "billing_plan_active":
+      return "Billing activated";
     case "billing_payment_failed":
       return "Billing payment failed";
+    case "billing_subscription_canceled":
+      return "Billing subscription canceled";
     case "admin_sms_campaign":
       return "Admin SMS campaign";
     case "pickup_reminder_72h":
