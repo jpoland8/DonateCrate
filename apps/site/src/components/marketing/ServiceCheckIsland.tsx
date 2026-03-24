@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { trackMeta, trackMetaCustom } from "../../lib/meta-pixel";
 
 type Prediction = {
   placeId: string;
@@ -67,6 +68,11 @@ export function ServiceCheckIsland({ apiBaseUrl, accountBaseUrl }: Props) {
         return;
       }
       setResult(json);
+      trackMetaCustom("AddressSearched", {
+        postal_code: address.postalCode,
+        state: address.state,
+        city: address.city,
+      });
     } catch (fetchError) {
       setError(String(fetchError));
     } finally {
@@ -236,14 +242,22 @@ export function ServiceCheckIsland({ apiBaseUrl, accountBaseUrl }: Props) {
 
           {result.status === "active" ? (
             <div className="service-check__actions">
-              <a href={signupHref}>Create my account</a>
+              <a
+                href={signupHref}
+              >
+                Create my account
+              </a>
               <a href={loginHref} className="service-check__link">
                 I already have an account
               </a>
             </div>
           ) : (
             <div className="service-check__actions">
-              <a href={waitlistHref}>Join the waitlist</a>
+              <a
+                href={waitlistHref}
+              >
+                Join the waitlist
+              </a>
               <p>We will save your address details so joining later is easier when your area opens up.</p>
             </div>
           )}

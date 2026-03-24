@@ -1,9 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
-export function ResetPasswordForm() {
+export function ResetPasswordForm({ tokenHash }: { tokenHash: string | null }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -25,19 +24,29 @@ export function ResetPasswordForm() {
       return;
     }
 
-    setStatus("saving");
-    const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
+    if (!tokenHash) {
       setStatus("error");
-      setMessage(error.message);
+      setMessage("This reset link is incomplete. Request another password reset.");
+      return;
+    }
+
+    setStatus("saving");
+    const response = await fetch("/api/auth/complete-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokenHash, password }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setStatus("error");
+      setMessage(json.error || "Unable to reset your password right now.");
       return;
     }
 
     setStatus("saved");
-    setMessage("Password updated. Taking you back to your account.");
+    setMessage(json.message || "Password updated. Taking you to sign in.");
     window.setTimeout(() => {
-      window.location.href = "/app";
+      window.location.href = "/login?reset=success";
     }, 1200);
   }
 
@@ -79,7 +88,7 @@ export function ResetPasswordForm() {
         {status === "saving" ? "Saving..." : "Update Password"}
       </button>
       <p className="text-sm text-[var(--dc-gray-700)]">
-        This link is only for password recovery. Once your password is saved, we will send you back into the app.
+        This link is only for password recovery. Once your password is saved, sign in with your new password.
       </p>
       {message ? (
         <p className={`text-sm ${status === "error" ? "text-red-600" : "text-green-700"}`}>{message}</p>

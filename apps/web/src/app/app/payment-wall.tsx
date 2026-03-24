@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackMeta } from "@/lib/meta-pixel";
 
 export function PaymentWall({
   checkoutStatus,
@@ -34,6 +35,11 @@ export function PaymentWall({
         return;
       }
       if (json.url) {
+        trackMeta("InitiateCheckout", {
+          currency: "USD",
+          value: 5,
+          content_name: "monthly_pickup_plan",
+        });
         window.location.href = json.url;
         return;
       }

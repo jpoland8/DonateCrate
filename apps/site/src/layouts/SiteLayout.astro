@@ -13,6 +13,7 @@ const currentUrl = new URL(Astro.request.url);
 const canonicalUrl = new URL(currentUrl.pathname + currentUrl.search, siteUrl).toString();
 const ogImageUrl = new URL("/images/hero-doorstep.jpg", siteUrl).toString();
 const iconUrl = new URL("/favicon.svg", siteUrl).toString();
+const metaPixelId = import.meta.env.PUBLIC_META_PIXEL_ID;
 ---
 
 <!doctype html>
@@ -43,6 +44,33 @@ const iconUrl = new URL("/favicon.svg", siteUrl).toString();
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageUrl} />
+    {metaPixelId ? (
+      <>
+        <script is:inline define:vars={{ metaPixelId }}>
+          {`
+            !function(f,b,e,v,n,t,s)
+            {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+            n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+            if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+            n.queue=[];t=b.createElement(e);t.async=!0;
+            t.src=v;s=b.getElementsByTagName(e)[0];
+            s.parentNode.insertBefore(t,s)}(window, document,'script',
+            'https://connect.facebook.net/en_US/fbevents.js');
+            fbq('init', metaPixelId);
+            fbq('track', 'PageView');
+          `}
+        </script>
+        <noscript>
+          <img
+            height="1"
+            width="1"
+            style="display:none"
+            src={`https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1`}
+            alt=""
+          />
+        </noscript>
+      </>
+    ) : null}
   </head>
   <body>
     <header class="site-header">

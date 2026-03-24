@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { trackMeta, trackMetaCustom } from "@/lib/meta-pixel";
 import { createClient } from "@/lib/supabase/client";
 
 export function SignupForm() {
@@ -91,6 +92,11 @@ export function SignupForm() {
     }
 
     setStatus("success");
+    trackMetaCustom("AccountCreated", {
+      postal_code: postalCode,
+      state: stateValue,
+      has_referral: Boolean(referralCode.trim()),
+    });
     setMessage(registerJson.warning ? `Account created. ${registerJson.warning}` : "Account created. Redirecting to billing...");
     window.location.href = "/app?onboarding=created";
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildAuthCallbackLink } from "@/lib/auth-links";
 import { sendBrandedEmail } from "@/lib/email";
 import { getAppUrl } from "@/lib/urls";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -44,15 +45,21 @@ export async function POST(request: Request) {
     },
   });
 
-  if (linkError || !linkData.properties?.action_link) {
+  if (linkError || !linkData.properties?.hashed_token) {
     return NextResponse.json({ error: linkError?.message ?? "Could not generate a recovery link." }, { status: 500 });
   }
+
+  const actionLink = buildAuthCallbackLink({
+    tokenHash: linkData.properties.hashed_token,
+    type: "recovery",
+    nextPath: "/reset-password",
+  });
 
   await sendBrandedEmail({
     eventType: "auth_password_reset",
     recipient: { email, fullName: userProfile.full_name },
     metadata: {
-      reset_link: linkData.properties.action_link,
+      reset_link: actionLink,
     },
   });
 

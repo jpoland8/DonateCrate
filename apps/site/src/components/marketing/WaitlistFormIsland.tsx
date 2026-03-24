@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
+import { trackMeta, trackMetaCustom } from "../../lib/meta-pixel";
 
 type Props = {
   apiBaseUrl: string;
@@ -71,6 +72,10 @@ export function WaitlistFormIsland({ apiBaseUrl }: Props) {
       setStatus("success");
       setMessage(json.message || "You are on the waitlist.");
       setSignupUrl("");
+      trackMetaCustom("WaitlistJoined", {
+        postal_code: payload.postalCode,
+        state: payload.state,
+      });
       event.currentTarget.reset();
     } catch (error) {
       setStatus("error");

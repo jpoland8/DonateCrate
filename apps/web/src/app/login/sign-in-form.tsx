@@ -52,11 +52,6 @@ export function LoginForm() {
       const result = await supabase.auth.signInWithPassword({ email, password });
       error = result.error;
       if (!error) {
-        if (requestedNextPath) {
-          window.location.href = safeNextPath;
-          return;
-        }
-
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -68,10 +63,11 @@ export function LoginForm() {
             .maybeSingle();
 
           const roleHome = profile?.role === "admin" || profile?.role === "driver" ? "/admin" : "/app";
-          window.location.href = roleHome;
+          const destination = requestedNextPath && safeNextPath !== "/app" ? safeNextPath : roleHome;
+          window.location.href = destination;
           return;
         }
-        window.location.href = "/app";
+        window.location.href = requestedNextPath && safeNextPath !== "/app" ? safeNextPath : "/app";
         return;
       }
     } else {

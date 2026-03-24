@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildAuthCallbackLink } from "@/lib/auth-links";
 import { sendBrandedEmail } from "@/lib/email";
 import { getSafeAppPath } from "@/lib/redirects";
 import { getAppUrl } from "@/lib/urls";
@@ -47,15 +48,21 @@ export async function POST(request: Request) {
     },
   });
 
-  if (linkError || !linkData.properties?.action_link) {
+  if (linkError || !linkData.properties?.hashed_token) {
     return NextResponse.json({ error: linkError?.message ?? "Could not generate a sign-in link." }, { status: 500 });
   }
+
+  const actionLink = buildAuthCallbackLink({
+    tokenHash: linkData.properties.hashed_token,
+    type: "magiclink",
+    nextPath: safeNextPath,
+  });
 
   await sendBrandedEmail({
     eventType: "auth_magic_link",
     recipient: { email, fullName: userProfile.full_name },
     metadata: {
-      magic_link: linkData.properties.action_link,
+      magic_link: actionLink,
     },
   });
 

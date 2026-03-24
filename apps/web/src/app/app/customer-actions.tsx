@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatCycleStatus, getCycleUrgency } from "@/lib/customer-cycle";
+import { trackMeta } from "@/lib/meta-pixel";
 
 type ActionState = "idle" | "loading" | "error" | "success";
 
@@ -83,6 +84,11 @@ export function CustomerActions({
         return;
       }
       if (json.url) {
+        trackMeta("InitiateCheckout", {
+          currency: "USD",
+          value: 5,
+          content_name: "monthly_pickup_plan",
+        });
         window.location.href = json.url;
         return;
       }

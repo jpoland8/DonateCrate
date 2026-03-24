@@ -6,6 +6,7 @@ import { formatCycleStatus, getCustomerNextStep, getCycleUrgency, getNextReminde
 import { CustomerActions } from "./customer-actions";
 import { CustomerPortalTools } from "./customer-portal-tools";
 import { PaymentWall } from "./payment-wall";
+import { SubscribedTracker } from "./subscribed-tracker";
 
 type CustomerPageProps = {
   searchParams?: Promise<{ tab?: string; checkout?: string; onboarding?: string; session_id?: string }>;
@@ -203,6 +204,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-8">
+      <SubscribedTracker enabled={checkoutStatus === "success"} />
       <header className="overflow-hidden rounded-[2rem] border border-white/70 bg-[rgba(255,255,255,0.78)] shadow-[0_22px_60px_rgba(17,24,39,0.08)] backdrop-blur">
         <div className="bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#ff6a00_180%)] p-5 text-white sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">

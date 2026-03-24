@@ -59,23 +59,37 @@ async function handleCheckoutCompleted(params: {
 }
 
 async function handleSubscriptionStatusEvent(params: {
+  stripe: Stripe;
   supabase: ReturnType<typeof createSupabaseAdminClient>;
   event: Stripe.Event;
   correlationId: string;
 }) {
-  const { supabase, event, correlationId } = params;
-  const object = event.data.object as Stripe.Invoice | Stripe.Subscription;
-  const subscriptionId =
-    "subscription" in object
-      ? (typeof object.subscription === "string" ? object.subscription : null)
-      : object.id;
+  const { stripe, supabase, event, correlationId } = params;
+  const object = event.data.object as Stripe.Invoice | Stripe.Subscription | Stripe.InvoicePayment;
+  let subscriptionId: string | null = null;
+
+  if (object.object === "invoice") {
+    const invoiceSubscription = (object as Stripe.Invoice & { subscription?: string | { id?: string } | null }).subscription;
+    subscriptionId =
+      typeof invoiceSubscription === "string" ? invoiceSubscription : invoiceSubscription?.id ?? null;
+  } else if (object.object === "invoice_payment") {
+    const invoiceId = typeof object.invoice === "string" ? object.invoice : object.invoice?.id ?? null;
+    if (invoiceId) {
+      const invoice = await stripe.invoices.retrieve(invoiceId);
+      const invoiceSubscription = (invoice as Stripe.Invoice & { subscription?: string | { id?: string } | null }).subscription;
+      subscriptionId =
+        typeof invoiceSubscription === "string" ? invoiceSubscription : invoiceSubscription?.id ?? null;
+    }
+  } else if (object.object === "subscription") {
+    subscriptionId = object.id;
+  }
 
   if (!subscriptionId) return;
 
   const status =
     event.type === "invoice.payment_failed"
       ? "past_due"
-      : event.type === "invoice.paid"
+      : event.type === "invoice.paid" || event.type === "invoice.payment_succeeded" || event.type === "invoice_payment.paid"
         ? "active"
         : "status" in object
           ? object.status
@@ -196,9 +210,11 @@ export async function POST(request: Request) {
         break;
       }
       case "invoice.paid":
+      case "invoice.payment_succeeded":
       case "invoice.payment_failed":
+      case "invoice_payment.paid":
       case "customer.subscription.updated": {
-        await handleSubscriptionStatusEvent({ supabase, event, correlationId });
+        await handleSubscriptionStatusEvent({ stripe, supabase, event, correlationId });
         break;
       }
       default:

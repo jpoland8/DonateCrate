@@ -1,7 +1,12 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { ResetPasswordForm } from "./reset-password-form";
 
-export default function ResetPasswordPage() {
+type ResetPasswordPageProps = {
+  searchParams?: Promise<{ token_hash?: string }>;
+};
+
+export default async function ResetPasswordPage({ searchParams }: ResetPasswordPageProps) {
+  const params = (await searchParams) ?? {};
   return (
     <AuthShell
       eyebrow="Password Recovery"
@@ -21,7 +26,7 @@ export default function ResetPasswordPage() {
         Enter your new password below. When it saves successfully, we will take you back to the app automatically.
       </p>
       <div className="mt-6">
-        <ResetPasswordForm />
+        <ResetPasswordForm tokenHash={params.token_hash ?? null} />
       </div>
     </AuthShell>
   );
