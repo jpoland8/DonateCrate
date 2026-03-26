@@ -1,17 +1,21 @@
 "use client";
 
+import { isDemoOnlyZone } from "@/lib/zone-flags";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { GlobalAppRole } from "@/lib/access";
 import { getNotificationRetryState } from "@/lib/notification-health";
 import { formatNotificationChannel, formatNotificationEventType, formatNotificationStatus } from "@/lib/notification-labels";
 
-type WorkspaceSection = "overview" | "pickups" | "logistics" | "people" | "zones" | "billing" | "growth" | "communication";
+type WorkspaceSection = "overview" | "pickups" | "logistics" | "people" | "network" | "billing" | "growth" | "communication";
+type NetworkSubtab = "zones" | "partners";
+type PeopleSubtab = "customers" | "staff";
 
 type AdminUser = {
   id: string;
   email: string;
   full_name: string | null;
   phone: string | null;
-  role: "customer" | "admin" | "driver";
+  role: GlobalAppRole;
   created_at: string;
   primary_address: {
     address_line1: string;
@@ -114,6 +118,44 @@ type AdminData = {
     };
   }>;
   referrals: Array<{ id: string; referral_code: string; status: string; referrer_email: string | null; referred_email: string | null }>;
+  partners: Array<{
+    id: string;
+    code: string;
+    name: string;
+    legal_name: string | null;
+    support_email: string | null;
+    support_phone: string | null;
+    address_line1: string | null;
+    city: string | null;
+    state: string | null;
+    postal_code: string | null;
+    about_paragraph: string | null;
+    active: boolean;
+    receipt_mode: "partner_issued" | "platform_on_behalf" | "manual";
+    payout_model: "inventory_only" | "revenue_share" | "hybrid";
+    platform_share_bps: number;
+    partner_share_bps: number;
+    notes: string | null;
+    branding: {
+      display_name: string | null;
+      logo_url: string | null;
+      primary_color: string | null;
+      secondary_color: string | null;
+      accent_color: string | null;
+      website_url: string | null;
+      receipt_footer: string | null;
+    } | null;
+    members: Array<{
+      id: string;
+      user_id: string;
+      email: string;
+      full_name: string | null;
+      phone: string | null;
+      role: string;
+      active: boolean;
+    }>;
+    zones: Array<{ id: string; name: string; code: string; operation_model: string }>;
+  }>;
   zones: Array<{
     id: string;
     code: string;
@@ -124,7 +166,15 @@ type AdminData = {
     status: "pending" | "launching" | "active" | "paused";
     center_address: string | null;
     signup_enabled: boolean;
-    launch_target_enabled: boolean;
+    demo_only: boolean;
+    operation_model: "donatecrate_operated" | "partner_operated";
+    partner_id: string | null;
+    partner_pickup_date_override_allowed: boolean;
+    recurring_pickup_day: number | null;
+    default_cutoff_days_before: number;
+    default_pickup_window_label: string | null;
+    partner_notes: string | null;
+    partner: { id: string; name: string; code: string } | null;
   }>;
 };
 
@@ -133,7 +183,7 @@ type ZoneMember = {
   email: string;
   full_name: string | null;
   phone: string | null;
-  role: "customer" | "admin" | "driver";
+  role: string;
   primary_address: {
     address_line1: string;
     city: string;
@@ -164,6 +214,10 @@ function localDateTimeISO(d = new Date()) {
   return local.toISOString().slice(0, 16);
 }
 
+function isValidDate(value: Date) {
+  return !Number.isNaN(value.getTime());
+}
+
 function formatCurrency(amountCents: number | null, currency = "usd") {
   if (amountCents == null) return "Plan not linked";
   return new Intl.NumberFormat("en-US", {
@@ -174,22 +228,27 @@ function formatCurrency(amountCents: number | null, currency = "usd") {
 
 function formatDateTime(value: string | null) {
   if (!value) return "Not set";
+  const parsed = new Date(value);
+  if (!isValidDate(parsed)) return "Not set";
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(parsed);
 }
 
 function formatDate(value: string | null) {
   if (!value) return "Not set";
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (!isValidDate(parsed)) return "Not set";
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
-  }).format(new Date(value));
+    timeZone: "UTC",
+  }).format(parsed);
 }
 
 function formatCardExpiry(month: number | null, year: number | null) {
@@ -213,6 +272,49 @@ function formatRouteStatusLabel(status: string) {
       return "Completed";
     default:
       return formatStatusLabel(status);
+  }
+}
+
+function formatPartnerTeamRole(role: string) {
+  switch (role) {
+    case "partner_admin":
+      return "Organization Admin";
+    case "partner_coordinator":
+      return "Coordinator";
+    case "partner_driver":
+      return "Driver";
+    default:
+      return formatStatusLabel(role);
+  }
+}
+
+function formatRoleLabel(role: string) {
+  switch (role) {
+    case "customer":
+      return "Donor";
+    case "admin":
+      return "DonateCrate Admin";
+    case "driver":
+      return "Driver";
+    case "partner_admin":
+    case "partner_coordinator":
+    case "partner_driver":
+      return formatPartnerTeamRole(role);
+    default:
+      return formatStatusLabel(role);
+  }
+}
+
+function formatZoneStatusLabel(status: "pending" | "launching" | "active" | "paused") {
+  switch (status) {
+    case "pending":
+      return "Planning";
+    case "launching":
+      return "Opening Soon";
+    case "active":
+      return "Active";
+    case "paused":
+      return "Paused";
   }
 }
 
@@ -306,7 +408,43 @@ function getPaymentPreviewLabel(subscription: AdminData["subscriptions"][number]
   return `${subscription.paymentMethod.brand || "card"} ending in ${subscription.paymentMethod.last4 || "----"}`;
 }
 
-export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSection }) {
+function getPartnerSettingsDraft(partner: AdminData["partners"][number]) {
+  return {
+    partnerId: partner.id,
+    name: partner.name,
+    legalName: partner.legal_name ?? "",
+    supportEmail: partner.support_email ?? "",
+    supportPhone: partner.support_phone ?? "",
+    addressLine1: partner.address_line1 ?? "",
+    city: partner.city ?? "",
+    state: partner.state ?? "",
+    postalCode: partner.postal_code ?? "",
+    aboutParagraph: partner.about_paragraph ?? "",
+    active: partner.active,
+    receiptMode: partner.receipt_mode,
+    payoutModel: partner.payout_model,
+    platformShareBps: partner.platform_share_bps,
+    partnerShareBps: partner.partner_share_bps,
+    notes: partner.notes ?? "",
+    displayName: partner.branding?.display_name ?? "",
+    primaryColor: partner.branding?.primary_color ?? "",
+    secondaryColor: partner.branding?.secondary_color ?? "",
+    accentColor: partner.branding?.accent_color ?? "",
+    logoUrl: partner.branding?.logo_url ?? "",
+    websiteUrl: partner.branding?.website_url ?? "",
+    receiptFooter: partner.branding?.receipt_footer ?? "",
+  };
+}
+
+export function AdminWorkspace({
+  section = "overview",
+  networkSubtab = "zones",
+  peopleSubtab = "customers",
+}: {
+  section?: WorkspaceSection;
+  networkSubtab?: NetworkSubtab;
+  peopleSubtab?: PeopleSubtab;
+}) {
   const singleCycleMonthRef = useRef<HTMLInputElement | null>(null);
   const singlePickupDateRef = useRef<HTMLInputElement | null>(null);
   const recurringStartPickupDateRef = useRef<HTMLInputElement | null>(null);
@@ -349,13 +487,17 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   } | null>(null);
 
   const [userSearch, setUserSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | "customer" | "admin" | "driver">("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | GlobalAppRole>("all");
   const [userZoneFilter, setUserZoneFilter] = useState<string>("all");
   const [zoneMembers, setZoneMembers] = useState<ZoneMember[]>([]);
   const [zoneMemberSearch, setZoneMemberSearch] = useState("");
-  const [zoneMemberRole, setZoneMemberRole] = useState<"all" | "customer" | "admin" | "driver">("all");
+  const [zoneMemberRole, setZoneMemberRole] = useState<"all" | "customer" | "admin" | "driver" | "partner_admin" | "partner_coordinator" | "partner_driver">("all");
   const [zoneMemberPage, setZoneMemberPage] = useState(1);
   const [zoneMemberPagination, setZoneMemberPagination] = useState({ page: 1, pageSize: 8, total: 0, totalPages: 1 });
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [showCreatePartnerForm, setShowCreatePartnerForm] = useState(false);
+  const [showCreateZoneForm, setShowCreateZoneForm] = useState(false);
+  const [zoneSaving, setZoneSaving] = useState(false);
 
   const [zoneForm, setZoneForm] = useState({
     code: "",
@@ -364,8 +506,30 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     radiusMiles: 3,
     minActiveSubscribers: 40,
     signupEnabled: true,
-    launchTargetEnabled: true,
+    demoOnly: false,
   });
+  const [partnerForm, setPartnerForm] = useState({
+    code: "",
+    name: "",
+    legalName: "",
+    supportEmail: "",
+    supportPhone: "",
+    receiptMode: "partner_issued" as "partner_issued" | "platform_on_behalf" | "manual",
+    payoutModel: "inventory_only" as "inventory_only" | "revenue_share" | "hybrid",
+    platformShareBps: 10000,
+    partnerShareBps: 0,
+    notes: "",
+    displayName: "",
+    primaryColor: "",
+    secondaryColor: "",
+    accentColor: "",
+    logoUrl: "",
+    websiteUrl: "",
+    receiptFooter: "",
+  });
+  const [partnerMemberEmail, setPartnerMemberEmail] = useState("");
+  const [partnerMemberRole, setPartnerMemberRole] = useState<"partner_admin" | "partner_coordinator" | "partner_driver">("partner_admin");
+  const [selectedPartnerForm, setSelectedPartnerForm] = useState<ReturnType<typeof getPartnerSettingsDraft> | null>(null);
 
   const [createCenterQuery, setCreateCenterQuery] = useState("");
   const [createCenterPredictions, setCreateCenterPredictions] = useState<
@@ -418,7 +582,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
   const [mapLoadError, setMapLoadError] = useState(false);
 
   const loadAll = useCallback(async () => {
-    const [usersRes, waitlistRes, requestsRes, routesRes, driversRes, cyclesRes, subsRes, refsRes, zonesRes, notificationRes] = await Promise.all([
+    const [usersRes, waitlistRes, requestsRes, routesRes, driversRes, cyclesRes, subsRes, refsRes, zonesRes, partnersRes, notificationRes] = await Promise.all([
       fetch("/api/admin/users"),
       fetch("/api/admin/waitlist"),
       fetch("/api/admin/pickup-requests"),
@@ -428,10 +592,11 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       fetch("/api/admin/subscriptions"),
       fetch("/api/admin/referrals"),
       fetch("/api/admin/zones"),
+      fetch("/api/admin/partners"),
       fetch("/api/admin/notifications"),
     ]);
 
-    const [users, waitlist, pickupRequests, routes, drivers, pickupCycles, subscriptions, referrals, zones, notifications] = await Promise.all([
+    const [users, waitlist, pickupRequests, routes, drivers, pickupCycles, subscriptions, referrals, zones, partners, notifications] = await Promise.all([
       usersRes.json(),
       waitlistRes.json(),
       requestsRes.json(),
@@ -441,10 +606,12 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       subsRes.json(),
       refsRes.json(),
       zonesRes.json(),
+      partnersRes.json(),
       notificationRes.json(),
     ]);
 
     const zoneRows = zones.zones ?? [];
+    const partnerRows = partners.partners ?? [];
     if (zones.error) setMessage(`Pickup areas could not be loaded: ${zones.error}`);
 
     setSelectedZoneCode((prev) =>
@@ -452,6 +619,9 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     );
     setSelectedZoneId((prev) =>
       zoneRows.length > 0 && !zoneRows.some((zone: { id: string }) => zone.id === prev) ? zoneRows[0].id : prev,
+    );
+    setSelectedPartnerId((prev) =>
+      partnerRows.length > 0 && !partnerRows.some((partner: { id: string }) => partner.id === prev) ? partnerRows[0].id : prev,
     );
 
     setData({
@@ -464,6 +634,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       pickupCycles: pickupCycles.pickupCycles ?? [],
       subscriptions: subscriptions.subscriptions ?? [],
       referrals: referrals.referrals ?? [],
+      partners: partnerRows,
       zones: zoneRows,
     });
   }, []);
@@ -474,7 +645,16 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
 
   const driverOptions = useMemo(() => data?.drivers ?? [], [data]);
   const routeOptions = useMemo(() => data?.routes ?? [], [data]);
+  const partnerOptions = useMemo(() => data?.partners ?? [], [data]);
   const selectedZone = useMemo(() => data?.zones.find((zone) => zone.id === selectedZoneId) ?? null, [data, selectedZoneId]);
+  const selectedPartner = useMemo(() => data?.partners.find((partner) => partner.id === selectedPartnerId) ?? null, [data, selectedPartnerId]);
+  useEffect(() => {
+    setSelectedPartnerForm(selectedPartner ? getPartnerSettingsDraft(selectedPartner) : null);
+  }, [selectedPartner]);
+  useEffect(() => {
+    if (!selectedZone) return;
+    setSelectedZoneCode(selectedZone.code);
+  }, [selectedZone]);
   const logisticsCycles = useMemo(() => {
     if (!data) return [];
     return data.pickupCycles.filter((cycle) => {
@@ -557,6 +737,24 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       return matchesQuery && matchesRole && matchesZone;
     });
   }, [data, roleFilter, userSearch, userZoneFilter]);
+  const filteredCustomerUsers = useMemo(
+    () =>
+      (data?.users ?? []).filter((user) => {
+        const q = userSearch.trim().toLowerCase();
+        const matchesQuery =
+          q.length === 0 ||
+          user.email.toLowerCase().includes(q) ||
+          (user.full_name || "").toLowerCase().includes(q) ||
+          (user.primary_address?.postal_code || "").includes(q);
+        const matchesZone = userZoneFilter === "all" || user.zones.some((zone) => zone.id === userZoneFilter);
+        return user.role === "customer" && matchesQuery && matchesZone;
+      }),
+    [data, userSearch, userZoneFilter],
+  );
+  const filteredStaffUsers = useMemo(
+    () => filteredUsers.filter((user) => user.role !== "customer"),
+    [filteredUsers],
+  );
 
   const filteredSubscriptions = useMemo(() => {
     if (!data) return [];
@@ -792,7 +990,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     return () => controller.abort();
   }, [smsTarget, smsZoneId]);
 
-  async function updateUserRole(userId: string, role: "customer" | "admin" | "driver") {
+  async function updateUserRole(userId: string, role: GlobalAppRole) {
     const response = await fetch("/api/admin/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -948,19 +1146,32 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
     radiusMiles?: number;
     status?: "pending" | "launching" | "active" | "paused";
     signupEnabled?: boolean;
+    demoOnly?: boolean;
     minActiveSubscribers?: number;
     centerPlaceId?: string;
-    launchTargetEnabled?: boolean;
+    operationModel?: "donatecrate_operated" | "partner_operated";
+    partnerId?: string | null;
+    partnerPickupDateOverrideAllowed?: boolean;
+    recurringPickupDay?: number | null;
+    defaultCutoffDaysBefore?: number;
+    defaultPickupWindowLabel?: string;
+    partnerNotes?: string;
   }) {
-    const response = await fetch("/api/admin/zones", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = await response.json();
-    if (!response.ok) return setMessage(json.error || "Could not update pickup area");
-    setMessage("Pickup area updated.");
-    await loadAll();
+    setZoneSaving(true);
+    setMessage("Saving pickup area changes...");
+    try {
+      const response = await fetch("/api/admin/zones", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await response.json();
+      if (!response.ok) return setMessage(json.error || "Could not update pickup area");
+      setMessage("Pickup area updated.");
+      await loadAll();
+    } finally {
+      setZoneSaving(false);
+    }
   }
 
   async function createZone() {
@@ -983,11 +1194,156 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
       radiusMiles: 3,
       minActiveSubscribers: 40,
       signupEnabled: true,
-      launchTargetEnabled: true,
+      demoOnly: false,
     });
     setCreateCenterQuery("");
     setCreateCenterPredictions([]);
     setCreateCenterSelection(null);
+    if (json.zone?.id) setSelectedZoneId(json.zone.id);
+    if (json.zone?.code) setSelectedZoneCode(json.zone.code);
+    setShowCreateZoneForm(false);
+    await loadAll();
+  }
+
+  async function createPartner() {
+    const response = await fetch("/api/admin/partners", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: partnerForm.code,
+        name: partnerForm.name,
+        legalName: partnerForm.legalName,
+        supportEmail: partnerForm.supportEmail,
+        supportPhone: partnerForm.supportPhone,
+        receiptMode: "platform_on_behalf",
+        payoutModel: "inventory_only",
+        platformShareBps: 10000,
+        partnerShareBps: 0,
+        notes: partnerForm.notes,
+        branding: {
+          displayName: partnerForm.displayName,
+          primaryColor: partnerForm.primaryColor,
+          secondaryColor: partnerForm.secondaryColor,
+          accentColor: partnerForm.accentColor,
+          logoUrl: partnerForm.logoUrl,
+          websiteUrl: partnerForm.websiteUrl,
+          receiptFooter: partnerForm.receiptFooter,
+        },
+      }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(json.error || "Could not create nonprofit partner");
+    setMessage("Nonprofit partner created.");
+    setPartnerForm({
+      code: "",
+      name: "",
+      legalName: "",
+      supportEmail: "",
+      supportPhone: "",
+      receiptMode: "platform_on_behalf",
+      payoutModel: "inventory_only",
+      platformShareBps: 10000,
+      partnerShareBps: 0,
+      notes: "",
+      displayName: "",
+      primaryColor: "",
+      secondaryColor: "",
+      accentColor: "",
+      logoUrl: "",
+      websiteUrl: "",
+      receiptFooter: "",
+    });
+    if (json.partnerId) setSelectedPartnerId(json.partnerId);
+    setShowCreatePartnerForm(false);
+    await loadAll();
+  }
+
+  async function addPartnerMember() {
+    if (!selectedPartnerId) return setMessage("Select a nonprofit partner first.");
+    if (!partnerMemberEmail.trim()) return setMessage("Enter a team member email first.");
+    const response = await fetch(`/api/admin/partners/${selectedPartnerId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userEmail: partnerMemberEmail, role: partnerMemberRole }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(json.error || "Could not add partner team member");
+    setPartnerMemberEmail("");
+    setMessage(
+      json.warning
+        ? `Partner team member added. Setup email could not be sent: ${json.warning}`
+        : json.invited
+          ? "Partner team member added and setup email sent."
+          : "Partner team member added.",
+    );
+    await loadAll();
+  }
+
+  async function updatePartnerAccount() {
+    if (!selectedPartnerForm) return setMessage("Select a nonprofit partner first.");
+    const response = await fetch("/api/admin/partners", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        partnerId: selectedPartnerForm.partnerId,
+        name: selectedPartnerForm.name,
+        legalName: selectedPartnerForm.legalName,
+        supportEmail: selectedPartnerForm.supportEmail,
+        supportPhone: selectedPartnerForm.supportPhone,
+        addressLine1: selectedPartnerForm.addressLine1,
+        city: selectedPartnerForm.city,
+        state: selectedPartnerForm.state,
+        postalCode: selectedPartnerForm.postalCode,
+        aboutParagraph: selectedPartnerForm.aboutParagraph,
+        active: selectedPartnerForm.active,
+        receiptMode: "platform_on_behalf",
+        payoutModel: "inventory_only",
+        platformShareBps: 10000,
+        partnerShareBps: 0,
+        notes: selectedPartnerForm.notes,
+        branding: {
+          displayName: selectedPartnerForm.displayName,
+          primaryColor: selectedPartnerForm.primaryColor,
+          secondaryColor: selectedPartnerForm.secondaryColor,
+          accentColor: selectedPartnerForm.accentColor,
+          logoUrl: selectedPartnerForm.logoUrl,
+          websiteUrl: selectedPartnerForm.websiteUrl,
+          receiptFooter: selectedPartnerForm.receiptFooter,
+        },
+      }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(json.error || "Could not update nonprofit partner");
+    setMessage("Nonprofit partner updated.");
+    await loadAll();
+  }
+
+  async function updatePartnerMember(memberId: string, payload: { role?: "partner_admin" | "partner_coordinator" | "partner_driver"; active?: boolean }) {
+    if (!selectedPartnerId) return setMessage("Select a nonprofit partner first.");
+    const response = await fetch(`/api/admin/partners/${selectedPartnerId}/members`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ membershipId: memberId, ...payload }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(json.error || "Could not update partner team member");
+    setMessage("Partner team member updated.");
+    await loadAll();
+  }
+
+  async function deletePartnerMember(memberId: string, memberLabel: string) {
+    if (!selectedPartnerId) return setMessage("Select a nonprofit partner first.");
+    const confirmed = window.confirm(`Delete ${memberLabel} from this organization? This removes their access instead of only marking them inactive.`);
+    if (!confirmed) return;
+
+    const response = await fetch(`/api/admin/partners/${selectedPartnerId}/members`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ membershipId: memberId }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(json.error || "Could not delete partner team member");
+    setMessage("Partner team member deleted.");
     await loadAll();
   }
 
@@ -1214,10 +1570,36 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
 
       {section === "people" ? (
         <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+          <div className="mb-4 flex flex-wrap gap-2">
+            <a
+              href="/admin?tab=people&sub=customers"
+              className={`rounded-xl border px-4 py-2 text-sm font-semibold ${
+                peopleSubtab === "customers"
+                  ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
+                  : "border-white/20 bg-black/30 hover:bg-white/10"
+              }`}
+            >
+              Customers
+            </a>
+            <a
+              href="/admin?tab=people&sub=staff"
+              className={`rounded-xl border px-4 py-2 text-sm font-semibold ${
+                peopleSubtab === "staff"
+                  ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
+                  : "border-white/20 bg-black/30 hover:bg-white/10"
+              }`}
+            >
+              Staff
+            </a>
+          </div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">User Directory</p>
-              <p className="text-xs text-white/65">Search by name, email, or ZIP. Filter by role and zone.</p>
+              <p className="text-sm font-semibold">{peopleSubtab === "customers" ? "Donor Directory" : "Team Directory"}</p>
+              <p className="text-xs text-white/65">
+                {peopleSubtab === "customers"
+                  ? "Search donor accounts by name, email, or ZIP and check where they are assigned."
+                  : "Review DonateCrate staff and organization team roles without donor records mixed in."}
+              </p>
             </div>
             <input
               value={userSearch}
@@ -1225,16 +1607,22 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
               placeholder="Search users"
               className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:min-w-[220px] sm:w-auto"
             />
-            <select
-              value={roleFilter}
-              onChange={(event) => setRoleFilter(event.target.value as "all" | "customer" | "admin" | "driver")}
-              className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:w-auto"
-            >
-              <option value="all">All roles</option>
-              <option value="customer">Customer</option>
-              <option value="driver">Driver</option>
-              <option value="admin">Admin</option>
-            </select>
+            {peopleSubtab === "staff" ? (
+              <select
+                value={roleFilter}
+                onChange={(event) => setRoleFilter(event.target.value as "all" | GlobalAppRole)}
+                className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:w-auto"
+              >
+                <option value="all">All team roles</option>
+                <option value="customer">Donor accounts</option>
+                <option value="driver">Driver</option>
+                <option value="admin">DonateCrate Admin</option>
+              </select>
+            ) : (
+              <div className="h-10 rounded-xl border border-white/15 bg-black/30 px-3 text-sm flex items-center text-white/60">
+                Showing donor accounts
+              </div>
+            )}
             <select
               value={userZoneFilter}
               onChange={(event) => setUserZoneFilter(event.target.value)}
@@ -1248,22 +1636,26 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
           </div>
 
           <div className="mt-4 space-y-2">
-            {filteredUsers.map((user) => (
+            {(peopleSubtab === "customers" ? filteredCustomerUsers : filteredStaffUsers).map((user) => (
               <article key={user.id} className="rounded-2xl border border-white/10 bg-black/35 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold">{user.full_name || "No name set"}</p>
                     <p className="text-xs text-white/70">{user.email}</p>
                   </div>
-                  <select
-                    value={user.role}
-                    onChange={(event) => updateUserRole(user.id, event.target.value as "customer" | "admin" | "driver")}
-                    className="h-9 rounded-lg border border-white/30 bg-black px-3 text-xs"
-                  >
-                    <option value="customer">customer</option>
-                    <option value="driver">driver</option>
-                    <option value="admin">admin</option>
-                  </select>
+                  {peopleSubtab === "staff" ? (
+                    <select
+                      value={user.role}
+                      onChange={(event) => updateUserRole(user.id, event.target.value as GlobalAppRole)}
+                      className="h-9 rounded-lg border border-white/30 bg-black px-3 text-xs"
+                    >
+                      <option value="customer">Donor</option>
+                      <option value="driver">Driver</option>
+                      <option value="admin">DonateCrate Admin</option>
+                    </select>
+                  ) : (
+                    <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-white/75">Donor</span>
+                  )}
                 </div>
                 <div className="mt-3 grid gap-2 text-xs text-white/70 md:grid-cols-3">
                   <p>Phone: {user.phone || "Not set"}</p>
@@ -1274,7 +1666,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                       : "Not set"}
                   </p>
                   <p>
-                    Zones:{" "}
+                    Service areas:{" "}
                     {user.zones.length > 0
                       ? user.zones.map((zone) => `${zone.name} (${zone.membershipStatus})`).join(" | ")
                       : "Unassigned"}
@@ -1282,14 +1674,17 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                 </div>
               </article>
             ))}
-            {filteredUsers.length === 0 ? <p className="text-sm text-white/65">No users match the current filters.</p> : null}
+            {(peopleSubtab === "customers" ? filteredCustomerUsers : filteredStaffUsers).length === 0 ? (
+              <p className="text-sm text-white/65">No users match the current filters.</p>
+            ) : null}
           </div>
 
           <section className="mt-6 rounded-2xl border border-white/10 bg-black/35 p-4">
-            <p className="text-sm font-semibold">People vs. Billing</p>
+            <p className="text-sm font-semibold">{peopleSubtab === "customers" ? "Donors And Billing" : "Team And Network"}</p>
             <p className="mt-2 text-sm text-white/70">
-              Use this tab for roles, contact details, and zone placement. Use the Billing tab for cancellations,
-              renewals, payment status, and Stripe-backed subscription actions.
+              {peopleSubtab === "customers"
+                ? "Use this view for donor contact details and service area placement. Use Billing for cancellations, renewals, payment status, and Stripe-backed subscription actions."
+                : "Use this view for DonateCrate and organization team roles. Use Network for service area ownership and organization account management."}
             </p>
           </section>
         </section>
@@ -1603,68 +1998,155 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
         </section>
       ) : null}
 
-      {section === "zones" ? (
+      {section === "network" ? (
         <section className="grid gap-4 xl:grid-cols-[300px_1fr]">
-          <aside className="rounded-3xl border border-white/15 bg-white/5 p-4">
-            <p className="text-sm font-semibold">Pickup Zones</p>
-            <p className="mt-1 text-xs text-white/65">Select a zone to manage it individually.</p>
-            <div className="mt-3 space-y-2">
-              {data.zones.map((zone) => (
-                <button
-                  key={zone.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedZoneId(zone.id);
-                    setScheduleForm((prev) => ({ ...prev, zoneCode: zone.code }));
-                    setZoneMemberPage(1);
-                  }}
-                  className={`w-full rounded-xl border px-3 py-2 text-left text-sm ${
-                    selectedZoneId === zone.id
+          <aside className="space-y-4">
+            <div className="rounded-3xl border border-white/15 bg-white/5 p-4">
+              <p className="text-sm font-semibold">Network Workspace</p>
+              <p className="mt-1 text-xs text-white/65">Separate service area operations from nonprofit account management.</p>
+              <div className="mt-3 space-y-2">
+                <a
+                  href="/admin?tab=network&sub=zones"
+                  className={`block rounded-xl border px-3 py-2 text-sm font-semibold ${
+                    networkSubtab === "zones"
                       ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
                       : "border-white/20 bg-black/30 hover:bg-white/10"
                   }`}
                 >
-                  <p className="font-semibold">{zone.name}</p>
-                  <p className="text-xs text-white/65">ZIP {zone.anchor_postal_code} | {zone.status}</p>
-                </button>
-              ))}
+                  Zones
+                </a>
+                <a
+                  href="/admin?tab=network&sub=partners"
+                  className={`block rounded-xl border px-3 py-2 text-sm font-semibold ${
+                    networkSubtab === "partners"
+                      ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
+                      : "border-white/20 bg-black/30 hover:bg-white/10"
+                  }`}
+                >
+                  Partners
+                </a>
+              </div>
             </div>
+
+            {networkSubtab === "zones" ? (
+              <div className="rounded-3xl border border-white/15 bg-white/5 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Service Areas</p>
+                    <p className="mt-1 text-xs text-white/65">Select a service area to review settings, coverage, and scheduling.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateZoneForm((prev) => !prev);
+                      if (!showCreateZoneForm) setSelectedZoneId("");
+                    }}
+                    className="rounded-lg border border-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-[var(--dc-orange)]"
+                  >
+                    {showCreateZoneForm ? "Close New Service Area Form" : "Add New Service Area"}
+                  </button>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {data.zones.map((zone) => (
+                    <button
+                      key={zone.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedZoneId(zone.id);
+                        setSelectedZoneCode(zone.code);
+                        setScheduleForm((prev) => ({ ...prev, zoneCode: zone.code }));
+                        setZoneMemberPage(1);
+                        setShowCreateZoneForm(false);
+                      }}
+                      className={`w-full rounded-xl border px-3 py-2 text-left text-sm ${
+                        selectedZoneId === zone.id
+                          ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
+                          : "border-white/20 bg-black/30 hover:bg-white/10"
+                      }`}
+                    >
+                      <p className="font-semibold">{zone.name}</p>
+                      <p className="text-xs text-white/65">ZIP {zone.anchor_postal_code} | {formatZoneStatusLabel(zone.status)}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-white/15 bg-white/5 p-4">
+                <p className="text-sm font-semibold">Organizations</p>
+                <p className="mt-1 text-xs text-white/65">Select an organization to manage branding, contact details, and team access.</p>
+                <div className="mt-3 space-y-2">
+                  {partnerOptions.map((partner) => (
+                    <button
+                      key={partner.id}
+                      type="button"
+                      onClick={() => setSelectedPartnerId(partner.id)}
+                      className={`w-full rounded-xl border px-3 py-2 text-left text-sm ${
+                        selectedPartnerId === partner.id
+                          ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
+                          : "border-white/20 bg-black/30 hover:bg-white/10"
+                      }`}
+                    >
+                      <p className="font-semibold">{partner.name}</p>
+                      <p className="text-xs text-white/65">{partner.code} | {partner.active ? "Active" : "Inactive"}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </aside>
 
           <div className="space-y-4">
-            {selectedZone ? (
+            {(networkSubtab === "zones" && selectedZone) || networkSubtab === "partners" ? (
               <>
+                {networkSubtab === "zones" ? (
+                  <>
                 <form
+                  key={selectedZone!.id}
                   onSubmit={(event) => {
                     event.preventDefault();
                     const form = new FormData(event.currentTarget);
                     updateZone({
-                      zoneId: selectedZone.id,
+                      zoneId: selectedZone!.id,
                       radiusMiles: Number(form.get("radiusMiles")),
                       minActiveSubscribers: Number(form.get("minActiveSubscribers")),
                       status: String(form.get("status")) as "pending" | "launching" | "active" | "paused",
+                      demoOnly: form.get("demoOnly") === "on",
+                      operationModel: String(form.get("operationModel")) as "donatecrate_operated" | "partner_operated",
+                      partnerId: String(form.get("partnerId") || "") || null,
+                      partnerPickupDateOverrideAllowed: form.get("partnerPickupDateOverrideAllowed") === "on",
+                      recurringPickupDay: String(form.get("recurringPickupDay") || "").trim()
+                        ? Number(form.get("recurringPickupDay"))
+                        : null,
+                      defaultCutoffDaysBefore: Number(form.get("defaultCutoffDaysBefore") || 7),
+                      defaultPickupWindowLabel: String(form.get("defaultPickupWindowLabel") || ""),
+                      partnerNotes: String(form.get("partnerNotes") || ""),
                     });
                   }}
                   className="rounded-3xl border border-white/15 bg-white/5 p-6"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-xl font-bold">{selectedZone.name}</h3>
-                      <p className="text-xs text-white/65">{selectedZone.code} | ZIP {selectedZone.anchor_postal_code}</p>
+                      <h3 className="text-xl font-bold">{selectedZone!.name}</h3>
+                      <p className="text-xs text-white/65">{selectedZone!.code} | ZIP {selectedZone!.anchor_postal_code}</p>
                     </div>
+                    {isDemoOnlyZone(selectedZone!) ? (
+                      <div className="rounded-full border border-amber-300/50 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100">
+                        Demo only
+                      </div>
+                    ) : null}
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => updateZone({ zoneId: selectedZone.id, signupEnabled: true })}
-                        disabled={selectedZone.signup_enabled}
+                        onClick={() => updateZone({ zoneId: selectedZone!.id, signupEnabled: true })}
+                        disabled={selectedZone!.signup_enabled}
                         className="rounded-lg border border-green-400/60 px-3 py-2 text-xs font-semibold text-green-300 disabled:opacity-40"
                       >
                         Open Signup
                       </button>
                       <button
                         type="button"
-                        onClick={() => updateZone({ zoneId: selectedZone.id, signupEnabled: false })}
-                        disabled={!selectedZone.signup_enabled}
+                        onClick={() => updateZone({ zoneId: selectedZone!.id, signupEnabled: false })}
+                        disabled={!selectedZone!.signup_enabled}
                         className="rounded-lg border border-yellow-400/60 px-3 py-2 text-xs font-semibold text-yellow-300 disabled:opacity-40"
                       >
                         Pause Signup
@@ -1680,48 +2162,119 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                         type="number"
                         min={0.5}
                         step={0.5}
-                        defaultValue={selectedZone.radius_miles}
+                        defaultValue={selectedZone!.radius_miles}
                         className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
                       />
                     </label>
                     <label className="text-xs text-white/70">
-                      Target Active Households
+                      Active households
                       <input
                         name="minActiveSubscribers"
                         type="number"
                         min={1}
-                        defaultValue={selectedZone.min_active_subscribers}
-                        disabled={!selectedZone.launch_target_enabled}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3 disabled:opacity-40"
+                        defaultValue={selectedZone!.min_active_subscribers}
+                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
                       />
                     </label>
                     <label className="text-xs text-white/70">
-                      Area Status
-                      <select name="status" defaultValue={selectedZone.status} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
-                        <option value="pending">pending</option>
-                        <option value="launching">launching</option>
-                        <option value="active">active</option>
-                        <option value="paused">paused</option>
+                      Service area status
+                      <select name="status" defaultValue={selectedZone!.status} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                        <option value="pending">Planning</option>
+                        <option value="launching">Opening Soon</option>
+                        <option value="active">Active</option>
+                        <option value="paused">Paused</option>
                       </select>
                     </label>
                   </div>
 
-                  <p className="mt-3 text-xs text-white/65">Area center: {selectedZone.center_address || "Not set"}</p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <label className="text-xs text-white/70">
+                      Service lead
+                      <select name="operationModel" defaultValue={selectedZone!.operation_model} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                        <option value="donatecrate_operated">DonateCrate managed</option>
+                        <option value="partner_operated">Organization managed</option>
+                      </select>
+                    </label>
+                    <label className="text-xs text-white/70">
+                      Organization
+                      <select name="partnerId" defaultValue={selectedZone!.partner_id ?? ""} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                        <option value="">No organization assigned</option>
+                        {partnerOptions.map((partner) => (
+                          <option key={partner.id} value={partner.id}>{partner.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-xs text-white/80 md:col-span-2">
+                      <input name="partnerPickupDateOverrideAllowed" type="checkbox" defaultChecked={selectedZone!.partner_pickup_date_override_allowed} />
+                      Let the organization manage pickup dates for this service area
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-xs text-white/80 md:col-span-2">
+                      <input name="demoOnly" type="checkbox" defaultChecked={selectedZone!.demo_only} />
+                      Demo only: keep this service area available for staff demos but block public signup
+                    </label>
+                    <label className="text-xs text-white/70">
+                      Recurring pickup day
+                      <input
+                        name="recurringPickupDay"
+                        type="number"
+                        min={1}
+                        max={31}
+                        defaultValue={selectedZone!.recurring_pickup_day ?? ""}
+                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                      />
+                    </label>
+                    <label className="text-xs text-white/70">
+                      Booking cutoff
+                      <input
+                        name="defaultCutoffDaysBefore"
+                        type="number"
+                        min={0}
+                        max={30}
+                        defaultValue={selectedZone!.default_cutoff_days_before}
+                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                      />
+                      <span className="mt-1 block text-[11px] text-white/55">How many days before pickup changes close.</span>
+                    </label>
+                    <label className="text-xs text-white/70 md:col-span-2">
+                      Pickup window
+                      <input
+                        name="defaultPickupWindowLabel"
+                        type="text"
+                        defaultValue={selectedZone!.default_pickup_window_label ?? ""}
+                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                      />
+                    </label>
+                    <label className="text-xs text-white/70 md:col-span-2">
+                      Team notes
+                      <textarea
+                        name="partnerNotes"
+                        defaultValue={selectedZone!.partner_notes ?? ""}
+                        rows={3}
+                        className="mt-1 w-full rounded-lg border border-white/30 bg-black px-3 py-2"
+                        placeholder="Notes for staff handling this service area"
+                      />
+                    </label>
+                  </div>
+
+                  <p className="mt-3 text-xs text-white/65">Area center: {selectedZone!.center_address || "Not set"}</p>
+                  {selectedZone!.demo_only ? (
+                    <p className="mt-1 text-xs text-amber-200">Public signup is blocked for this demo service area, even if signup is turned on.</p>
+                  ) : null}
+                  <p className="mt-1 text-xs text-white/65">
+                    Service lead: {selectedZone!.operation_model === "partner_operated"
+                      ? selectedZone!.partner?.name || "No organization assigned"
+                      : "DonateCrate team"}
+                  </p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button type="submit" className="rounded-lg border border-white/35 px-4 py-2 text-sm font-semibold">Save Zone Settings</button>
-                    <button
-                      type="button"
-                      onClick={() => updateZone({ zoneId: selectedZone.id, launchTargetEnabled: !selectedZone.launch_target_enabled })}
-                      className="rounded-lg border border-blue-300/60 px-4 py-2 text-sm font-semibold text-blue-200"
-                    >
-                      {selectedZone.launch_target_enabled ? "Ignore Launch Target" : "Use Launch Target"}
+                    <button type="submit" disabled={zoneSaving} className="rounded-lg border border-white/35 px-4 py-2 text-sm font-semibold disabled:opacity-60">
+                      {zoneSaving ? "Saving..." : "Save Zone Settings"}
                     </button>
                   </div>
                 </form>
 
                 <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
-                  <h4 className="text-lg font-bold">Users In This Zone</h4>
-                  <p className="mt-1 text-xs text-white/65">Customers and drivers currently mapped to this service area.</p>
+                  <h4 className="text-lg font-bold">People In This Service Area</h4>
+                  <p className="mt-1 text-xs text-white/65">Donors and team members currently connected to this coverage area.</p>
                   <div className="mt-3 grid gap-2 md:grid-cols-3">
                     <input
                       value={zoneMemberSearch}
@@ -1735,15 +2288,18 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                     <select
                       value={zoneMemberRole}
                       onChange={(event) => {
-                        setZoneMemberRole(event.target.value as "all" | "customer" | "admin" | "driver");
+                        setZoneMemberRole(event.target.value as "all" | "customer" | "admin" | "driver" | "partner_admin" | "partner_coordinator" | "partner_driver");
                         setZoneMemberPage(1);
                       }}
                       className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
                     >
-                      <option value="all">All roles</option>
-                      <option value="customer">Customer</option>
+                      <option value="all">All people</option>
+                      <option value="customer">Donor</option>
                       <option value="driver">Driver</option>
-                      <option value="admin">Admin</option>
+                      <option value="admin">DonateCrate Admin</option>
+                      <option value="partner_admin">Organization Admin</option>
+                      <option value="partner_coordinator">Coordinator</option>
+                      <option value="partner_driver">Driver</option>
                     </select>
                     <p className="text-xs text-white/70 md:self-center">
                       {zoneMemberPagination.total} total members
@@ -1753,7 +2309,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                     {zoneMembers.map((user) => (
                       <div key={user.id} className="rounded-xl border border-white/10 bg-black/35 p-3">
                         <p className="text-sm font-semibold">{user.full_name || user.email}</p>
-                        <p className="text-xs text-white/70">{user.email} | {user.role}</p>
+                        <p className="text-xs text-white/70">{user.email} | {formatRoleLabel(user.role)}</p>
                         <p className="mt-1 text-xs text-white/65">{user.primary_address ? `${user.primary_address.address_line1}, ${user.primary_address.city}` : "Address not set"}</p>
                       </div>
                     ))}
@@ -1781,7 +2337,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                 </section>
 
                 <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
-                  <h4 className="text-lg font-bold">Update Zone Center Address</h4>
+                  <h4 className="text-lg font-bold">Update Service Area Center</h4>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <input
                       value={editCenterQuery}
@@ -1817,60 +2373,330 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                   ) : null}
                   {editCenterSelection ? <p className="mt-2 text-xs text-white/70">Selected: {editCenterSelection.formattedAddress}</p> : null}
                 </section>
+                  </>
+                ) : null}
+
+                {networkSubtab === "partners" ? (
+                <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-lg font-bold">Organizations</h4>
+                      <p className="mt-1 text-xs text-white/65">Create organization records, manage team access, and connect each organization to the right service areas.</p>
+                    </div>
+                    <div className="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCreatePartnerForm((prev) => !prev);
+                          if (!showCreatePartnerForm) setSelectedPartnerId("");
+                        }}
+                        className="rounded-lg border border-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-[var(--dc-orange)]"
+                      >
+                        {showCreatePartnerForm ? "Close New Partner Form" : "Add New Partner"}
+                      </button>
+                      <select
+                        value={selectedPartnerId}
+                        onChange={(event) => {
+                          setSelectedPartnerId(event.target.value);
+                          setShowCreatePartnerForm(false);
+                        }}
+                        className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto"
+                      >
+                        <option value="">Select organization</option>
+                        {partnerOptions.map((partner) => (
+                          <option key={partner.id} value={partner.id}>{partner.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {selectedPartner ? (
+                    <div className="mt-4 space-y-4">
+                      <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+                        <article className="rounded-2xl border border-white/10 bg-black/35 p-4 text-sm text-white/80">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-white">{selectedPartner.name}</p>
+                              <p className="mt-1 text-xs text-white/65">{selectedPartner.code} | Receipts sent by DonateCrate on behalf of this nonprofit</p>
+                            </div>
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedPartner.active ? "bg-emerald-500/15 text-emerald-100" : "bg-red-500/15 text-red-100"}`}>
+                              {selectedPartner.active ? "Active partner" : "Inactive partner"}
+                              
+                            </span>
+                          </div>
+                          <p className="mt-3 text-xs text-white/70">
+                            Support: {selectedPartner.support_email || "No email"} {selectedPartner.support_phone ? `| ${selectedPartner.support_phone}` : ""}
+                          </p>
+                          <p className="mt-2 text-xs text-white/70">
+                            Receipts send from giving@donatecrate.com and use this nonprofit&apos;s branding.
+                          </p>
+                          <p className="mt-2 text-xs text-white/70">
+                            Service areas: {selectedPartner.zones.length > 0 ? selectedPartner.zones.map((zone) => zone.name).join(" | ") : "None yet"}
+                          </p>
+                        </article>
+                        <article className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                          <p className="text-sm font-semibold">Add team member</p>
+                          <p className="mt-1 text-xs text-white/65">Use any email address. If the person is new to DonateCrate, we will create the account and send a branded setup email for this organization.</p>
+                          <div className="mt-3 grid gap-2">
+                            <input
+                              value={partnerMemberEmail}
+                              onChange={(event) => setPartnerMemberEmail(event.target.value)}
+                              placeholder="Work email address"
+                              className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                            />
+                            <select
+                              value={partnerMemberRole}
+                              onChange={(event) => setPartnerMemberRole(event.target.value as "partner_admin" | "partner_coordinator" | "partner_driver")}
+                              className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                            >
+                              <option value="partner_admin">Organization Admin</option>
+                              <option value="partner_coordinator">Coordinator</option>
+                              <option value="partner_driver">Driver</option>
+                            </select>
+                            <button onClick={addPartnerMember} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">
+                              Add Team Member
+                            </button>
+                          </div>
+                        </article>
+                      </div>
+
+                      {selectedPartnerForm ? (
+                        <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                          <article className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-white">Organization account</p>
+                                <p className="mt-1 text-xs text-white/65">Update the organization&apos;s contact details, profile information, and donor-facing branding here.</p>
+                              </div>
+                              <label className="inline-flex items-center gap-2 text-xs text-white/80">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedPartnerForm.active}
+                                  onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, active: event.target.checked } : prev))}
+                                />
+                                Active
+                              </label>
+                            </div>
+                            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                              <input value={selectedPartnerForm.name} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, name: event.target.value } : prev))} placeholder="Organization name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartner.code} disabled className="h-10 rounded-lg border border-white/15 bg-black/50 px-3 text-sm opacity-70" />
+                              <input value={selectedPartnerForm.legalName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, legalName: event.target.value } : prev))} placeholder="Legal name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.supportEmail} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportEmail: event.target.value } : prev))} placeholder="Support email" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.supportPhone} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportPhone: event.target.value } : prev))} placeholder="Support phone" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.websiteUrl} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, websiteUrl: event.target.value } : prev))} placeholder="Website URL" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.addressLine1} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, addressLine1: event.target.value } : prev))} placeholder="Mailing address" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm md:col-span-2" />
+                              <input value={selectedPartnerForm.city} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, city: event.target.value } : prev))} placeholder="City" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <input value={selectedPartnerForm.state} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, state: event.target.value } : prev))} placeholder="State" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                                <input value={selectedPartnerForm.postalCode} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, postalCode: event.target.value } : prev))} placeholder="ZIP code" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              </div>
+                              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70 md:col-span-2">
+                                Receipt delivery is handled by DonateCrate on behalf of this nonprofit. Payout settings stay internal for now and are not edited here.
+                              </div>
+                              <textarea value={selectedPartnerForm.aboutParagraph} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, aboutParagraph: event.target.value } : prev))} rows={4} placeholder="About paragraph" className="rounded-lg border border-white/25 bg-black px-3 py-2 text-sm md:col-span-2" />
+                              <textarea value={selectedPartnerForm.notes} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, notes: event.target.value } : prev))} rows={3} placeholder="Team notes" className="rounded-lg border border-white/25 bg-black px-3 py-2 text-sm md:col-span-2" />
+                            </div>
+                          </article>
+
+                          <article className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                            <p className="text-sm font-semibold text-white">Receipt branding</p>
+                            <p className="mt-1 text-xs text-white/65">This branding is used in donation receipt emails while delivery still comes from `giving@donatecrate.com`.</p>
+                            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                              <input value={selectedPartnerForm.displayName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, displayName: event.target.value } : prev))} placeholder="Receipt display name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Logo preview</p>
+                                <div className="mt-3 flex h-24 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/5 p-3">
+                                  {selectedPartnerForm.logoUrl ? (
+                                    <div
+                                      className="h-full w-full bg-contain bg-center bg-no-repeat"
+                                      style={{ backgroundImage: `url(${selectedPartnerForm.logoUrl})` }}
+                                    />
+                                  ) : (
+                                    <p className="text-xs text-white/50">No logo uploaded yet.</p>
+                                  )}
+                                </div>
+                              </div>
+                              <input value={selectedPartnerForm.primaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, primaryColor: event.target.value } : prev))} placeholder="Primary color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.secondaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, secondaryColor: event.target.value } : prev))} placeholder="Secondary color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.accentColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, accentColor: event.target.value } : prev))} placeholder="Accent color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70">
+                                Sender: {selectedPartnerForm.displayName || selectedPartnerForm.name || selectedPartner.name} &lt;giving@donatecrate.com&gt;
+                              </div>
+                              <textarea value={selectedPartnerForm.receiptFooter} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, receiptFooter: event.target.value } : prev))} rows={4} placeholder="Receipt footer" className="rounded-lg border border-white/25 bg-black px-3 py-2 text-sm md:col-span-2" />
+                            </div>
+                            <div className="mt-4 flex flex-wrap items-center gap-3">
+                              <button onClick={updatePartnerAccount} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">
+                                Save Partner Settings
+                              </button>
+                              <p className="text-xs text-white/65">Receipt sending is fixed to DonateCrate on behalf of the nonprofit.</p>
+                            </div>
+                          </article>
+                        </div>
+                      ) : null}
+
+                      <article className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">Organization team</p>
+                            <p className="mt-1 text-xs text-white/65">Manage organization admins, coordinators, and drivers without leaving the DonateCrate admin panel.</p>
+                          </div>
+                          <p className="text-xs text-white/65">{selectedPartner.members.length} members</p>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {selectedPartner.members.map((member) => (
+                            <div key={member.id} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-white">{member.full_name || member.email}</p>
+                                  <p className="mt-1 text-xs text-white/70">{member.email}{member.phone ? ` | ${member.phone}` : ""}</p>
+                                </div>
+                                <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${member.active ? "bg-emerald-500/15 text-emerald-100" : "bg-slate-500/15 text-slate-200"}`}>
+                                  {member.active ? "Active" : "Inactive"}
+                                </span>
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <select
+                                  value={member.role}
+                                  onChange={(event) => updatePartnerMember(member.id, { role: event.target.value as "partner_admin" | "partner_coordinator" | "partner_driver" })}
+                                  className="h-9 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                                >
+                                  <option value="partner_admin">Organization Admin</option>
+                                  <option value="partner_coordinator">Coordinator</option>
+                                  <option value="partner_driver">Driver</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => updatePartnerMember(member.id, { active: !member.active })}
+                                  className="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold"
+                                >
+                                  {member.active ? "Deactivate" : "Reactivate"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deletePartnerMember(member.id, member.full_name || member.email)}
+                                  className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-100"
+                                >
+                                  Delete
+                                </button>
+                                <p className="text-xs text-white/60">{formatPartnerTeamRole(member.role)}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {selectedPartner.members.length === 0 ? <p className="text-sm text-white/65">No team members added yet.</p> : null}
+                        </div>
+                      </article>
+                    </div>
+                  ) : null}
+                </section>
+                ) : null}
               </>
             ) : null}
 
-            <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
-              <h4 className="text-lg font-bold">Add New Zone</h4>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <input value={zoneForm.name} onChange={(event) => setZoneForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Zone name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                <input value={zoneForm.code} onChange={(event) => setZoneForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Zone code" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                <input value={zoneForm.anchorPostalCode} onChange={(event) => setZoneForm((prev) => ({ ...prev, anchorPostalCode: event.target.value }))} placeholder="Anchor ZIP" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                <input type="number" min={0.5} step={0.5} value={zoneForm.radiusMiles} onChange={(event) => setZoneForm((prev) => ({ ...prev, radiusMiles: Number(event.target.value) }))} placeholder="Service radius (miles)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                <input type="number" min={1} value={zoneForm.minActiveSubscribers} onChange={(event) => setZoneForm((prev) => ({ ...prev, minActiveSubscribers: Number(event.target.value) }))} placeholder="Target active households" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                <input
-                  value={createCenterQuery}
-                  onChange={(event) => {
-                    setCreateCenterQuery(event.target.value);
-                    setCreateCenterSelection(null);
-                    if (event.target.value.trim().length < 3) setCreateCenterPredictions([]);
-                  }}
-                  placeholder="Zone center address"
-                  className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm"
-                />
-              </div>
-              {createCenterPredictions.length > 0 ? (
-                <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-white/20 bg-black/40 p-2">
-                  {createCenterPredictions.map((prediction) => (
-                    <button
-                      key={prediction.placeId}
-                      type="button"
-                      onClick={async () => {
-                        const details = await fetchPlaceDetails(prediction.placeId);
-                        setCreateCenterSelection({ placeId: prediction.placeId, formattedAddress: details.formattedAddress });
-                        setCreateCenterQuery(details.formattedAddress);
-                        setCreateCenterPredictions([]);
-                      }}
-                      className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-white/10"
-                    >
-                      {prediction.mainText}
-                      <p className="text-xs text-white/70">{prediction.secondaryText || prediction.description}</p>
-                    </button>
-                  ))}
+            {networkSubtab === "zones" ? showCreateZoneForm ? (
+              <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+                <h4 className="text-lg font-bold">Add New Service Area</h4>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <input value={zoneForm.name} onChange={(event) => setZoneForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Service area name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={zoneForm.code} onChange={(event) => setZoneForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Internal area code" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={zoneForm.anchorPostalCode} onChange={(event) => setZoneForm((prev) => ({ ...prev, anchorPostalCode: event.target.value }))} placeholder="Anchor ZIP" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input type="number" min={0.5} step={0.5} value={zoneForm.radiusMiles} onChange={(event) => setZoneForm((prev) => ({ ...prev, radiusMiles: Number(event.target.value) }))} placeholder="Service radius (miles)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input type="number" min={1} value={zoneForm.minActiveSubscribers} onChange={(event) => setZoneForm((prev) => ({ ...prev, minActiveSubscribers: Number(event.target.value) }))} placeholder="Active household goal" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input
+                    value={createCenterQuery}
+                    onChange={(event) => {
+                      setCreateCenterQuery(event.target.value);
+                      setCreateCenterSelection(null);
+                      if (event.target.value.trim().length < 3) setCreateCenterPredictions([]);
+                    }}
+                    placeholder="Service area center address"
+                    className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm"
+                  />
                 </div>
-              ) : null}
-              <div className="mt-4 flex flex-wrap gap-3">
-                <label className="inline-flex items-center gap-2 text-xs">
-                  <input type="checkbox" checked={zoneForm.signupEnabled} onChange={(event) => setZoneForm((prev) => ({ ...prev, signupEnabled: event.target.checked }))} />
-                  Signup enabled
-                </label>
-                <label className="inline-flex items-center gap-2 text-xs">
-                  <input type="checkbox" checked={zoneForm.launchTargetEnabled} onChange={(event) => setZoneForm((prev) => ({ ...prev, launchTargetEnabled: event.target.checked }))} />
-                  Use launch target
-                </label>
-                <button onClick={createZone} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">Create Zone</button>
-              </div>
-            </section>
+                {createCenterPredictions.length > 0 ? (
+                  <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-white/20 bg-black/40 p-2">
+                    {createCenterPredictions.map((prediction) => (
+                      <button
+                        key={prediction.placeId}
+                        type="button"
+                        onClick={async () => {
+                          const details = await fetchPlaceDetails(prediction.placeId);
+                          setCreateCenterSelection({ placeId: prediction.placeId, formattedAddress: details.formattedAddress });
+                          setCreateCenterQuery(details.formattedAddress);
+                          setCreateCenterPredictions([]);
+                        }}
+                        className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-white/10"
+                      >
+                        {prediction.mainText}
+                        <p className="text-xs text-white/70">{prediction.secondaryText || prediction.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <label className="inline-flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={zoneForm.signupEnabled} onChange={(event) => setZoneForm((prev) => ({ ...prev, signupEnabled: event.target.checked }))} />
+                    Signup enabled
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={zoneForm.demoOnly} onChange={(event) => setZoneForm((prev) => ({ ...prev, demoOnly: event.target.checked }))} />
+                    Demo only
+                  </label>
+                  <button onClick={createZone} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">Create Service Area</button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateZoneForm(false)}
+                    className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </section>
+            ) : null : showCreatePartnerForm ? (
+              <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+                <h4 className="text-lg font-bold">Add Nonprofit Partner</h4>
+                <p className="mt-1 text-xs text-white/65">This creates the organization record and the nonprofit can brand receipts while delivery still comes from giving@donatecrate.com.</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <input value={partnerForm.name} onChange={(event) => setPartnerForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Partner name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={partnerForm.code} onChange={(event) => setPartnerForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Partner code" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={partnerForm.legalName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, legalName: event.target.value }))} placeholder="Legal name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={partnerForm.supportEmail} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportEmail: event.target.value }))} placeholder="Support email" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={partnerForm.supportPhone} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportPhone: event.target.value }))} placeholder="Support phone" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={partnerForm.displayName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, displayName: event.target.value }))} placeholder="Receipt display name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70 md:col-span-2">
+                    Receipt emails are always sent by DonateCrate on behalf of the nonprofit. Payout and revenue-share settings are handled internally and are not configured here yet.
+                  </div>
+                  <input value={partnerForm.primaryColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, primaryColor: event.target.value }))} placeholder="Primary color (#hex)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={partnerForm.accentColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, accentColor: event.target.value }))} placeholder="Accent color (#hex)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-3 md:col-span-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Logo preview</p>
+                    <div className="mt-3 flex h-24 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/5 p-3">
+                      {partnerForm.logoUrl ? (
+                        <div
+                          className="h-full w-full bg-contain bg-center bg-no-repeat"
+                          style={{ backgroundImage: `url(${partnerForm.logoUrl})` }}
+                        />
+                      ) : (
+                        <p className="text-xs text-white/50">No logo added yet. Logos are managed after the partner is created.</p>
+                      )}
+                    </div>
+                  </div>
+                  <input value={partnerForm.websiteUrl} onChange={(event) => setPartnerForm((prev) => ({ ...prev, websiteUrl: event.target.value }))} placeholder="Website URL" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm md:col-span-2" />
+                  <textarea value={partnerForm.notes} onChange={(event) => setPartnerForm((prev) => ({ ...prev, notes: event.target.value }))} rows={3} placeholder="Internal notes" className="rounded-lg border border-white/30 bg-black px-3 py-2 text-sm md:col-span-2" />
+                  <textarea value={partnerForm.receiptFooter} onChange={(event) => setPartnerForm((prev) => ({ ...prev, receiptFooter: event.target.value }))} rows={3} placeholder="Receipt footer" className="rounded-lg border border-white/30 bg-black px-3 py-2 text-sm md:col-span-2" />
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button onClick={createPartner} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">Create Partner</button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePartnerForm(false)}
+                    className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <p className="text-xs text-white/65">DonateCrate will send receipts on behalf of this nonprofit using the branding set here.</p>
+                </div>
+              </section>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -2068,7 +2894,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
                         return (
                           <div key={cycle.id} className="rounded-lg border border-white/10 bg-black/40 p-3 text-xs">
                             <p className="font-semibold">{zoneMeta?.name || cycle.zone_id}</p>
-                            <p className="mt-1">Pickup: {new Date(cycle.pickup_date).toLocaleDateString()}</p>
+                            <p className="mt-1">Pickup: {formatDate(cycle.pickup_date)}</p>
                             <p className="text-white/70">Cutoff: {new Date(cycle.request_cutoff_at).toLocaleString()}</p>
                           </div>
                         );
@@ -2177,7 +3003,7 @@ export function AdminWorkspace({ section = "overview" }: { section?: WorkspaceSe
               <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/75">
                 <p className="font-semibold text-white">Selected cycle</p>
                 <p className="mt-1">
-                  Pickup date: {new Date(selectedCycleMeta.pickup_date).toLocaleDateString()} | Response cutoff:{" "}
+                  Pickup date: {formatDate(selectedCycleMeta.pickup_date)} | Response cutoff:{" "}
                   {new Date(selectedCycleMeta.request_cutoff_at).toLocaleString()}
                 </p>
                 <p className="mt-1">

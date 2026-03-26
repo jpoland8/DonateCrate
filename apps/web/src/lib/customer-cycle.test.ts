@@ -10,7 +10,7 @@ describe("formatCycleStatus", () => {
   });
 
   it("falls back for unknown or empty statuses", () => {
-    expect(formatCycleStatus(null)).toBe("Awaiting your response");
+    expect(formatCycleStatus(null)).toBe("Included by default");
     expect(formatCycleStatus("missed")).toBe("Pickup missed");
   });
 });

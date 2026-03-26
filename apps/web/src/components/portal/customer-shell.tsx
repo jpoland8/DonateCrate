@@ -52,12 +52,22 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const activeTab = searchParams.get("tab") || "overview";
+  const rawTab = searchParams.get("tab") || "home";
+  const activeTab =
+    rawTab === "overview"
+      ? "home"
+      : rawTab === "pickups"
+        ? "pickup"
+        : rawTab === "referrals"
+          ? "rewards"
+          : rawTab === "settings"
+            ? "account"
+            : rawTab;
   const navItems = [
-    { href: "/app?tab=overview", tab: "overview", label: "Overview", icon: "overview" as const },
-    { href: "/app?tab=pickups", tab: "pickups", label: "Pickups", icon: "pickups" as const },
-    { href: "/app?tab=referrals", tab: "referrals", label: "Referrals", icon: "referrals" as const },
-    { href: "/app?tab=settings", tab: "settings", label: "Settings", icon: "settings" as const },
+    { href: "/app?tab=home", tab: "home", label: "Home", icon: "overview" as const },
+    { href: "/app?tab=pickup", tab: "pickup", label: "Pickup", icon: "pickups" as const },
+    { href: "/app?tab=rewards", tab: "rewards", label: "Rewards", icon: "referrals" as const },
+    { href: "/app?tab=account", tab: "account", label: "Account", icon: "settings" as const },
     { href: "/app/profile", label: "Profile", icon: "profile" as const },
   ];
   const activeLabel = navItems.find((item) =>

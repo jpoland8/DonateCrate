@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
   const { data: zone, error: zoneError } = await ctx.supabase
     .from("service_zones")
-    .select("id,center_lat,center_lng")
+    .select("id,center_lat,center_lng,operation_model,partner_id")
     .eq("code", parsed.data.zoneCode)
     .maybeSingle();
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   const { data: existingRoutes, error: existingRoutesError } = await ctx.supabase
     .from("routes")
-    .select("id,status,driver_id")
+    .select("id,status,driver_id,partner_id,fulfillment_mode")
     .eq("zone_id", zone.id)
     .eq("pickup_cycle_id", parsed.data.pickupCycleId)
     .order("created_at", { ascending: false })
@@ -76,6 +76,8 @@ export async function POST(request: Request) {
       .in("id", duplicateRouteIds);
   }
 
+  const fulfillmentMode = zone.operation_model === "partner_operated" && zone.partner_id ? "partner_team" : "employee_driver";
+
   const route = existingRoute
     ? { id: existingRoute.id }
     : await ctx.supabase
@@ -84,6 +86,9 @@ export async function POST(request: Request) {
           zone_id: zone.id,
           pickup_cycle_id: parsed.data.pickupCycleId,
           status: "draft",
+          partner_id: zone.partner_id ?? null,
+          fulfillment_mode: fulfillmentMode,
+          partner_visible: fulfillmentMode === "partner_team",
         })
         .select("id")
         .single()
@@ -234,7 +239,10 @@ export async function POST(request: Request) {
       .from("routes")
       .update({
         status: existingRoute?.driver_id ? "assigned" : "draft",
-        driver_id: existingRoute?.driver_id ?? null,
+        driver_id: fulfillmentMode === "employee_driver" ? existingRoute?.driver_id ?? null : null,
+        partner_id: zone.partner_id ?? null,
+        fulfillment_mode: fulfillmentMode,
+        partner_visible: fulfillmentMode === "partner_team",
       })
       .eq("id", route.id);
 
@@ -256,7 +264,10 @@ export async function POST(request: Request) {
     .from("routes")
     .update({
       status: existingRoute?.driver_id ? "assigned" : "draft",
-      driver_id: existingRoute?.driver_id ?? null,
+      driver_id: fulfillmentMode === "employee_driver" ? existingRoute?.driver_id ?? null : null,
+      partner_id: zone.partner_id ?? null,
+      fulfillment_mode: fulfillmentMode,
+      partner_visible: fulfillmentMode === "partner_team",
     })
     .eq("id", route.id);
 

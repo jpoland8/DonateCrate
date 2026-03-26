@@ -1,20 +1,28 @@
 import { redirect } from "next/navigation";
+import { getDefaultHomePath, hasOperationsConsoleAccess, isDriverRole } from "@/lib/access";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { DriverStopActions } from "./driver-stop-actions";
 import { KpiPanel } from "./kpi-panel";
 import { AdminWorkspace } from "./admin-workspace";
 
 type AdminPageProps = {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{ tab?: string; sub?: string }>;
 };
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
   const params = (await searchParams) ?? {};
-  const activeTab = ["overview", "pickups", "logistics", "people", "zones", "billing", "growth", "communication"].includes(
+  const activeTab = ["overview", "pickups", "logistics", "people", "network", "billing", "growth", "communication"].includes(
     params.tab || "",
   )
-    ? (params.tab as "overview" | "pickups" | "logistics" | "people" | "zones" | "billing" | "growth" | "communication")
-    : "overview";
+    ? (params.tab as "overview" | "pickups" | "logistics" | "people" | "network" | "billing" | "growth" | "communication")
+    : params.tab === "zones" || params.tab === "partners"
+      ? "network"
+      : "overview";
+  const networkSubtab =
+    params.sub === "partners" || params.tab === "partners"
+      ? "partners"
+      : "zones";
+  const peopleSubtab = params.sub === "staff" ? "staff" : "customers";
   const supabase = await createClient();
   const {
     data: { user },
@@ -25,11 +33,11 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   }
 
   const profile = await getCurrentProfile();
-  if (!profile || (profile.role !== "admin" && profile.role !== "driver")) {
-    redirect("/app");
+  if (!profile || !hasOperationsConsoleAccess(profile.role)) {
+    redirect(getDefaultHomePath(profile?.role));
   }
 
-  if (profile.role === "driver") {
+  if (isDriverRole(profile.role)) {
     const { data: driver } = await supabase
       .from("drivers")
       .select("id,employee_id,active")
@@ -202,7 +210,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       </section>
 
       {activeTab === "overview" ? <KpiPanel /> : null}
-      <AdminWorkspace section={activeTab} />
+      <AdminWorkspace section={activeTab} networkSubtab={networkSubtab} peopleSubtab={peopleSubtab} />
     </main>
   );
 }

@@ -8,7 +8,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 function NavIcon({
   kind,
 }: {
-  kind: "overview" | "pickups" | "logistics" | "people" | "zones" | "growth" | "communication" | "billing" | "customer";
+  kind: "overview" | "pickups" | "logistics" | "people" | "network" | "growth" | "communication" | "billing" | "customer";
 }) {
   const base = "h-4 w-4";
   switch (kind) {
@@ -44,7 +44,7 @@ function NavIcon({
           <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeWidth="2" />
         </svg>
       );
-    case "zones":
+    case "network":
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={base} aria-hidden>
           <path d="M12 22s7-4.35 7-10a7 7 0 1 0-14 0c0 5.65 7 10 7 10Z" strokeWidth="2" />
@@ -105,7 +105,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       label: "Operate The Network",
       items: [
         { href: "/admin?tab=people", tab: "people", label: "People", icon: "people" as const },
-        { href: "/admin?tab=zones", tab: "zones", label: "Zones", icon: "zones" as const },
+        { href: "/admin?tab=network&sub=zones", tab: "network", label: "Network", icon: "network" as const },
         { href: "/admin?tab=billing", tab: "billing", label: "Billing", icon: "billing" as const },
         { href: "/admin?tab=growth", tab: "growth", label: "Growth", icon: "growth" as const },
       ],
@@ -243,17 +243,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 })}
               </div>
             ))}
-            <Link
-              href="/app"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`mt-2 flex items-center rounded-lg border text-sm font-semibold hover:bg-white/10 ${collapsed ? "justify-center px-0 py-3" : "gap-2 px-3 py-2"}`}
-              style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
-              aria-label="Customer View"
-              title="Customer View"
-            >
-              <NavIcon kind="customer" />
-              {!collapsed ? "Customer View" : null}
-            </Link>
           </nav>
 
           {!collapsed ? (

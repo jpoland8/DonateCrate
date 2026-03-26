@@ -19,7 +19,7 @@ export default function LoginPage() {
       <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Sign In</p>
       <h2 className="mt-2 text-3xl font-bold sm:text-4xl">Access your DonateCrate account</h2>
       <p className="mt-3 text-base leading-7 text-[var(--dc-gray-700)]">
-        Use your password or request a magic link. Admin and driver roles will be routed to the operations console automatically.
+        Use your password or request a magic link. Team accounts are directed to the appropriate workspace automatically.
       </p>
       <div className="mt-6">
         <Suspense fallback={<p className="text-sm text-[var(--dc-gray-700)]">Loading form...</p>}>

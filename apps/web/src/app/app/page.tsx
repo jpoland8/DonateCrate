@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
 import Stripe from "stripe";
+import { getDefaultHomePath, hasOperationsConsoleAccess } from "@/lib/access";
+import { getCurrentPartnerRole } from "@/lib/partner-access";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatCycleStatus, getCustomerNextStep, getCycleUrgency, getNextReminderLabel } from "@/lib/customer-cycle";
+import { ensureDefaultPickupRequestForUser } from "@/lib/pickup-defaults";
 import { CustomerActions } from "./customer-actions";
 import { CustomerPortalTools } from "./customer-portal-tools";
 import { PaymentWall } from "./payment-wall";
@@ -11,6 +14,16 @@ import { SubscribedTracker } from "./subscribed-tracker";
 type CustomerPageProps = {
   searchParams?: Promise<{ tab?: string; checkout?: string; onboarding?: string; session_id?: string }>;
 };
+
+type CustomerTab = "home" | "pickup" | "rewards" | "account";
+
+function getCustomerTab(tab: string | undefined): CustomerTab {
+  if (tab === "overview") return "home";
+  if (tab === "pickups") return "pickup";
+  if (tab === "referrals") return "rewards";
+  if (tab === "settings") return "account";
+  return ["home", "pickup", "rewards", "account"].includes(tab || "") ? (tab as CustomerTab) : "home";
+}
 
 async function syncCheckoutSuccessIfNeeded(params: { profileId: string; sessionId?: string; checkoutStatus?: "success" | "canceled" | null }) {
   const { profileId, sessionId, checkoutStatus } = params;
@@ -77,9 +90,7 @@ async function syncCheckoutSuccessIfNeeded(params: { profileId: string; sessionI
 
 export default async function CustomerDashboardPage({ searchParams }: CustomerPageProps) {
   const params = (await searchParams) ?? {};
-  const activeTab = ["overview", "pickups", "referrals", "settings"].includes(params.tab || "")
-    ? (params.tab as "overview" | "pickups" | "referrals" | "settings")
-    : "overview";
+  const activeTab = getCustomerTab(params.tab);
   const checkoutStatus = params.checkout === "success" || params.checkout === "canceled" ? params.checkout : null;
   const onboardingCreated = params.onboarding === "created";
   const supabase = await createClient();
@@ -92,6 +103,15 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   }
 
   const profile = await getCurrentProfile();
+  if (profile) {
+    const { partnerRole } = await getCurrentPartnerRole({
+      supabase,
+      userId: profile.id,
+    });
+    if (hasOperationsConsoleAccess(profile.role) || partnerRole) {
+      redirect(getDefaultHomePath(profile.role, { hasActivePartnerMembership: Boolean(partnerRole) }));
+    }
+  }
   if (!profile?.full_name || profile.full_name.trim().length < 2) {
     redirect("/app/onboarding");
   }
@@ -122,6 +142,14 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       .limit(1)
       .maybeSingle(),
   ]);
+
+  if (profile?.id) {
+    await ensureDefaultPickupRequestForUser({
+      supabase,
+      userId: profile.id,
+      today,
+    });
+  }
 
   const [{ data: currentCycleRequest }, { data: notificationPrefs }, { data: address }] = await Promise.all([
     latestCycle
@@ -156,6 +184,16 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   );
   const nextReminderLabel = getNextReminderLabel(latestCycle?.pickup_date, notificationPrefs, new Date());
   const cycleUrgency = getCycleUrgency(latestCycle?.pickup_date, latestCycle?.request_cutoff_at, new Date());
+  const safeCutoffDetail = (() => {
+    if (!latestCycle?.request_cutoff_at) return "No pickup deadline published yet";
+    const parsed = new Date(latestCycle.request_cutoff_at);
+    return Number.isNaN(parsed.getTime()) ? "No pickup deadline published yet" : `Reply by ${parsed.toLocaleString()}`;
+  })();
+  const safePickupBadge = (() => {
+    if (!latestCycle?.pickup_date) return "Pickup date pending";
+    const parsed = new Date(latestCycle.pickup_date);
+    return Number.isNaN(parsed.getTime()) ? "Pickup date pending" : `Pickup ${parsed.toLocaleDateString()}`;
+  })();
   const nextStep = getCustomerNextStep({
     profileComplete,
     pickupDate: latestCycle?.pickup_date,
@@ -167,9 +205,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
     {
       title: "This Month",
       value: formatCycleStatus(currentCycleRequest?.status ?? null),
-      detail: latestCycle?.request_cutoff_at
-        ? `Reply by ${new Date(latestCycle.request_cutoff_at).toLocaleString()}`
-        : "No pickup deadline published yet",
+      detail: safeCutoffDetail,
     },
     {
       title: "Next Pickup",
@@ -226,7 +262,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
               <p className="mt-2 text-sm text-white/80">{nextStep.detail}</p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/70">
                 <span className="rounded-full border border-white/20 px-3 py-1">
-                  {latestCycle?.pickup_date ? `Pickup ${new Date(latestCycle.pickup_date).toLocaleDateString()}` : "Pickup date pending"}
+                  {safePickupBadge}
                 </span>
                 <span className="rounded-full border border-white/20 px-3 py-1">{nextReminderLabel}</span>
               </div>
@@ -264,7 +300,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
         ) : null}
       </header>
 
-      {activeTab === "overview" || activeTab === "pickups" ? (
+      {activeTab === "home" || activeTab === "pickup" ? (
         <>
           {!profileComplete ? (
             <section className="rounded-[1.75rem] border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_100%)] p-4 shadow-sm sm:p-5">
@@ -296,7 +332,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
         </>
       ) : null}
 
-      {activeTab === "overview" ? (
+      {activeTab === "home" ? (
         <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
           <article className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6">
             <h2 className="text-2xl font-bold">What to Do</h2>
@@ -325,11 +361,18 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
         </section>
       ) : null}
 
-      {activeTab === "pickups" ? (
+      {activeTab === "pickup" ? (
         <section
           id="cycle-actions"
           className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6"
         >
+          <div className="mb-5 rounded-[1.4rem] border border-black/10 bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Pickup</p>
+            <h2 className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">Handle this month&apos;s pickup in one place</h2>
+            <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
+              Confirm whether your bag is ready, check the deadline, and make changes without leaving this screen.
+            </p>
+          </div>
           <h2 className="text-2xl font-bold">Cycle Actions</h2>
           <div className="mt-4">
             <CustomerActions
@@ -343,8 +386,8 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
         </section>
       ) : null}
 
-      {activeTab === "referrals" ? <CustomerPortalTools section="referrals" /> : null}
-      {activeTab === "settings" ? <CustomerPortalTools section="settings" /> : null}
+      {activeTab === "rewards" ? <CustomerPortalTools section="referrals" /> : null}
+      {activeTab === "account" ? <CustomerPortalTools section="settings" /> : null}
     </main>
   );
 }

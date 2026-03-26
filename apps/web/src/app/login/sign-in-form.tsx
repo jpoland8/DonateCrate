@@ -3,6 +3,8 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { getDefaultHomePath } from "@/lib/access";
+import { getHighestPartnerRole } from "@/lib/partner-access";
 import { getSafeAppPath } from "@/lib/redirects";
 import { createClient } from "@/lib/supabase/client";
 
@@ -58,11 +60,17 @@ export function LoginForm() {
         if (user?.id) {
           const { data: profile } = await supabase
             .from("users")
-            .select("role")
+            .select("id,role")
             .eq("auth_user_id", user.id)
             .maybeSingle();
 
-          const roleHome = profile?.role === "admin" || profile?.role === "driver" ? "/admin" : "/app";
+          const { data: memberships } = profile?.id
+            ? await supabase.from("partner_memberships").select("role").eq("user_id", profile.id).eq("active", true)
+            : { data: [] as Array<{ role: string }> };
+
+          const roleHome = getDefaultHomePath(profile?.role, {
+            hasActivePartnerMembership: Boolean(getHighestPartnerRole((memberships ?? []).map((membership) => membership.role))),
+          });
           const destination = requestedNextPath && safeNextPath !== "/app" ? safeNextPath : roleHome;
           window.location.href = destination;
           return;

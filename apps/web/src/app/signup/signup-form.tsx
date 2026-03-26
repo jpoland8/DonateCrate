@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { trackMeta, trackMetaCustom } from "@/lib/meta-pixel";
+import { trackMetaCustom } from "@/lib/meta-pixel";
 import { createClient } from "@/lib/supabase/client";
 
 export function SignupForm() {

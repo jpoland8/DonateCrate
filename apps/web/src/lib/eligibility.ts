@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { fallbackCoordsForPostalCode, milesBetween } from "@/lib/geo";
+import { isDemoOnlyZone } from "@/lib/zone-flags";
 
 type CheckEligibilityInput = {
   postalCode: string;
@@ -11,7 +12,7 @@ export async function checkEligibility(input: CheckEligibilityInput) {
   const supabase = createSupabaseAdminClient();
   const { data: zones, error } = await supabase
     .from("service_zones")
-    .select("id,code,name,anchor_postal_code,center_lat,center_lng,radius_miles,status,signup_enabled")
+    .select("id,code,name,demo_only,anchor_postal_code,center_lat,center_lng,radius_miles,status,signup_enabled")
     .in("status", ["active", "launching", "pending"]);
 
   if (error) {
@@ -22,8 +23,11 @@ export async function checkEligibility(input: CheckEligibilityInput) {
     input.lat != null && input.lng != null
       ? { lat: input.lat, lng: input.lng }
       : fallbackCoordsForPostalCode(input.postalCode);
+  const publicZones = zones?.filter((zone) => !isDemoOnlyZone(zone)) ?? [];
+  const demoZones = zones?.filter((zone) => isDemoOnlyZone(zone)) ?? [];
 
-  const exactPostalMatch = zones?.find((zone) => zone.anchor_postal_code === input.postalCode);
+  const exactPostalMatch = publicZones.find((zone) => zone.anchor_postal_code === input.postalCode);
+  const exactDemoPostalMatch = demoZones.find((zone) => zone.anchor_postal_code === input.postalCode);
 
   if (exactPostalMatch && exactPostalMatch.status === "active" && exactPostalMatch.signup_enabled) {
     return {
@@ -34,8 +38,17 @@ export async function checkEligibility(input: CheckEligibilityInput) {
     };
   }
 
+  if (exactDemoPostalMatch) {
+    return {
+      status: "pending" as const,
+      zone: null,
+      distanceMiles: null,
+      reason: "This address is inside a demo-only service area and is not open for public signup.",
+    };
+  }
+
   if (coords) {
-    const eligible = zones
+    const eligible = publicZones
       ?.filter((zone) => zone.center_lat != null && zone.center_lng != null)
       .map((zone) => {
         const distanceMiles = milesBetween(coords, {
@@ -53,6 +66,26 @@ export async function checkEligibility(input: CheckEligibilityInput) {
         zone: eligible.zone,
         distanceMiles: Number(eligible.distanceMiles.toFixed(2)),
         reason: canSignup ? "Address is inside active signup radius." : "Address is inside route radius but signup is not enabled yet.",
+      };
+    }
+
+    const demoMatch = demoZones
+      .filter((zone) => zone.center_lat != null && zone.center_lng != null)
+      .map((zone) => {
+        const distanceMiles = milesBetween(coords, {
+          lat: zone.center_lat as number,
+          lng: zone.center_lng as number,
+        });
+        return { zone, distanceMiles };
+      })
+      .sort((a, b) => a.distanceMiles - b.distanceMiles)[0];
+
+    if (demoMatch && demoMatch.distanceMiles <= Number(demoMatch.zone.radius_miles)) {
+      return {
+        status: "pending" as const,
+        zone: null,
+        distanceMiles: Number(demoMatch.distanceMiles.toFixed(2)),
+        reason: "This address is inside a demo-only service area and is not open for public signup.",
       };
     }
   }

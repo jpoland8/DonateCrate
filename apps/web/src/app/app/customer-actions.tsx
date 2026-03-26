@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatCycleStatus, getCycleUrgency } from "@/lib/customer-cycle";
+import { getCycleUrgency } from "@/lib/customer-cycle";
 import { trackMeta } from "@/lib/meta-pixel";
 
 type ActionState = "idle" | "loading" | "error" | "success";
@@ -27,13 +27,46 @@ export function CustomerActions({
   const [localUpdatedAt, setLocalUpdatedAt] = useState(lastUpdatedAt);
   const cutoffPassed = requestCutoffAt ? new Date() > new Date(requestCutoffAt) : false;
   const urgency = getCycleUrgency(nextPickupDate, requestCutoffAt, new Date());
-  const currentLabel = formatCycleStatus(localStatus);
-  const actionSummary =
-    localStatus === "requested" || localStatus === "confirmed"
-      ? "Your home is included for this cycle."
-      : localStatus === "skipped"
-        ? "Driver visit is removed for this month."
-        : "Choose whether your home should be on this month’s route.";
+  const isSkipped = localStatus === "skipped";
+  const statusChipLabel = isSkipped ? "Skipped This Month" : "On This Month's Route";
+  const statusChipClassName = isSkipped
+    ? "border-rose-200 bg-rose-50 text-rose-700"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700";
+  const statusPanelClassName = isSkipped
+    ? "border-rose-200 bg-[linear-gradient(135deg,#fff1f2_0%,#ffe4e6_100%)] text-rose-950 shadow-[0_20px_40px_rgba(244,63,94,0.10)]"
+    : "border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-950 shadow-[0_20px_40px_rgba(16,185,129,0.12)]";
+  const routeHeadline = isSkipped
+    ? "You are skipped for this month's pickup"
+    : "You are on this month's pickup route";
+  const routeDetail = isSkipped
+    ? "A driver will not stop at your home this cycle unless you put yourself back on the route before the deadline."
+    : "Your home is included for this cycle. You do not need to do anything else unless your plans changed.";
+  const nextStepTitle = cutoffPassed
+    ? "The route is already locked"
+    : isSkipped
+      ? "You are currently marked skipped"
+      : "You are already set for pickup";
+  const nextStepDetail = cutoffPassed
+    ? "The response deadline has passed for this cycle. Contact support if you need a manual change."
+    : isSkipped
+      ? "If you changed your mind, use Put me back on the route before the response deadline."
+      : "You can leave everything as-is. Only choose Skip this month if you do not want a pickup visit this cycle.";
+  const urgencyAccentClassName = isSkipped ? "text-rose-600" : "text-[var(--dc-orange)]";
+  const footerNote = isSkipped
+    ? "Skipped only applies to this month. Your membership and billing stay active."
+    : "You are included for this month. You only need to act if you want to skip this pickup.";
+
+  function safeDateLabel(value: string | null, fallback: string) {
+    if (!value) return fallback;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleDateString();
+  }
+
+  function safeDateTimeLabel(value: string | null, fallback: string) {
+    if (!value) return fallback;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleString();
+  }
 
   async function fetchWithTimeout(path: string, init?: RequestInit) {
     const controller = new AbortController();
@@ -60,11 +93,11 @@ export function CustomerActions({
       setLocalStatus(json.pickupRequest?.status ?? localStatus);
       setLocalUpdatedAt(json.pickupRequest?.updated_at ?? new Date().toISOString());
       if (path.endsWith("/request")) {
-        setMessage("Your household is marked ready for this month.");
+        setMessage("You are on the route for this month.");
       } else if (path.endsWith("/skip")) {
-        setMessage("This month is marked skipped. Billing stays unchanged.");
+        setMessage("You are skipped for this month. Billing stays unchanged.");
       } else {
-        setMessage("Your skip was removed. This month is back on your route-ready list.");
+        setMessage("You are back on the route for this month.");
       }
     } catch {
       setState("error");
@@ -102,25 +135,30 @@ export function CustomerActions({
 
   return (
     <div className="space-y-4">
+      <div className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-sm ${statusChipClassName}`}>
+        {statusChipLabel}
+      </div>
       <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[1.75rem] border border-white/15 bg-[linear-gradient(135deg,#111827_0%,#1f2937_58%,#ff6a00_180%)] p-5 text-white shadow-[0_20px_40px_rgba(17,24,39,0.16)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Current Cycle</p>
-          <p className="mt-2 text-2xl font-bold">
-            {nextPickupDate ? new Date(nextPickupDate).toLocaleDateString() : "Not scheduled"}
+        <div className={`rounded-[1.75rem] border p-5 ${statusPanelClassName}`}>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Route Status</p>
+          <p className="mt-2 text-2xl font-bold">{routeHeadline}</p>
+          <p className="mt-2 text-sm opacity-80">
+            {nextPickupDate ? `Pickup date: ${safeDateLabel(nextPickupDate, "Not scheduled")}` : "Pickup date is not scheduled yet."}
           </p>
-          <p className="mt-2 text-sm text-white/80">{currentLabel}</p>
-          <p className="mt-2 text-sm text-white/70">{actionSummary}</p>
+          <p className="mt-2 text-sm opacity-80">{routeDetail}</p>
           {localUpdatedAt ? (
-            <p className="mt-3 text-xs text-white/60">Last saved {new Date(localUpdatedAt).toLocaleString()}</p>
+            <p className="mt-3 text-xs opacity-70">Last saved {safeDateTimeLabel(localUpdatedAt, "recently")}</p>
           ) : null}
         </div>
         <div className="rounded-[1.75rem] border border-black/5 bg-[linear-gradient(180deg,#faf8f5_0%,#eee8e0_100%)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">What to know now</p>
-          <p className="mt-2 text-lg font-bold">{urgency.label}</p>
-          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">{urgency.detail}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">What to do now</p>
+          <p className="mt-2 text-lg font-bold">{nextStepTitle}</p>
+          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">{nextStepDetail}</p>
+          {!cutoffPassed ? <p className={`mt-2 text-xs font-semibold uppercase tracking-[0.16em] ${urgencyAccentClassName}`}>{urgency.label}</p> : null}
+          {!cutoffPassed ? <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{urgency.detail}</p> : null}
           {requestCutoffAt ? (
             <p className="mt-3 text-xs text-[var(--dc-gray-700)]">
-              Response deadline: {new Date(requestCutoffAt).toLocaleString()}
+              Response deadline: {safeDateTimeLabel(requestCutoffAt, "Not set")}
             </p>
           ) : null}
         </div>
@@ -138,8 +176,12 @@ export function CustomerActions({
       <div className="rounded-[1.75rem] border border-black/5 bg-[rgba(255,255,255,0.74)] p-4 shadow-[0_12px_30px_rgba(17,24,39,0.04)]">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Choose your status</p>
-            <p className="mt-1 text-sm text-[var(--dc-gray-700)]">These actions update this cycle only and save immediately.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Change this month only</p>
+            <p className="mt-1 text-sm text-[var(--dc-gray-700)]">
+              {isSkipped
+                ? "You are currently skipped. Put yourself back on the route if this was a mistake."
+                : "You are currently on the route. Only skip if you do not want a pickup visit this month."}
+            </p>
           </div>
           <div className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-[var(--dc-gray-700)]">
             Changes apply to this month
@@ -149,31 +191,46 @@ export function CustomerActions({
           <button
             onClick={() => post("/api/pickup/request")}
             disabled={state === "loading" || cutoffPassed}
-            className="rounded-[1.35rem] bg-[var(--dc-orange)] px-4 py-4 text-left text-sm font-semibold text-white shadow-[0_14px_30px_rgba(255,106,0,0.28)] disabled:opacity-60"
+            className="rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm font-semibold text-emerald-900 shadow-sm disabled:opacity-60"
           >
-            <span className="block">Confirm pickup</span>
-            <span className="mt-1 block text-xs font-medium text-white/75">
-              {localStatus === "requested" || localStatus === "confirmed" ? "Keep your stop active on the route." : "Tell ops your bag will be out."}
+            <span className="block">{isSkipped ? "Put me back on the route" : "Keep me on the route"}</span>
+            <span className="mt-1 block text-xs font-medium text-emerald-700">
+              {isSkipped ? "Include your home in this month&apos;s pickup again." : "Stay included for this month&apos;s pickup."}
             </span>
           </button>
           <button
             onClick={() => post("/api/pickup/skip")}
             disabled={state === "loading" || cutoffPassed}
-            className="rounded-[1.35rem] border border-black/10 bg-white px-4 py-4 text-left text-sm font-semibold text-black shadow-sm disabled:opacity-60"
+            className="rounded-[1.35rem] border border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm font-semibold text-rose-900 shadow-sm disabled:opacity-60"
           >
             <span className="block">Skip this month</span>
-            <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-700)]">
-              Remove your home from this cycle without changing billing.
+            <span className="mt-1 block text-xs font-medium text-rose-700">
+              Take your home off this month&apos;s route without changing billing.
             </span>
           </button>
+          {isSkipped ? (
+            <div className="rounded-[1.35rem] border border-black/10 bg-white px-4 py-4 text-left text-sm shadow-sm">
+              <span className="block font-semibold text-black">No pickup visit scheduled</span>
+              <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-700)]">
+                A driver will not stop by this month unless you put yourself back on the route.
+              </span>
+            </div>
+          ) : (
+            <div className="rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm shadow-sm">
+              <span className="block font-semibold text-emerald-900">Pickup visit scheduled</span>
+              <span className="mt-1 block text-xs font-medium text-emerald-700">
+                Your home is included and no further action is needed right now.
+              </span>
+            </div>
+          )}
           {localStatus === "skipped" ? (
             <button
               onClick={() => post("/api/pickup/unskip")}
               disabled={state === "loading" || cutoffPassed}
-              className="rounded-[1.35rem] border border-black/10 bg-white px-4 py-4 text-left text-sm font-semibold text-black shadow-sm disabled:opacity-60"
+              className="rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm font-semibold text-emerald-900 shadow-sm disabled:opacity-60"
             >
               <span className="block">Put me back on route</span>
-              <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-700)]">
+              <span className="mt-1 block text-xs font-medium text-emerald-700">
                 Undo the skip before the cutoff passes.
               </span>
             </button>
@@ -212,7 +269,7 @@ export function CustomerActions({
         </p>
       ) : null}
       <div className="rounded-[1.5rem] border border-black/10 bg-white/80 p-4 text-sm text-[var(--dc-gray-700)] shadow-sm">
-        Skipping a month only removes your stop from this cycle. It does not pause your membership or change billing.
+        {footerNote}
       </div>
     </div>
   );

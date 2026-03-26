@@ -15,7 +15,7 @@ export function formatCycleStatus(status: string | null) {
     case "not_ready":
       return "Marked not ready";
     default:
-      return "Awaiting your response";
+      return "Included by default";
   }
 }
 
@@ -55,14 +55,14 @@ export function getCycleUrgency(
     return {
       tone: "medium" as const,
       label: "Pickup is coming up this week",
-      detail: "If you want this month collected, confirm now so your stop stays on the route.",
+      detail: "Your stop stays on the route unless you skip this cycle before the cutoff.",
     };
   }
 
   return {
     tone: "low" as const,
-    label: "You still have time to respond",
-    detail: "Confirm or skip this month before the route cutoff and we will take care of the rest.",
+    label: "You still have time to make changes",
+    detail: "You are included by default. Skip this month before the cutoff only if you need to miss this cycle.",
   };
 }
 
@@ -121,10 +121,10 @@ export function getCustomerNextStep(params: {
   }
 
   return {
-    title: "Tell us about this month",
-    detail: "Confirm pickup if your orange bag will be out, or skip the visit if you need another cycle.",
+    title: "You are set for this month",
+    detail: "Your stop is included by default. Only skip this month if you do not want a pickup.",
     href: "/app?tab=pickups",
-    cta: "Choose pickup status",
+    cta: "Review this cycle",
   };
 }
 

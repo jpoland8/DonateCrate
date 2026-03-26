@@ -52,6 +52,18 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  function safeDateLabel(value: string | null | undefined, fallback = "Not scheduled") {
+    if (!value) return fallback;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleDateString();
+  }
+
+  function safeDateTimeLabel(value: string | null | undefined, fallback = "Not set") {
+    if (!value) return fallback;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleString();
+  }
+
   async function load() {
     setLoading(true);
     setLoadError("");
@@ -98,7 +110,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
         title: "Pickup status updated",
         tone: "pickup" as const,
         statusLabel: formatCycleStatus(request.status),
-        detail: cycle?.pickup_date ? `For ${new Date(cycle.pickup_date).toLocaleDateString()}` : "Saved to your account",
+        detail: cycle?.pickup_date ? `For ${safeDateLabel(cycle.pickup_date)}` : "Saved to your account",
         error: null,
       };
     });
@@ -110,7 +122,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
       tone: "notification" as const,
       statusLabel: `${formatNotificationStatus(event.status)} via ${event.channel}`,
       detail: event.last_attempt_at
-        ? `Last delivery attempt ${new Date(event.last_attempt_at).toLocaleString()}`
+        ? `Last delivery attempt ${safeDateTimeLabel(event.last_attempt_at)}`
         : "Logged to your account",
       error: event.last_error,
     }));
@@ -309,7 +321,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
             <article className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
               <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Current cycle</p>
               <p className="mt-2 text-xl font-bold">
-                {currentCycle ? new Date(currentCycle.pickup_date).toLocaleDateString() : "Not scheduled"}
+                {safeDateLabel(currentCycle?.pickup_date)}
               </p>
             </article>
             <article className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
@@ -319,7 +331,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
             <article className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
               <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Last account update</p>
               <p className="mt-2 text-sm font-semibold text-black">
-                {latestRequest ? new Date(latestRequest.updated_at).toLocaleString() : "No update saved yet"}
+                {latestRequest ? safeDateTimeLabel(latestRequest.updated_at, "No update saved yet") : "No update saved yet"}
               </p>
             </article>
           </div>
@@ -345,7 +357,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
                     </p>
                   </div>
                   <p className="mt-1 text-xs text-[var(--dc-gray-700)]">
-                    {item.detail} | {new Date(item.createdAt).toLocaleString()}
+                    {item.detail} | {safeDateTimeLabel(item.createdAt)}
                   </p>
                   {item.error ? <p className="mt-1 text-xs text-red-600">Delivery issue: {item.error}</p> : null}
                 </article>
@@ -366,7 +378,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
                 <div key={item.id} className="flex flex-wrap items-center justify-between rounded-[1.25rem] border border-black/10 bg-white/75 p-4 shadow-sm">
                   <div>
                     <p className="text-sm font-semibold">{item.referredEmail || "Pending signup"}</p>
-                    <p className="text-xs text-[var(--dc-gray-700)]">{new Date(item.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-[var(--dc-gray-700)]">{safeDateLabel(item.createdAt)}</p>
                   </div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-[var(--dc-gray-700)]">
                     {item.status.replaceAll("_", " ")}

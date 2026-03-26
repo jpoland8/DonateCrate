@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getDefaultHomePath } from "@/lib/access";
+import { getHighestPartnerRole } from "@/lib/partner-access";
 import { getSafeAppPath } from "@/lib/redirects";
 
 export async function GET(request: NextRequest) {
@@ -31,7 +33,8 @@ export async function GET(request: NextRequest) {
   if (code) {
     await supabase.auth.exchangeCodeForSession(code);
   } else if (tokenHash && type === "recovery") {
-    const recoveryUrl = new URL("/reset-password", url.origin);
+    const recoveryPath = getSafeAppPath(next, "/reset-password");
+    const recoveryUrl = new URL(recoveryPath, url.origin);
     recoveryUrl.searchParams.set("token_hash", tokenHash);
     return NextResponse.redirect(recoveryUrl);
   } else if (tokenHash && type === "magiclink") {
@@ -49,10 +52,15 @@ export async function GET(request: NextRequest) {
     if (user?.id) {
       const { data: profile } = await supabase
         .from("users")
-        .select("role")
+        .select("id,role")
         .eq("auth_user_id", user.id)
         .maybeSingle();
-      destination = profile?.role === "admin" || profile?.role === "driver" ? "/admin" : "/app";
+      const { data: memberships } = profile?.id
+        ? await supabase.from("partner_memberships").select("role").eq("user_id", profile.id).eq("active", true)
+        : { data: [] as Array<{ role: string }> };
+      destination = getDefaultHomePath(profile?.role, {
+        hasActivePartnerMembership: Boolean(getHighestPartnerRole((memberships ?? []).map((membership) => membership.role))),
+      });
     } else {
       destination = "/app";
     }

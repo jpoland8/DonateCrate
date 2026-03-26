@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { GLOBAL_APP_ROLES } from "@/lib/access";
 import { getAuthenticatedContext } from "@/lib/api-auth";
 
 const patchSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(["customer", "admin", "driver"]),
+  role: z.enum(GLOBAL_APP_ROLES),
 });
 
 export async function GET() {

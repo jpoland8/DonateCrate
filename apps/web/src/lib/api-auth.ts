@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentPartnerRole } from "@/lib/partner-access";
 
 export function createCorrelationId(prefix = "dc") {
   return `${prefix}_${crypto.randomUUID()}`;
@@ -20,9 +21,15 @@ export async function getAuthenticatedContext() {
 
   if (!profile) return null;
 
+  const { partnerRole } = await getCurrentPartnerRole({
+    supabase,
+    userId: profile.id,
+  });
+
   return {
     supabase,
     user,
     profile,
+    partnerRole,
   };
 }

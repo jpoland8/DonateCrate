@@ -6,7 +6,7 @@ const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(12),
   search: z.string().optional(),
-  role: z.enum(["all", "customer", "driver", "admin"]).default("all"),
+  role: z.enum(["all", "customer", "driver", "admin", "partner_admin", "partner_coordinator", "partner_driver"]).default("all"),
 });
 
 export async function GET(

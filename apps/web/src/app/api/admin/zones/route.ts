@@ -44,7 +44,14 @@ const createZoneSchema = z.object({
   minActiveSubscribers: z.number().int().min(1).max(10000).default(40),
   centerPlaceId: z.string().min(8),
   signupEnabled: z.boolean().default(false),
-  launchTargetEnabled: z.boolean().default(true),
+  demoOnly: z.boolean().default(false),
+  operationModel: z.enum(["donatecrate_operated", "partner_operated"]).default("donatecrate_operated"),
+  partnerId: z.string().uuid().nullable().optional(),
+  partnerPickupDateOverrideAllowed: z.boolean().default(false),
+  recurringPickupDay: z.number().int().min(1).max(31).nullable().optional(),
+  defaultCutoffDaysBefore: z.number().int().min(0).max(30).default(7),
+  defaultPickupWindowLabel: z.string().max(120).optional(),
+  partnerNotes: z.string().optional(),
 });
 
 const updateZoneSchema = z.object({
@@ -54,7 +61,14 @@ const updateZoneSchema = z.object({
   minActiveSubscribers: z.number().int().min(1).max(10000).optional(),
   centerPlaceId: z.string().min(8).optional(),
   signupEnabled: z.boolean().optional(),
-  launchTargetEnabled: z.boolean().optional(),
+  demoOnly: z.boolean().optional(),
+  operationModel: z.enum(["donatecrate_operated", "partner_operated"]).optional(),
+  partnerId: z.string().uuid().nullable().optional(),
+  partnerPickupDateOverrideAllowed: z.boolean().optional(),
+  recurringPickupDay: z.number().int().min(1).max(31).nullable().optional(),
+  defaultCutoffDaysBefore: z.number().int().min(0).max(30).optional(),
+  defaultPickupWindowLabel: z.string().max(120).optional(),
+  partnerNotes: z.string().optional(),
 });
 
 export async function GET() {
@@ -62,7 +76,10 @@ export async function GET() {
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { data, error } = await ctx.supabase.from("service_zones").select("*").order("created_at", { ascending: true });
+  const { data, error } = await ctx.supabase
+    .from("service_zones")
+    .select("*, nonprofit_partners(id,name,code)")
+    .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({
@@ -78,7 +95,15 @@ export async function GET() {
       center_lng: zone.center_lng ?? null,
       center_address: zone.center_address ?? null,
       signup_enabled: zone.signup_enabled ?? false,
-      launch_target_enabled: zone.launch_target_enabled ?? true,
+      demo_only: zone.demo_only ?? false,
+      operation_model: zone.operation_model ?? "donatecrate_operated",
+      partner_id: zone.partner_id ?? null,
+      partner_pickup_date_override_allowed: zone.partner_pickup_date_override_allowed ?? false,
+      recurring_pickup_day: zone.recurring_pickup_day ?? null,
+      default_cutoff_days_before: zone.default_cutoff_days_before ?? 7,
+      default_pickup_window_label: zone.default_pickup_window_label ?? null,
+      partner_notes: zone.partner_notes ?? null,
+      partner: Array.isArray(zone.nonprofit_partners) ? zone.nonprofit_partners[0] ?? null : zone.nonprofit_partners ?? null,
     })),
   });
 }
@@ -109,7 +134,14 @@ export async function POST(request: Request) {
       center_lng: center.center_lng,
       center_address: center.center_address,
       signup_enabled: input.signupEnabled,
-      launch_target_enabled: input.launchTargetEnabled,
+      demo_only: input.demoOnly,
+      operation_model: input.operationModel,
+      partner_id: input.partnerId ?? null,
+      partner_pickup_date_override_allowed: input.partnerPickupDateOverrideAllowed,
+      recurring_pickup_day: input.recurringPickupDay ?? null,
+      default_cutoff_days_before: input.defaultCutoffDaysBefore,
+      default_pickup_window_label: input.defaultPickupWindowLabel?.trim() ? input.defaultPickupWindowLabel.trim() : null,
+      partner_notes: input.partnerNotes?.trim() ? input.partnerNotes.trim() : null,
       updated_at: new Date().toISOString(),
     })
     .select("*")
@@ -136,7 +168,18 @@ export async function PATCH(request: Request) {
   if (typeof input.status === "string") patch.status = input.status;
   if (typeof input.minActiveSubscribers === "number") patch.min_active_subscribers = input.minActiveSubscribers;
   if (typeof input.signupEnabled === "boolean") patch.signup_enabled = input.signupEnabled;
-  if (typeof input.launchTargetEnabled === "boolean") patch.launch_target_enabled = input.launchTargetEnabled;
+  if (typeof input.demoOnly === "boolean") patch.demo_only = input.demoOnly;
+  if (typeof input.operationModel === "string") patch.operation_model = input.operationModel;
+  if (input.partnerId !== undefined) patch.partner_id = input.partnerId;
+  if (typeof input.partnerPickupDateOverrideAllowed === "boolean") {
+    patch.partner_pickup_date_override_allowed = input.partnerPickupDateOverrideAllowed;
+  }
+  if (input.recurringPickupDay !== undefined) patch.recurring_pickup_day = input.recurringPickupDay;
+  if (typeof input.defaultCutoffDaysBefore === "number") patch.default_cutoff_days_before = input.defaultCutoffDaysBefore;
+  if (input.defaultPickupWindowLabel !== undefined) {
+    patch.default_pickup_window_label = input.defaultPickupWindowLabel.trim() ? input.defaultPickupWindowLabel.trim() : null;
+  }
+  if (input.partnerNotes !== undefined) patch.partner_notes = input.partnerNotes.trim() ? input.partnerNotes.trim() : null;
   if (typeof input.centerPlaceId === "string") {
     const center = await resolvePlaceCenter(input.centerPlaceId);
     patch.center_lat = center.center_lat;

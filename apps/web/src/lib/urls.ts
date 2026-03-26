@@ -4,9 +4,6 @@ function normalizeUrl(value: string | null | undefined, fallback: string) {
 
   try {
     const parsed = new URL(trimmed);
-    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-      return fallback;
-    }
     return parsed.origin;
   } catch {
     return fallback;
