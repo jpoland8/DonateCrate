@@ -54,33 +54,43 @@ body {
 /* ========== Admin Theme Tokens ========== */
 
 .admin-theme-dark {
-  --admin-bg: radial-gradient(circle at 20% 0%, #272727 0%, #111111 45%, #0a0a0a 100%);
-  --admin-topbar: rgba(0, 0, 0, 0.85);
-  --admin-sidebar: rgba(0, 0, 0, 0.7);
-  --admin-surface: rgba(255, 255, 255, 0.05);
-  --admin-surface-strong: rgba(255, 255, 255, 0.08);
+  --admin-bg: linear-gradient(160deg, #0e1118 0%, #131722 60%, #0c0f16 100%);
+  --admin-topbar: rgba(11, 13, 20, 0.94);
+  --admin-sidebar: rgba(13, 15, 24, 0.97);
+  --admin-surface: rgba(255, 255, 255, 0.055);
+  --admin-surface-strong: rgba(255, 255, 255, 0.09);
   --admin-panel: rgba(0, 0, 0, 0.28);
-  --admin-border: rgba(255, 255, 255, 0.14);
-  --admin-border-strong: rgba(255, 255, 255, 0.22);
-  --admin-text: #ffffff;
-  --admin-muted: rgba(255, 255, 255, 0.72);
-  --admin-soft-text: rgba(255, 255, 255, 0.56);
-  --admin-sidebar-text: rgba(255, 255, 255, 0.9);
+  --admin-border: rgba(255, 255, 255, 0.10);
+  --admin-border-strong: rgba(255, 255, 255, 0.17);
+  --admin-text: #f1f5f9;
+  --admin-muted: rgba(241, 245, 249, 0.58);
+  --admin-soft-text: rgba(241, 245, 249, 0.38);
+  --admin-sidebar-text: rgba(241, 245, 249, 0.88);
+  /* Icon containers */
+  --admin-icon-active: rgba(255, 255, 255, 0.18);
+  --admin-icon-inactive: rgba(255, 255, 255, 0.07);
+  --admin-nav-hover: rgba(255, 255, 255, 0.07);
 }
 
 .admin-theme-light {
-  --admin-bg: radial-gradient(circle at 0% 0%, #fff4eb 0%, #ffffff 36%, #f4f1ed 100%);
-  --admin-topbar: rgba(255, 255, 255, 0.92);
-  --admin-sidebar: rgba(255, 255, 255, 0.88);
-  --admin-surface: rgba(255, 255, 255, 0.88);
-  --admin-surface-strong: rgba(255, 255, 255, 0.97);
-  --admin-panel: rgba(255, 255, 255, 0.82);
-  --admin-border: rgba(24, 24, 27, 0.09);
-  --admin-border-strong: rgba(24, 24, 27, 0.16);
-  --admin-text: #171717;
-  --admin-muted: rgba(23, 23, 23, 0.72);
-  --admin-soft-text: rgba(23, 23, 23, 0.56);
-  --admin-sidebar-text: rgba(23, 23, 23, 0.88);
+  /* Clean slate-blue background — distinct from white sidebar/cards */
+  --admin-bg: #edf1f7;
+  --admin-topbar: rgba(255, 255, 255, 0.97);
+  /* Solid white sidebar creates clear left-rail separation */
+  --admin-sidebar: #ffffff;
+  --admin-surface: #ffffff;
+  --admin-surface-strong: #f8fafd;
+  --admin-panel: #edf1f7;
+  --admin-border: rgba(15, 23, 42, 0.09);
+  --admin-border-strong: rgba(15, 23, 42, 0.15);
+  --admin-text: #0f172a;
+  --admin-muted: #64748b;
+  --admin-soft-text: #94a3b8;
+  --admin-sidebar-text: #1e293b;
+  /* Icon containers — theme-aware so they work on white bg */
+  --admin-icon-active: rgba(255, 106, 0, 0.14);
+  --admin-icon-inactive: rgba(15, 23, 42, 0.06);
+  --admin-nav-hover: rgba(15, 23, 42, 0.04);
 }
 
 /* ========== Typography ========== */
@@ -145,7 +155,7 @@ h6 {
   }
   .dc-stat-admin:hover {
     border-color: var(--admin-border-strong);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.06);
   }
 
   /* Buttons */
@@ -262,11 +272,14 @@ h6 {
     height: 2.75rem;
     border-radius: var(--radius-sm);
     border: 1px solid var(--admin-border-strong);
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--admin-surface-strong);
     padding: 0 0.75rem;
     font-size: 0.875rem;
     color: var(--admin-text);
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .dc-input-admin::placeholder {
+    color: var(--admin-muted);
   }
   .dc-input-admin:focus {
     outline: none;
@@ -331,19 +344,20 @@ h6 {
   }
 
   .dc-nav-item-active {
-    background: linear-gradient(135deg, #111827 0%, #273447 55%, #ff6a00 170%);
+    background: linear-gradient(135deg, #1a2540 0%, #1e2d4a 50%, #2a3a5c 100%);
     color: white;
-    box-shadow: 0 8px 24px rgba(17, 24, 39, 0.14);
+    box-shadow: 0 4px 16px rgba(17, 24, 39, 0.18), 0 1px 3px rgba(17, 24, 39, 0.12);
   }
 
   .dc-nav-item-inactive {
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background: rgba(255, 255, 255, 0.7);
-    color: var(--dc-gray-900);
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    background: transparent;
+    color: var(--dc-gray-700);
   }
   .dc-nav-item-inactive:hover {
-    background: white;
-    border-color: rgba(0, 0, 0, 0.12);
+    background: rgba(255, 255, 255, 0.72);
+    border-color: rgba(0, 0, 0, 0.10);
+    color: var(--dc-gray-900);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   }
 

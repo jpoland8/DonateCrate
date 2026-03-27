@@ -86,7 +86,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_top_left,rgba(255,106,0,0.18)_0%,transparent_24%),radial-gradient(circle_at_bottom_right,rgba(17,24,39,0.08)_0%,transparent_26%),linear-gradient(160deg,#f6f3ef_0%,#ebe6df_48%,#e6e0d8_100%)]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
         {/* Mobile topbar */}
-        <div className="fixed inset-x-0 top-0 z-40 border-b border-black/8 bg-[rgba(248,245,240,0.96)] px-4 py-3 backdrop-blur md:hidden" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+        <div className="fixed inset-x-0 top-0 z-40 border-b border-black/[0.08] bg-[rgba(252,249,246,0.97)] px-4 py-3 backdrop-blur md:hidden" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
           <div className="flex items-center justify-between">
             <div>
               <p className="dc-eyebrow">DonateCrate</p>
@@ -123,13 +123,26 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
 
         {/* Sidebar */}
         <aside
-          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[320px] overflow-y-auto border-r border-black/8 bg-[rgba(248,245,240,0.97)] backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[280px] md:max-w-none ${
+          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[320px] overflow-y-auto border-r border-black/[0.08] bg-[rgba(252,249,246,0.97)] backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[272px] md:max-w-none ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           } ${collapsed ? "md:w-[72px]" : ""}`}
+          style={{ boxShadow: "2px 0 12px rgba(0,0,0,0.04)" }}
         >
-          <div className={`border-b border-black/8 py-5 ${collapsed ? "px-2" : "px-4"}`}>
-            <div className={`flex ${collapsed ? "justify-center" : "items-center justify-between"}`}>
-              <div className={collapsed ? "hidden" : "block"}>
+          {collapsed ? (
+            <div className="flex justify-center border-b border-black/[0.08] px-2 py-3">
+              <button
+                onClick={() => setCollapsed(false)}
+                className="inline-flex rounded-full border border-black/10 bg-white p-2 text-[var(--dc-gray-500)] shadow-sm hover:bg-[var(--dc-gray-50)] hover:text-[var(--dc-gray-900)] transition-colors duration-150"
+                aria-label="Expand sidebar"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                  <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between border-b border-black/[0.08] px-4 py-5">
+              <div>
                 <p className="dc-eyebrow">DonateCrate</p>
                 <p className="font-bold text-[1.05rem] text-[var(--dc-gray-900)]">Customer Portal</p>
                 <p className="mt-1 max-w-[220px] text-xs leading-5 text-[var(--dc-gray-500)]">
@@ -137,20 +150,16 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
                 </p>
               </div>
               <button
-                onClick={() => setCollapsed((prev) => !prev)}
-                className="hidden rounded-full border border-black/10 bg-white p-2 text-[var(--dc-gray-500)] shadow-sm hover:bg-[var(--dc-gray-50)] hover:text-[var(--dc-gray-900)] md:inline-flex transition-colors duration-150"
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                onClick={() => setCollapsed(true)}
+                className="hidden shrink-0 rounded-full border border-black/10 bg-white p-2 text-[var(--dc-gray-500)] shadow-sm hover:bg-[var(--dc-gray-50)] hover:text-[var(--dc-gray-900)] transition-colors duration-150 md:inline-flex"
+                aria-label="Collapse sidebar"
               >
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
-                  {collapsed ? (
-                    <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  ) : (
-                    <path d="M10 3l-5 5 5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  )}
+                  <path d="M10 3l-5 5 5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
             </div>
-          </div>
+          )}
           <nav className={`space-y-1.5 py-4 ${collapsed ? "px-2" : "px-3"}`}>
             {!collapsed ? (
               <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--dc-gray-500)]">
@@ -168,16 +177,26 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`dc-nav-item ${
-                    isActive
-                      ? "dc-nav-item-active"
-                      : "dc-nav-item-inactive"
-                  } ${collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-3"}`}
+                    collapsed
+                      ? "justify-center border-none bg-transparent px-0 py-1.5 hover:bg-transparent"
+                      : isActive
+                        ? "dc-nav-item-active"
+                        : "dc-nav-item-inactive"
+                  } ${!collapsed ? "gap-3 px-3 py-3" : ""}`}
                   aria-label={item.label}
                   title={item.label}
                 >
                   <span
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${
-                      isActive ? "bg-white/10 text-white" : "bg-[var(--dc-gray-100)] text-[var(--dc-gray-900)]"
+                    className={`inline-flex items-center justify-center rounded-xl transition-all duration-150 ${
+                      collapsed ? "h-10 w-10" : "h-9 w-9"
+                    } ${
+                      isActive
+                        ? collapsed
+                          ? "bg-[var(--dc-orange)] text-white shadow-[0_4px_14px_rgba(255,106,0,0.28)]"
+                          : "bg-white/10 text-white"
+                        : collapsed
+                          ? "bg-[var(--dc-gray-100)] text-[var(--dc-gray-600)] hover:bg-[var(--dc-gray-200)] hover:text-[var(--dc-gray-900)]"
+                          : "bg-[var(--dc-gray-100)] text-[var(--dc-gray-900)]"
                     }`}
                   >
                     <NavIcon kind={item.icon} />
@@ -193,18 +212,18 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
           {!collapsed ? (
-            <div className="space-y-3 px-3">
-              <div className="dc-card p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--dc-orange)]">Start here</p>
+            <div className="space-y-2.5 px-3">
+              <div className="rounded-xl border border-black/[0.07] bg-white/80 p-3.5 backdrop-blur">
+                <p className="dc-eyebrow">Start here</p>
                 <p className="mt-2 text-sm font-semibold text-[var(--dc-gray-900)]">Most months only need one step.</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--dc-gray-500)]">
-                  Open Pickups, confirm whether your bag is ready, then you are done.
+                  Open Pickups, confirm whether your bag is ready, then you're done.
                 </p>
               </div>
             </div>
           ) : null}
-          <div className={`mt-4 pb-4 ${collapsed ? "px-2" : "px-3"}`}>
-            <SignOutButton />
+          <div className={`mt-4 pb-4 ${collapsed ? "flex justify-center px-2" : "px-3"}`}>
+            <SignOutButton collapsed={collapsed} />
           </div>
         </aside>
 
@@ -212,7 +231,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/8 bg-[rgba(248,245,240,0.97)] backdrop-blur dc-safe-bottom md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/[0.08] bg-[rgba(252,249,246,0.98)] backdrop-blur dc-safe-bottom md:hidden" style={{ boxShadow: "0 -1px 12px rgba(0,0,0,0.05)" }}>
         <div className="flex items-stretch justify-around">
           {navItems.slice(0, 4).map((item) => {
             const isActive =
@@ -223,14 +242,16 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors duration-150 ${
+                className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors duration-150 ${
                   isActive
                     ? "text-[var(--dc-orange)]"
-                    : "text-[var(--dc-gray-500)]"
+                    : "text-[var(--dc-gray-400)] hover:text-[var(--dc-gray-700)]"
                 }`}
                 aria-label={item.label}
               >
-                <NavIcon kind={item.icon} />
+                <span className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all duration-150 ${isActive ? "bg-[rgba(255,106,0,0.1)]" : ""}`}>
+                  <NavIcon kind={item.icon} />
+                </span>
                 <span>{item.label}</span>
               </Link>
             );

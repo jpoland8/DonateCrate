@@ -93,16 +93,26 @@ export function PartnerShell({ children }: PartnerShellProps) {
             href={item.href}
             onClick={onClickNav}
             className={`dc-nav-item ${
-              isActive
-                ? "dc-nav-item-active"
-                : "dc-nav-item-inactive"
-            } ${collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-3"}`}
+              collapsed
+                ? "justify-center border-none bg-transparent px-0 py-1.5 hover:bg-transparent"
+                : isActive
+                  ? "dc-nav-item-active"
+                  : "dc-nav-item-inactive"
+            } ${!collapsed ? "gap-3 px-3 py-3" : ""}`}
             aria-label={item.label}
             title={item.label}
           >
             <span
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${
-                isActive ? "bg-white/10 text-white" : "bg-[var(--dc-gray-100)] text-[var(--dc-gray-900)]"
+              className={`inline-flex items-center justify-center rounded-xl transition-all duration-150 ${
+                collapsed ? "h-10 w-10" : "h-9 w-9"
+              } ${
+                isActive
+                  ? collapsed
+                    ? "bg-[var(--dc-orange)] text-white shadow-[0_4px_14px_rgba(255,106,0,0.28)]"
+                    : "bg-white/10 text-white"
+                  : collapsed
+                    ? "bg-[var(--dc-gray-100)] text-[var(--dc-gray-600)] hover:bg-[var(--dc-gray-200)] hover:text-[var(--dc-gray-900)]"
+                    : "bg-[var(--dc-gray-100)] text-[var(--dc-gray-900)]"
               }`}
             >
               <NavIcon kind={item.icon} />
@@ -124,51 +134,60 @@ export function PartnerShell({ children }: PartnerShellProps) {
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
         {/* Desktop sidebar */}
         <aside
-          className={`sticky top-0 hidden h-screen overflow-y-auto border-r border-black/8 bg-[rgba(248,245,240,0.92)] backdrop-blur md:block transition-all duration-200 ${
-            collapsed ? "w-[72px]" : "w-[280px]"
+          className={`sticky top-0 hidden h-screen overflow-y-auto border-r border-black/[0.08] bg-[rgba(252,249,246,0.97)] backdrop-blur md:block transition-all duration-200 ${
+            collapsed ? "w-[72px]" : "w-[272px]"
           }`}
+          style={{ boxShadow: "2px 0 12px rgba(0,0,0,0.04)" }}
         >
-          <div className={`border-b border-black/8 py-5 ${collapsed ? "px-2" : "px-4"}`}>
-            <div className={`flex ${collapsed ? "justify-center" : "items-center justify-between"}`}>
-              <div className={collapsed ? "hidden" : "block"}>
+          {collapsed ? (
+            <div className="flex justify-center border-b border-black/[0.08] px-2 py-3">
+              <button
+                onClick={() => setCollapsed(false)}
+                className="inline-flex rounded-full border border-black/10 bg-white p-2 text-[var(--dc-gray-500)] shadow-sm hover:bg-[var(--dc-gray-50)] hover:text-[var(--dc-gray-900)] transition-colors duration-150"
+                aria-label="Expand sidebar"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                  <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between border-b border-black/[0.08] px-4 py-5">
+              <div>
                 <p className="dc-eyebrow">DonateCrate</p>
                 <p className="mt-1 font-bold text-[1.05rem] text-[var(--dc-gray-900)]">Partner Portal</p>
-                <p className="mt-1 max-w-[220px] text-xs leading-5 text-[var(--dc-gray-500)]">
+                <p className="mt-1 max-w-[210px] text-xs leading-5 text-[var(--dc-gray-500)]">
                   Keep pickups moving, service areas healthy, and donor details current.
                 </p>
               </div>
               <button
-                onClick={() => setCollapsed((prev) => !prev)}
-                className="hidden rounded-full border border-black/10 bg-white p-2 text-[var(--dc-gray-500)] shadow-sm hover:bg-[var(--dc-gray-50)] hover:text-[var(--dc-gray-900)] md:inline-flex transition-colors duration-150"
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                onClick={() => setCollapsed(true)}
+                className="hidden shrink-0 rounded-full border border-black/10 bg-white p-2 text-[var(--dc-gray-500)] shadow-sm hover:bg-[var(--dc-gray-50)] hover:text-[var(--dc-gray-900)] transition-colors duration-150 md:inline-flex"
+                aria-label="Collapse sidebar"
               >
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
-                  {collapsed ? (
-                    <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  ) : (
-                    <path d="M10 3l-5 5 5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  )}
+                  <path d="M10 3l-5 5 5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
             </div>
-          </div>
+          )}
 
           {renderNav()}
 
           {!collapsed ? (
-            <div className="space-y-3 px-3">
-              <div className="dc-card p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--dc-orange)]">How To Use This</p>
+            <div className="space-y-2.5 px-3">
+              <div className="rounded-xl border border-black/[0.07] bg-white/80 p-3.5 backdrop-blur">
+                <p className="dc-eyebrow">Quick guide</p>
                 <p className="mt-2 text-xs leading-5 text-[var(--dc-gray-600)]">
-                  <span className="font-semibold text-[var(--dc-gray-900)]">Home</span> tells your team what needs attention.{" "}
+                  <span className="font-semibold text-[var(--dc-gray-900)]">Home</span> shows what needs attention.{" "}
                   <span className="font-semibold text-[var(--dc-gray-900)]">Pickups</span> is where route-day work happens.
                 </p>
               </div>
             </div>
           ) : null}
 
-          <div className={`mt-4 pb-4 ${collapsed ? "px-2" : "px-3"}`}>
-            <SignOutButton />
+          <div className={`mt-4 pb-4 ${collapsed ? "flex justify-center px-2" : "px-3"}`}>
+            <SignOutButton collapsed={collapsed} />
           </div>
         </aside>
 
@@ -207,12 +226,12 @@ export function PartnerShell({ children }: PartnerShellProps) {
       />
       {/* Mobile drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[86vw] max-w-[320px] flex-col border-r border-black/8 bg-[rgba(248,245,240,0.98)] shadow-2xl backdrop-blur transition-transform duration-200 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[86vw] max-w-[320px] flex-col border-r border-black/[0.08] bg-[rgba(252,249,246,0.99)] shadow-2xl backdrop-blur transition-transform duration-200 md:hidden ${
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-hidden={!mobileNavOpen}
       >
-        <div className="flex items-start justify-between gap-3 p-4">
+        <div className="flex items-start justify-between gap-3 border-b border-black/[0.08] p-4">
           <div>
             <p className="dc-eyebrow">DonateCrate</p>
             <h1 className="mt-1 text-xl font-bold text-[var(--dc-gray-900)]">Partner Portal</h1>
@@ -235,10 +254,10 @@ export function PartnerShell({ children }: PartnerShellProps) {
         {renderNav(() => setMobileNavOpen(false))}
 
         <div className="px-3">
-          <div className="dc-card p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--dc-orange)]">How To Use This</p>
+          <div className="rounded-xl border border-black/[0.07] bg-white/80 p-3.5">
+            <p className="dc-eyebrow">Quick guide</p>
             <p className="mt-2 text-xs leading-5 text-[var(--dc-gray-600)]">
-              Home tells your team what needs attention. Pickups is where route-day work happens.
+              Home shows what needs attention. Pickups is where route-day work happens.
             </p>
           </div>
         </div>

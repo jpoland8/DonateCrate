@@ -196,21 +196,35 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         {/* Sidebar */}
         <aside
-          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[340px] overflow-y-auto border-r backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[280px] md:max-w-none ${
+          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[340px] overflow-y-auto border-r backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[272px] md:max-w-none ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           } ${collapsed ? "md:w-[72px]" : ""
           }`}
-          style={{ borderColor: "var(--admin-border)", background: "var(--admin-sidebar)", color: "var(--admin-sidebar-text)" }}
+          style={{ borderColor: "var(--admin-border)", background: "var(--admin-sidebar)", color: "var(--admin-sidebar-text)", boxShadow: "2px 0 12px rgba(0,0,0,0.06)" }}
         >
-          <div className={`border-b py-4 ${collapsed ? "px-2" : "px-4"}`} style={{ borderColor: "var(--admin-border)" }}>
-            <div className={`flex ${collapsed ? "justify-center" : "items-center justify-between"}`}>
-            <div className={collapsed ? "hidden" : "block"}>
-              <p className="dc-eyebrow">DonateCrate</p>
-              <p className="font-bold">Operations Admin</p>
-              <p className="mt-1 text-xs" style={{ color: "var(--admin-muted)" }}>Dispatch, people, growth, and communications.</p>
+          {collapsed ? (
+            /* Collapsed header — just the expand button, no wasted space */
+            <div className="flex justify-center border-b px-2 py-3" style={{ borderColor: "var(--admin-border)" }}>
+              <button
+                onClick={() => setCollapsed(false)}
+                className="inline-flex rounded-full border p-2 transition-colors duration-150 hover:bg-white/10"
+                style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
+                aria-label="Expand sidebar"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                  <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
-            <div className="hidden items-center gap-2 md:flex">
-              {!collapsed ? (
+          ) : (
+            /* Expanded header — full title + theme toggle + collapse button */
+            <div className="flex items-center justify-between border-b px-4 py-5" style={{ borderColor: "var(--admin-border)" }}>
+              <div>
+                <p className="dc-eyebrow">DonateCrate</p>
+                <p className="mt-1 text-[1.05rem] font-bold" style={{ color: "var(--admin-text)" }}>Operations Admin</p>
+                <p className="mt-1 text-xs leading-5" style={{ color: "var(--admin-muted)" }}>Dispatch, people, growth, and communications.</p>
+              </div>
+              <div className="hidden shrink-0 items-center gap-2 md:flex">
                 <button
                   type="button"
                   onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
@@ -229,24 +243,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   )}
                   {theme === "dark" ? "Light" : "Dark"}
                 </button>
-              ) : null}
-              <button
-                onClick={() => setCollapsed((prev) => !prev)}
-                className="hidden rounded-full border p-2 text-xs font-semibold md:inline-flex transition-colors duration-150"
-                style={{ borderColor: "var(--admin-border-strong)" }}
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
-                  {collapsed ? (
-                    <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  ) : (
+                <button
+                  onClick={() => setCollapsed(true)}
+                  className="inline-flex rounded-full border p-2 transition-colors duration-150 hover:bg-white/10"
+                  style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
+                  aria-label="Collapse sidebar"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
                     <path d="M10 3l-5 5 5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  )}
-                </svg>
-              </button>
+                  </svg>
+                </button>
+              </div>
             </div>
-            </div>
-          </div>
+          )}
 
           <nav className={`space-y-4 py-4 ${collapsed ? "px-2" : "px-3"}`}>
             {navGroups.map((group) => (
@@ -264,22 +273,35 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center rounded-xl text-sm font-semibold transition-all duration-150 ${
-                        isActive
-                          ? "bg-[var(--dc-orange)] text-white shadow-[0_4px_12px_rgba(255,106,0,0.25)]"
-                          : "border hover:bg-white/10"
-                      } ${collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-2.5"}`}
+                        collapsed
+                          ? "justify-center border-none bg-transparent px-0 py-1.5"
+                          : isActive
+                            ? "gap-3 px-3 py-2.5 bg-[var(--dc-orange)] text-white shadow-[0_4px_12px_rgba(255,106,0,0.28)]"
+                            : "gap-3 px-3 py-2.5 border"
+                      }`}
                       style={
-                        isActive
-                          ? undefined
-                          : { borderColor: "var(--admin-border)", color: "var(--admin-sidebar-text)" }
+                        !collapsed && !isActive
+                          ? { borderColor: "var(--admin-border)", color: "var(--admin-sidebar-text)", background: "transparent" }
+                          : undefined
                       }
+                      onMouseEnter={!isActive && !collapsed ? (e) => { (e.currentTarget as HTMLElement).style.background = "var(--admin-nav-hover)"; } : undefined}
+                      onMouseLeave={!isActive && !collapsed ? (e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; } : undefined}
                       aria-label={item.label}
                       title={item.label}
                     >
                       <span
-                        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${
-                          isActive ? "bg-white/15" : "bg-white/5"
-                        }`}
+                        className="inline-flex items-center justify-center rounded-lg transition-all duration-150"
+                        style={{
+                          width: collapsed ? "2.5rem" : "2rem",
+                          height: collapsed ? "2.5rem" : "2rem",
+                          background: isActive
+                            ? collapsed
+                              ? "var(--dc-orange)"
+                              : "var(--admin-icon-active)"
+                            : "var(--admin-icon-inactive)",
+                          color: isActive ? "white" : "var(--admin-sidebar-text)",
+                          boxShadow: isActive && collapsed ? "0 4px 14px rgba(255,106,0,0.32)" : undefined,
+                        }}
                       >
                         <NavIcon kind={item.icon} />
                       </span>
@@ -292,30 +314,30 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           {!collapsed ? (
-            <div className="space-y-3 px-3">
+            <div className="space-y-2.5 px-3">
               <div
-                className="rounded-xl border p-3"
+                className="rounded-xl border p-3.5"
                 style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-strong)" }}
               >
-                <p className="dc-eyebrow">Ops Focus</p>
-                <p className="mt-2 text-sm font-semibold">Run one clean pickup day at a time.</p>
-                <p className="mt-1 text-xs" style={{ color: "var(--admin-muted)" }}>
-                  Start in Overview, confirm the pickup calendar, build dispatch, then watch communications and exceptions.
+                <p className="dc-eyebrow">Daily ops</p>
+                <p className="mt-2 text-sm font-semibold" style={{ color: "var(--admin-text)" }}>One clean pickup day at a time.</p>
+                <p className="mt-1 text-xs leading-5" style={{ color: "var(--admin-muted)" }}>
+                  Overview → Calendar → Dispatch → Messages. Watch exceptions last.
                 </p>
               </div>
-              <details className="rounded-xl border p-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} open>
-                <summary className="cursor-pointer text-sm font-semibold select-none">How to run ops here</summary>
-                <ul className="mt-2 space-y-2 text-xs" style={{ color: "var(--admin-muted)" }}>
-                  <li>1. Overview and Pickups show what is ready to run this cycle.</li>
-                  <li>2. Zones and People keep coverage, memberships, and roles accurate.</li>
-                  <li>3. Logistics is where routes are built, reviewed, and assigned.</li>
-                </ul>
+              <details className="rounded-xl border p-3.5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} open>
+                <summary className="cursor-pointer text-sm font-semibold select-none" style={{ color: "var(--admin-text)" }}>How to run ops</summary>
+                <ol className="mt-2.5 space-y-1.5 text-xs" style={{ color: "var(--admin-muted)" }}>
+                  <li className="flex gap-2"><span className="font-bold" style={{ color: "var(--dc-orange)" }}>1.</span> Overview + Pickups: what's ready this cycle.</li>
+                  <li className="flex gap-2"><span className="font-bold" style={{ color: "var(--dc-orange)" }}>2.</span> Zones + People: keep coverage and roles accurate.</li>
+                  <li className="flex gap-2"><span className="font-bold" style={{ color: "var(--dc-orange)" }}>3.</span> Logistics: build, review, and assign routes.</li>
+                </ol>
               </details>
             </div>
           ) : null}
 
-          <div className={`mt-4 pb-4 dc-safe-bottom ${collapsed ? "px-2" : "px-3"}`}>
-            <SignOutButton tone={theme === "dark" ? "dark" : "light"} />
+          <div className={`mt-4 pb-4 dc-safe-bottom ${collapsed ? "flex justify-center px-2" : "px-3"}`}>
+            <SignOutButton tone={theme === "dark" ? "dark" : "light"} collapsed={collapsed} />
           </div>
         </aside>
 
