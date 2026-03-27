@@ -105,25 +105,26 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form onSubmit={onSubmit} className="space-y-6">
       {/* Heading */}
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--dc-orange)]">Sign In</p>
-        <h2 className="mt-1.5 text-2xl font-bold text-[var(--dc-gray-900)] sm:text-3xl">Access your account</h2>
-        <p className="mt-1.5 text-sm leading-6 text-[var(--dc-gray-600)]">
-          Password or magic link — team members are routed to the right workspace.
+        <h2 className="text-[1.85rem] font-bold leading-tight tracking-tight text-[var(--dc-gray-900)]">
+          Welcome back
+        </h2>
+        <p className="mt-1.5 text-sm text-[var(--dc-gray-500)]">
+          Sign in to your DonateCrate account
         </p>
       </div>
 
       {/* Mode toggle */}
-      <div className="inline-flex rounded-full border border-black/[0.07] bg-[var(--dc-gray-100)] p-1">
+      <div className="flex rounded-xl border border-black/[0.08] bg-white p-1 shadow-sm">
         <button
           type="button"
           onClick={() => setMode("password")}
-          className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+          className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all duration-150 ${
             mode === "password"
               ? "bg-[var(--dc-orange)] text-white shadow-sm"
-              : "text-[var(--dc-gray-600)] hover:text-[var(--dc-gray-900)]"
+              : "text-[var(--dc-gray-500)] hover:text-[var(--dc-gray-800)]"
           }`}
         >
           Password
@@ -131,10 +132,10 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => setMode("magic_link")}
-          className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+          className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all duration-150 ${
             mode === "magic_link"
               ? "bg-[var(--dc-orange)] text-white shadow-sm"
-              : "text-[var(--dc-gray-600)] hover:text-[var(--dc-gray-900)]"
+              : "text-[var(--dc-gray-500)] hover:text-[var(--dc-gray-800)]"
           }`}
         >
           Magic Link
@@ -143,7 +144,7 @@ export function LoginForm() {
 
       {/* Email */}
       <div className="space-y-1.5">
-        <label htmlFor="login-email" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+        <label htmlFor="login-email" className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--dc-gray-500)]">
           Email
         </label>
         <input
@@ -157,11 +158,11 @@ export function LoginForm() {
         />
       </div>
 
-      {/* Password */}
+      {/* Password or magic link hint */}
       {mode === "password" ? (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label htmlFor="login-password" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+            <label htmlFor="login-password" className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--dc-gray-500)]">
               Password
             </label>
             <button
@@ -184,16 +185,22 @@ export function LoginForm() {
           />
         </div>
       ) : (
-        <p className="rounded-xl border border-black/[0.07] bg-[var(--dc-gray-50)] px-4 py-3 text-sm leading-6 text-[var(--dc-gray-600)]">
-          We&apos;ll email you a one-click sign-in link — no password needed.
-        </p>
+        <div className="flex items-start gap-3 rounded-xl border border-black/[0.07] bg-white px-4 py-3.5 shadow-sm">
+          <svg viewBox="0 0 20 20" fill="none" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--dc-orange)]">
+            <path d="M3 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.5" />
+            <path d="m2 6 8 6 8-6" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+          <p className="text-sm leading-6 text-[var(--dc-gray-600)]">
+            We&apos;ll send a one-click sign-in link — no password needed.
+          </p>
+        </div>
       )}
 
       {/* Submit */}
       <button
         type="submit"
         disabled={status === "sending" || status === "sending_reset"}
-        className="dc-btn-primary h-12 w-full text-base"
+        className="relative h-12 w-full overflow-hidden rounded-xl bg-[var(--dc-orange)] text-base font-semibold text-white shadow-[0_4px_16px_rgba(255,106,0,0.30)] transition hover:bg-[var(--dc-orange-strong)] hover:shadow-[0_4px_20px_rgba(255,106,0,0.40)] disabled:opacity-60"
       >
         {status === "sending" || status === "sending_reset"
           ? "Working…"
@@ -202,21 +209,23 @@ export function LoginForm() {
             : "Send Magic Link"}
       </button>
 
-      {/* Sign up link */}
-      <p className="text-sm text-[var(--dc-gray-600)]">
-        New here?{" "}
-        <Link
-          href={requestedNextPath ? `/signup?next=${encodeURIComponent(safeNextPath)}` : "/signup"}
-          className="font-semibold text-[var(--dc-gray-900)] underline underline-offset-2 hover:text-[var(--dc-orange)]"
-        >
-          Create an account
-        </Link>
-      </p>
+      {/* Divider + sign up */}
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-black/[0.07]" />
+        <span className="text-xs text-[var(--dc-gray-400)]">or</span>
+        <div className="h-px flex-1 bg-black/[0.07]" />
+      </div>
+      <Link
+        href={requestedNextPath ? `/signup?next=${encodeURIComponent(safeNextPath)}` : "/signup"}
+        className="flex h-11 w-full items-center justify-center rounded-xl border border-black/[0.09] bg-white text-sm font-semibold text-[var(--dc-gray-700)] shadow-sm transition hover:border-[var(--dc-orange)] hover:text-[var(--dc-orange)]"
+      >
+        Create an account
+      </Link>
 
       {/* Status message */}
       {message ? (
         <div
-          className={`rounded-xl border px-4 py-3 text-sm leading-6 ${
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 text-sm leading-6 ${
             status === "error"
               ? "border-red-200 bg-red-50 text-red-700"
               : "border-emerald-200 bg-emerald-50 text-emerald-800"
