@@ -548,18 +548,14 @@ export function AdminWorkspace({
   const [timelineZoneFilter, setTimelineZoneFilter] = useState("all");
   const [scheduleForm, setScheduleForm] = useState(() => {
     const now = new Date();
-    const cutoffSeed = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     return {
       zoneCode: "knoxville-37922",
-      cycleMonth: localDateISO(now),
-    pickupDate: localDateISO(now),
-    requestCutoffAt: localDateTimeISO(cutoffSeed),
-    startPickupDate: localDateISO(now),
-    horizonMode: "months" as "months" | "forever",
-    months: 6,
-    weekendPolicy: "next_business_day" as "none" | "next_business_day",
-    cutoffDaysBefore: 7,
-  };
+      pickupDate: localDateISO(now),
+      startPickupDate: localDateISO(now),
+      horizonMode: "months" as "months" | "forever",
+      months: 6,
+      weekendPolicy: "next_business_day" as "none" | "next_business_day",
+    };
   });
   const [smsTarget, setSmsTarget] = useState<"individual" | "zone" | "all">("individual");
   const [smsUserIds, setSmsUserIds] = useState<string[]>([]);
@@ -1357,15 +1353,16 @@ export function AdminWorkspace({
   }
 
   async function createPickupCycle() {
+    // Derive cycle month automatically from pickup date (first of that month)
+    const cycleMonth = scheduleForm.pickupDate.slice(0, 7) + "-01";
     const payload =
       pickupMode === "single"
         ? {
             mode: "single",
             zoneCode: scheduleForm.zoneCode,
             applyToAllActiveZones,
-            cycleMonth: scheduleForm.cycleMonth,
+            cycleMonth,
             pickupDate: scheduleForm.pickupDate,
-            requestCutoffAt: new Date(scheduleForm.requestCutoffAt).toISOString(),
           }
         : {
             mode: "recurring",
@@ -1375,7 +1372,6 @@ export function AdminWorkspace({
             horizonMode: scheduleForm.horizonMode,
             months: Number(scheduleForm.months),
             weekendPolicy: scheduleForm.weekendPolicy,
-            cutoffDaysBefore: Number(scheduleForm.cutoffDaysBefore),
           };
 
     const response = await fetch("/api/admin/pickup-cycles", {
@@ -2221,18 +2217,6 @@ export function AdminWorkspace({
                         className="dc-input-admin mt-1 w-full"
                       />
                     </label>
-                    <label className="text-xs text-admin-muted">
-                      Booking cutoff
-                      <input
-                        name="defaultCutoffDaysBefore"
-                        type="number"
-                        min={0}
-                        max={30}
-                        defaultValue={selectedZone!.default_cutoff_days_before}
-                        className="dc-input-admin mt-1 w-full"
-                      />
-                      <span className="mt-1 block text-[11px] text-admin-soft">How many days before pickup changes close.</span>
-                    </label>
                     <label className="text-xs text-admin-muted md:col-span-2">
                       Pickup window
                       <input
@@ -2724,7 +2708,8 @@ export function AdminWorkspace({
               </button>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {/* Zone selector */}
+            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_1fr]">
               <label className="text-xs text-admin-muted">
                 Zone
                 <select
@@ -2737,116 +2722,80 @@ export function AdminWorkspace({
                   ))}
                 </select>
               </label>
-              <label className="inline-flex h-10 items-center gap-2 rounded-lg border border-admin-strong bg-admin-panel px-3 text-xs text-admin-muted md:mt-6">
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 self-end rounded-lg border border-admin-strong bg-admin-panel px-3 text-xs text-admin-muted">
                 <input
                   type="checkbox"
                   checked={applyToAllActiveZones}
                   onChange={(event) => setApplyToAllActiveZones(event.target.checked)}
                 />
-                Apply to all active zones
+                All active zones
               </label>
-              <p className="text-xs text-admin-soft md:mt-6">
+              <p className="self-end pb-2 text-xs text-admin-soft">
                 {applyToAllActiveZones
-                  ? "Scheduler will generate cycles for every active zone."
-                  : "Scheduler applies to the selected zone only."}
+                  ? "Every active zone will get a cycle."
+                  : "Selected zone only."}
               </p>
+            </div>
 
-              {pickupMode === "single" ? (
-                <>
-                  <label className="text-xs text-admin-muted">
-                    Cycle month
-                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                      <input
-                        ref={singleCycleMonthRef}
-                        type="date"
-                        value={scheduleForm.cycleMonth}
-                        onChange={(event) => setScheduleForm((prev) => ({ ...prev, cycleMonth: event.target.value }))}
-                        className="h-10 min-w-0 flex-1 rounded-lg border border-admin-strong bg-admin-surface-strong px-3"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => singleCycleMonthRef.current?.showPicker?.()}
-                        className="rounded-lg border border-admin-strong px-3 py-2 text-xs font-semibold sm:py-0"
-                      >
-                        Calendar
-                      </button>
-                    </div>
-                  </label>
-                  <label className="text-xs text-admin-muted">
-                    Pickup date
-                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                      <input
-                        ref={singlePickupDateRef}
-                        type="date"
-                        value={scheduleForm.pickupDate}
-                        onChange={(event) => setScheduleForm((prev) => ({ ...prev, pickupDate: event.target.value }))}
-                        className="h-10 min-w-0 flex-1 rounded-lg border border-admin-strong bg-admin-surface-strong px-3"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => singlePickupDateRef.current?.showPicker?.()}
-                        className="rounded-lg border border-admin-strong px-3 py-2 text-xs font-semibold sm:py-0"
-                      >
-                        Calendar
-                      </button>
-                    </div>
-                  </label>
-                  <label className="text-xs text-admin-muted md:col-span-2">
-                    Request cutoff (date/time)
-                    <input type="datetime-local" value={scheduleForm.requestCutoffAt} onChange={(event) => setScheduleForm((prev) => ({ ...prev, requestCutoffAt: event.target.value }))} className="dc-input-admin mt-1 w-full" />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <div className="md:col-span-3">
-                    <p className="text-xs text-admin-muted">Scheduling horizon</p>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setScheduleForm((prev) => ({ ...prev, horizonMode: "months" }))}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${scheduleForm.horizonMode === "months" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20" : "border-admin-strong"}`}
-                      >
-                        Number of months
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setScheduleForm((prev) => ({ ...prev, horizonMode: "forever" }))}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${scheduleForm.horizonMode === "forever" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20" : "border-admin-strong"}`}
-                      >
-                        Forever (rolling)
-                      </button>
-                    </div>
-                    <p className="mt-1 text-[11px] text-admin-soft">
-                      Forever creates a long-range rolling schedule (currently 60 months) so ops can run without constant manual setup.
-                    </p>
+            {/* Mode-specific fields */}
+            {pickupMode === "single" ? (
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <label className="text-xs text-admin-muted">
+                  Pickup date
+                  <input
+                    type="date"
+                    value={scheduleForm.pickupDate}
+                    onChange={(event) => setScheduleForm((prev) => ({ ...prev, pickupDate: event.target.value }))}
+                    className="dc-input-admin mt-1 w-full"
+                  />
+                  <span className="mt-1 block text-[11px] text-admin-soft">
+                    Cycle month is derived automatically ({scheduleForm.pickupDate ? new Date(scheduleForm.pickupDate + "T12:00:00").toLocaleString("en-US", { month: "long", year: "numeric" }) : "—"}).
+                  </span>
+                </label>
+                <div className="rounded-lg border border-admin-strong bg-admin-panel p-3 text-xs text-admin-soft md:self-end">
+                  Responses lock at midnight before the pickup date. No cutoff configuration needed.
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-xs text-admin-muted">Scheduling horizon</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setScheduleForm((prev) => ({ ...prev, horizonMode: "months" }))}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${scheduleForm.horizonMode === "months" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20 text-admin" : "border-admin-strong text-admin-muted"}`}
+                    >
+                      Fixed window
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleForm((prev) => ({ ...prev, horizonMode: "forever" }))}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${scheduleForm.horizonMode === "forever" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20 text-admin" : "border-admin-strong text-admin-muted"}`}
+                    >
+                      Rolling (60 months)
+                    </button>
                   </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
                   <label className="text-xs text-admin-muted">
-                    Next pickup date
-                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                      <input
-                        ref={recurringStartPickupDateRef}
-                        type="date"
-                        value={scheduleForm.startPickupDate}
-                        onChange={(event) => setScheduleForm((prev) => ({ ...prev, startPickupDate: event.target.value }))}
-                        className="h-10 min-w-0 flex-1 rounded-lg border border-admin-strong bg-admin-surface-strong px-3"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => recurringStartPickupDateRef.current?.showPicker?.()}
-                        className="rounded-lg border border-admin-strong px-3 py-2 text-xs font-semibold sm:py-0"
-                      >
-                        Calendar
-                      </button>
-                    </div>
+                    First pickup date
+                    <input
+                      type="date"
+                      value={scheduleForm.startPickupDate}
+                      onChange={(event) => setScheduleForm((prev) => ({ ...prev, startPickupDate: event.target.value }))}
+                      className="dc-input-admin mt-1 w-full"
+                    />
+                    <span className="mt-1 block text-[11px] text-admin-soft">Day-of-month repeats each cycle.</span>
                   </label>
                   {scheduleForm.horizonMode === "months" ? (
                     <label className="text-xs text-admin-muted">
-                      Number of months
+                      Months ahead
                       <input type="number" min={1} max={60} value={scheduleForm.months} onChange={(event) => setScheduleForm((prev) => ({ ...prev, months: Number(event.target.value) }))} className="dc-input-admin mt-1 w-full" />
                     </label>
                   ) : (
-                    <div className="rounded-lg border border-admin-strong bg-admin-panel p-3 text-xs text-admin-muted md:self-end">
-                      Horizon: rolling (60 months generated)
+                    <div className="rounded-lg border border-admin-strong bg-admin-panel p-3 text-xs text-admin-soft">
+                      Generates 60 months ahead. Re-run anytime to extend or update.
                     </div>
                   )}
                   <label className="text-xs text-admin-muted">
@@ -2856,13 +2805,9 @@ export function AdminWorkspace({
                       <option value="next_business_day">Move to next business day</option>
                     </select>
                   </label>
-                  <label className="text-xs text-admin-muted">
-                    Cutoff days before pickup
-                    <input type="number" min={0} max={30} value={scheduleForm.cutoffDaysBefore} onChange={(event) => setScheduleForm((prev) => ({ ...prev, cutoffDaysBefore: Number(event.target.value) }))} className="dc-input-admin mt-1 w-full" />
-                  </label>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
 
             <button onClick={createPickupCycle} className="mt-4 rounded-xl bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">
               {pickupMode === "single" ? "Save Pickup Cycle" : "Generate Recurring Cycles"}
@@ -2892,8 +2837,7 @@ export function AdminWorkspace({
                         return (
                           <div key={cycle.id} className="rounded-lg border border-admin bg-admin-panel p-3 text-xs">
                             <p className="font-semibold">{zoneMeta?.name || cycle.zone_id}</p>
-                            <p className="mt-1">Pickup: {formatDate(cycle.pickup_date)}</p>
-                            <p className="text-admin-muted">Cutoff: {new Date(cycle.request_cutoff_at).toLocaleString()}</p>
+                            <p className="mt-1 text-admin-muted">{formatDate(cycle.pickup_date)}</p>
                           </div>
                         );
                       })}
@@ -3001,12 +2945,10 @@ export function AdminWorkspace({
               <div className="mt-4 rounded-2xl border border-admin bg-admin-panel p-4 text-sm text-admin-muted">
                 <p className="font-semibold text-admin">Selected cycle</p>
                 <p className="mt-1">
-                  Pickup date: {formatDate(selectedCycleMeta.pickup_date)} | Response cutoff:{" "}
-                  {new Date(selectedCycleMeta.request_cutoff_at).toLocaleString()}
+                  Pickup date: {formatDate(selectedCycleMeta.pickup_date)} &mdash; {selectedCycleRequestSummary.total} total request record{selectedCycleRequestSummary.total === 1 ? "" : "s"}.
                 </p>
                 <p className="mt-1">
-                  Total request records: {selectedCycleRequestSummary.total}. The recommended flow is to build the route after
-                  the cutoff or once ops is comfortable locking the stop list for dispatch.
+                  Build the route once you are comfortable locking the stop list for dispatch.
                 </p>
                 <p className="mt-1">
                   Current route status: {selectedLogisticsRoute ? formatRouteStatusLabel(selectedLogisticsRoute.status) : "No route built yet"}.
