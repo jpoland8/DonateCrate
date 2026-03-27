@@ -688,7 +688,7 @@ export function PartnerOperationsPanel({
                             type="button"
                             disabled={workingItemId === (household.stopId ?? household.pickupRequestId)}
                             onClick={() => updateHousehold(household, "picked_up")}
-                            className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60 sm:w-auto"
+                            className="dc-btn-secondary w-full sm:w-auto"
                           >
                             Picked Up
                           </button>
@@ -696,7 +696,7 @@ export function PartnerOperationsPanel({
                             type="button"
                             disabled={workingItemId === (household.stopId ?? household.pickupRequestId)}
                             onClick={() => updateHousehold(household, "missed")}
-                            className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60 sm:w-auto"
+                            className="dc-btn-secondary w-full sm:w-auto"
                           >
                             Could Not Be Retrieved
                           </button>
@@ -736,7 +736,7 @@ export function PartnerOperationsPanel({
                             type="button"
                             disabled={workingItemId === (household.stopId ?? household.pickupRequestId)}
                             onClick={() => updateHousehold(household, "picked_up")}
-                            className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60 sm:w-auto"
+                            className="dc-btn-secondary w-full sm:w-auto"
                           >
                             Mark Picked Up
                           </button>
@@ -744,7 +744,7 @@ export function PartnerOperationsPanel({
                             type="button"
                             disabled={workingItemId === (household.stopId ?? household.pickupRequestId)}
                             onClick={() => updateHousehold(household, "missed")}
-                            className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60 sm:w-auto"
+                            className="dc-btn-secondary w-full sm:w-auto"
                           >
                             Mark Could Not Be Retrieved
                           </button>
@@ -752,7 +752,7 @@ export function PartnerOperationsPanel({
                             type="button"
                             disabled={workingItemId === (household.stopId ?? household.pickupRequestId)}
                             onClick={() => updateHousehold(household, "requested")}
-                            className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60 sm:w-auto"
+                            className="dc-btn-secondary w-full sm:w-auto"
                           >
                             Unmark
                           </button>
@@ -792,7 +792,7 @@ export function PartnerOperationsPanel({
                           type="button"
                           disabled={workingCycleId === selectedRoute.id || activeHouseholds.length > 0 || selectedRoute.status === "completed"}
                           onClick={() => finishRoute(selectedRoute.id)}
-                          className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60 sm:w-auto"
+                          className="dc-btn-secondary w-full sm:w-auto"
                         >
                           {selectedRoute.status === "completed"
                             ? "Route Finished"
@@ -825,7 +825,7 @@ export function PartnerOperationsPanel({
                           type="button"
                           disabled={workingCycleId === selectedCycle.id}
                           onClick={() => buildRoute(selectedCycle.id)}
-                          className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60 sm:w-auto"
+                          className="dc-btn-primary w-full sm:w-auto"
                         >
                           {workingCycleId === selectedCycle.id ? "Working..." : selectedRoute ? "Build or Refresh Route" : "Build Route"}
                         </button>
@@ -839,7 +839,7 @@ export function PartnerOperationsPanel({
                                   [selectedCycle.id]: event.target.value,
                                 }))
                               }
-                              className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm text-[var(--dc-gray-900)] sm:w-auto"
+                              className="dc-input w-full sm:w-auto"
                             >
                               <option value="">Select route driver</option>
                               {selectedDriverOptions.map((driver) => (
@@ -852,7 +852,7 @@ export function PartnerOperationsPanel({
                               type="button"
                               disabled={workingCycleId === selectedRoute.id || selectedDriverOptions.length === 0}
                               onClick={() => assignDriver(selectedRoute.id, selectedCycle.id)}
-                              className="w-full rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60 sm:w-auto"
+                              className="dc-btn-primary w-full sm:w-auto"
                             >
                               {workingCycleId === selectedRoute.id ? "Assigning..." : "Assign Driver"}
                             </button>
@@ -934,7 +934,7 @@ export function PartnerOperationsPanel({
                   type="button"
                   disabled={workingCycleId === selectedCycle.id}
                   onClick={() => deleteCycle(selectedCycle.id)}
-                  className="rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-60"
+                  className="dc-btn-secondary"
                 >
                   {workingCycleId === selectedCycle.id ? "Deleting..." : "Delete Pickup Day"}
                 </button>
@@ -942,19 +942,19 @@ export function PartnerOperationsPanel({
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Pickup date
-                  <input name="pickupDate" type="date" defaultValue={selectedCycle.pickupDate} disabled={!selectedCycle.overrideAllowed} className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3 disabled:opacity-50" />
+                  <input name="pickupDate" type="date" defaultValue={selectedCycle.pickupDate} disabled={!selectedCycle.overrideAllowed} className="dc-input mt-1 w-full disabled:opacity-50" />
                 </label>
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Response deadline
-                  <input name="requestCutoffAt" type="datetime-local" defaultValue={localDateTimeValue(selectedCycle.requestCutoffAt)} disabled={!selectedCycle.overrideAllowed} className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3 disabled:opacity-50" />
+                  <input name="requestCutoffAt" type="datetime-local" defaultValue={localDateTimeValue(selectedCycle.requestCutoffAt)} disabled={!selectedCycle.overrideAllowed} className="dc-input mt-1 w-full disabled:opacity-50" />
                 </label>
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Pickup window
-                  <input name="pickupWindowLabel" type="text" defaultValue={selectedCycle.pickupWindowLabel ?? ""} disabled={!selectedCycle.overrideAllowed} placeholder="8am - 12pm" className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3 disabled:opacity-50" />
+                  <input name="pickupWindowLabel" type="text" defaultValue={selectedCycle.pickupWindowLabel ?? ""} disabled={!selectedCycle.overrideAllowed} placeholder="8am - 12pm" className="dc-input mt-1 w-full disabled:opacity-50" />
                 </label>
               </div>
               {selectedCycle.overrideAllowed && canManageSchedule ? (
-                <button type="submit" disabled={workingCycleId === selectedCycle.id} className="mt-4 rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-60">
+                <button type="submit" disabled={workingCycleId === selectedCycle.id} className="dc-btn-primary mt-4">
                   {workingCycleId === selectedCycle.id ? "Saving..." : "Save This Pickup Day"}
                 </button>
               ) : (
@@ -984,7 +984,7 @@ export function PartnerOperationsPanel({
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   First pickup in the series
-                  <input name="startPickupDate" type="date" defaultValue={selectedCycle.pickupDate} disabled={!selectedCycle.overrideAllowed} className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3 disabled:opacity-50" />
+                  <input name="startPickupDate" type="date" defaultValue={selectedCycle.pickupDate} disabled={!selectedCycle.overrideAllowed} className="dc-input mt-1 w-full disabled:opacity-50" />
                 </label>
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Schedule length
@@ -998,7 +998,7 @@ export function PartnerOperationsPanel({
                       }))
                     }
                     disabled={!selectedCycle.overrideAllowed}
-                    className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3 disabled:opacity-50"
+                    className="dc-input mt-1 w-full disabled:opacity-50"
                   >
                     <option value="months">Choose how many months</option>
                     <option value="forever">Forever</option>
@@ -1007,7 +1007,7 @@ export function PartnerOperationsPanel({
                 {scheduleModes[selectedCycle.zoneId] === "months" ? (
                   <label className="text-xs text-[var(--dc-gray-700)]">
                     Months to schedule
-                    <input name="months" type="number" min={1} max={24} defaultValue={6} disabled={!selectedCycle.overrideAllowed} className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3 disabled:opacity-50" />
+                    <input name="months" type="number" min={1} max={24} defaultValue={6} disabled={!selectedCycle.overrideAllowed} className="dc-input mt-1 w-full disabled:opacity-50" />
                   </label>
                 ) : (
                   <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] px-4 py-3 text-sm text-[var(--dc-gray-700)]">
@@ -1016,18 +1016,18 @@ export function PartnerOperationsPanel({
                 )}
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Weekend handling
-                  <select name="weekendPolicy" defaultValue="next_business_day" disabled={!selectedCycle.overrideAllowed} className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3 disabled:opacity-50">
+                  <select name="weekendPolicy" defaultValue="next_business_day" disabled={!selectedCycle.overrideAllowed} className="dc-input mt-1 w-full disabled:opacity-50">
                     <option value="none">Keep the same calendar day</option>
                     <option value="next_business_day">Move Saturday or Sunday to the next business day</option>
                   </select>
                 </label>
                 <label className="text-xs text-[var(--dc-gray-700)] md:col-span-2">
                   Default pickup window
-                  <input name="pickupWindowLabel" type="text" defaultValue={selectedCycle.pickupWindowLabel ?? ""} disabled={!selectedCycle.overrideAllowed} placeholder="9am - 1pm" className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3 disabled:opacity-50" />
+                  <input name="pickupWindowLabel" type="text" defaultValue={selectedCycle.pickupWindowLabel ?? ""} disabled={!selectedCycle.overrideAllowed} placeholder="9am - 1pm" className="dc-input mt-1 w-full disabled:opacity-50" />
                 </label>
               </div>
               {selectedCycle.overrideAllowed && canManageSchedule ? (
-                <button type="submit" disabled={workingCycleId === selectedCycle.zoneId} className="mt-4 rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-60">
+                <button type="submit" disabled={workingCycleId === selectedCycle.zoneId} className="dc-btn-primary mt-4">
                   {workingCycleId === selectedCycle.zoneId ? "Saving..." : "Save Recurring Schedule"}
                 </button>
               ) : (
@@ -1086,7 +1086,7 @@ export function PartnerOperationsPanel({
                       setEmptyZoneId(nextZoneId);
                       setEmptyPickupWindowLabel(zones.find((zone) => zone.id === nextZoneId)?.defaultPickupWindowLabel ?? "");
                     }}
-                    className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3"
+                    className="dc-input mt-1 w-full"
                   >
                     {zones.filter((zone) => zone.overrideAllowed).map((zone) => (
                       <option key={zone.id} value={zone.id}>
@@ -1097,7 +1097,7 @@ export function PartnerOperationsPanel({
                 </label>
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   First pickup in the series
-                  <input name="startPickupDate" type="date" className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3" />
+                  <input name="startPickupDate" type="date" className="dc-input mt-1 w-full" />
                 </label>
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Schedule length
@@ -1110,7 +1110,7 @@ export function PartnerOperationsPanel({
                         [emptyZoneId]: event.target.value as "months" | "forever",
                       }))
                     }
-                    className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3"
+                    className="dc-input mt-1 w-full"
                   >
                     <option value="months">Choose how many months</option>
                     <option value="forever">Forever</option>
@@ -1119,7 +1119,7 @@ export function PartnerOperationsPanel({
                 {scheduleModes[emptyZoneId] === "months" ? (
                   <label className="text-xs text-[var(--dc-gray-700)]">
                     Months to schedule
-                    <input name="months" type="number" min={1} max={24} defaultValue={6} className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3" />
+                    <input name="months" type="number" min={1} max={24} defaultValue={6} className="dc-input mt-1 w-full" />
                   </label>
                 ) : (
                   <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] px-4 py-3 text-sm text-[var(--dc-gray-700)]">
@@ -1128,7 +1128,7 @@ export function PartnerOperationsPanel({
                 )}
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Weekend handling
-                  <select name="weekendPolicy" defaultValue="next_business_day" className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3">
+                  <select name="weekendPolicy" defaultValue="next_business_day" className="dc-input mt-1 w-full">
                     <option value="none">Keep the same calendar day</option>
                     <option value="next_business_day">Move Saturday or Sunday to the next business day</option>
                   </select>
@@ -1141,10 +1141,10 @@ export function PartnerOperationsPanel({
                     value={emptyPickupWindowLabel}
                     onChange={(event) => setEmptyPickupWindowLabel(event.target.value)}
                     placeholder="9am - 1pm"
-                    className="mt-1 h-10 w-full rounded-lg border border-black/15 bg-white px-3"
+                    className="dc-input mt-1 w-full"
                   />
                 </label>
-                <button type="submit" disabled={workingCycleId === emptyZoneId} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-60">
+                <button type="submit" disabled={workingCycleId === emptyZoneId} className="dc-btn-primary">
                   {workingCycleId === emptyZoneId ? "Saving..." : "Create Pickup Schedule"}
                 </button>
               </form>

@@ -49,54 +49,68 @@ export function AdminTools() {
   }
 
   return (
-    <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+    <section className="rounded-[var(--radius-xl)] border p-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-strong)" }}>
       <h2 className="text-2xl font-bold">Admin Tools</h2>
-      <p className="mt-2 text-white/80">
+      <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>
         Create monthly pickup cycles. Active subscribers are automatically marked as pickup requested by default.
       </p>
-      <div className="mt-5 grid gap-3 md:grid-cols-4">
-        <select
-          value={zoneCode}
-          onChange={(event) => setZoneCode(event.target.value)}
-          className="h-11 rounded-lg border border-white/25 bg-black/40 px-3 text-white"
-        >
-          {zoneOptions.map((zone) => (
-            <option key={zone.id} value={zone.code}>
-              {zone.name} ({zone.code})
-            </option>
-          ))}
-        </select>
-        <input
-          type="date"
-          value={month}
-          onChange={(event) => setMonth(event.target.value)}
-          className="h-11 rounded-lg border border-white/25 bg-black/40 px-3 text-white"
-        />
-        <input
-          type="date"
-          value={pickupDate}
-          onChange={(event) => setPickupDate(event.target.value)}
-          className="h-11 rounded-lg border border-white/25 bg-black/40 px-3 text-white"
-        />
-        <input
-          type="datetime-local"
-          value={cutoff.slice(0, 16)}
-          onChange={(event) => setCutoff(new Date(event.target.value).toISOString())}
-          className="h-11 rounded-lg border border-white/25 bg-black/40 px-3 text-white"
-        />
+      <div className="mt-5 grid gap-4 md:grid-cols-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Zone</label>
+          <select
+            value={zoneCode}
+            onChange={(event) => setZoneCode(event.target.value)}
+            className="dc-input-admin w-full"
+          >
+            {zoneOptions.map((zone) => (
+              <option key={zone.id} value={zone.code}>
+                {zone.name} ({zone.code})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Cycle Month</label>
+          <input
+            type="date"
+            value={month}
+            onChange={(event) => setMonth(event.target.value)}
+            className="dc-input-admin w-full"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Pickup Date</label>
+          <input
+            type="date"
+            value={pickupDate}
+            onChange={(event) => setPickupDate(event.target.value)}
+            className="dc-input-admin w-full"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Response Cutoff</label>
+          <input
+            type="datetime-local"
+            value={cutoff.slice(0, 16)}
+            onChange={(event) => setCutoff(new Date(event.target.value).toISOString())}
+            className="dc-input-admin w-full"
+          />
+        </div>
       </div>
-      <button
-        onClick={createCycle}
-        disabled={status === "saving"}
-        className="mt-4 rounded-xl bg-[var(--dc-orange)] px-4 py-2 font-semibold text-white disabled:opacity-70"
-      >
-        {status === "saving" ? "Creating..." : "Create Pickup Cycle"}
-      </button>
-      {message ? (
-        <p className={`mt-3 text-sm ${status === "error" ? "text-red-300" : "text-green-300"}`}>
-          {message}
-        </p>
-      ) : null}
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button
+          onClick={createCycle}
+          disabled={status === "saving"}
+          className="dc-btn-primary"
+        >
+          {status === "saving" ? "Creating..." : "Create Pickup Cycle"}
+        </button>
+        {message ? (
+          <p className={`text-sm font-medium ${status === "error" ? "text-red-400" : "text-emerald-400"}`}>
+            {message}
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

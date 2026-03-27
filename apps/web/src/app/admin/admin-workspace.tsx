@@ -1605,13 +1605,13 @@ export function AdminWorkspace({
               value={userSearch}
               onChange={(event) => setUserSearch(event.target.value)}
               placeholder="Search users"
-              className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:min-w-[220px] sm:w-auto"
+              className="dc-input-admin w-full sm:min-w-[220px] sm:w-auto"
             />
             {peopleSubtab === "staff" ? (
               <select
                 value={roleFilter}
                 onChange={(event) => setRoleFilter(event.target.value as "all" | GlobalAppRole)}
-                className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:w-auto"
+                className="dc-input-admin w-full sm:w-auto"
               >
                 <option value="all">All team roles</option>
                 <option value="customer">Donor accounts</option>
@@ -1626,7 +1626,7 @@ export function AdminWorkspace({
             <select
               value={userZoneFilter}
               onChange={(event) => setUserZoneFilter(event.target.value)}
-              className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:w-auto"
+              className="dc-input-admin w-full sm:w-auto"
             >
               <option value="all">All zones</option>
               {data.zones.map((zone) => (
@@ -1647,7 +1647,7 @@ export function AdminWorkspace({
                     <select
                       value={user.role}
                       onChange={(event) => updateUserRole(user.id, event.target.value as GlobalAppRole)}
-                      className="h-9 rounded-lg border border-white/30 bg-black px-3 text-xs"
+                      className="dc-input-admin !h-9 text-xs"
                     >
                       <option value="customer">Donor</option>
                       <option value="driver">Driver</option>
@@ -1705,25 +1705,25 @@ export function AdminWorkspace({
           </article>
 
           <div className="grid gap-4 lg:grid-cols-4">
-            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <article className="dc-stat-admin">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Active Subscribers</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => subscription.status === "active").length}
               </p>
             </article>
-            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <article className="dc-stat-admin">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Ending This Period</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => subscription.cancelAtPeriodEnd).length}
               </p>
             </article>
-            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <article className="dc-stat-admin">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Needs Attention</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => ["past_due", "canceled"].includes(subscription.status)).length}
               </p>
             </article>
-            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <article className="dc-stat-admin">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Saved Card on File</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => subscription.paymentMethod?.type === "card").length}
@@ -1731,7 +1731,7 @@ export function AdminWorkspace({
             </article>
           </div>
 
-          <article className="rounded-3xl border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+          <article className="dc-stat-admin !p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm font-semibold">Subscriber billing roster</p>
@@ -1744,8 +1744,7 @@ export function AdminWorkspace({
                   value={subscriptionSearch}
                   onChange={(event) => setSubscriptionSearch(event.target.value)}
                   placeholder="Search billing records"
-                  className="h-11 min-w-0 rounded-xl border px-3 text-sm"
-                  style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
+                  className="dc-input-admin min-w-0"
                 />
                 <select
                   value={subscriptionStatusFilter}
@@ -1754,8 +1753,7 @@ export function AdminWorkspace({
                       event.target.value as "all" | "active" | "past_due" | "paused" | "canceled",
                     )
                   }
-                  className="h-11 rounded-xl border px-3 text-sm"
-                  style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
+                  className="dc-input-admin"
                 >
                   <option value="all">All statuses</option>
                   <option value="active">Active</option>
@@ -1988,8 +1986,8 @@ export function AdminWorkspace({
             })}
             {filteredSubscriptions.length === 0 ? (
               <article
-                className="rounded-3xl border border-dashed p-8 text-sm"
-                style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-soft-text)" }}
+                className="dc-stat-admin border-dashed !p-8 text-sm"
+                style={{ color: "var(--admin-soft-text)" }}
               >
                 No billing records match the current search or status filters.
               </article>
@@ -2163,7 +2161,7 @@ export function AdminWorkspace({
                         min={0.5}
                         step={0.5}
                         defaultValue={selectedZone!.radius_miles}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                     </label>
                     <label className="text-xs text-white/70">
@@ -2173,12 +2171,12 @@ export function AdminWorkspace({
                         type="number"
                         min={1}
                         defaultValue={selectedZone!.min_active_subscribers}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                     </label>
                     <label className="text-xs text-white/70">
                       Service area status
-                      <select name="status" defaultValue={selectedZone!.status} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                      <select name="status" defaultValue={selectedZone!.status} className="dc-input-admin mt-1 w-full">
                         <option value="pending">Planning</option>
                         <option value="launching">Opening Soon</option>
                         <option value="active">Active</option>
@@ -2190,14 +2188,14 @@ export function AdminWorkspace({
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <label className="text-xs text-white/70">
                       Service lead
-                      <select name="operationModel" defaultValue={selectedZone!.operation_model} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                      <select name="operationModel" defaultValue={selectedZone!.operation_model} className="dc-input-admin mt-1 w-full">
                         <option value="donatecrate_operated">DonateCrate managed</option>
                         <option value="partner_operated">Organization managed</option>
                       </select>
                     </label>
                     <label className="text-xs text-white/70">
                       Organization
-                      <select name="partnerId" defaultValue={selectedZone!.partner_id ?? ""} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                      <select name="partnerId" defaultValue={selectedZone!.partner_id ?? ""} className="dc-input-admin mt-1 w-full">
                         <option value="">No organization assigned</option>
                         {partnerOptions.map((partner) => (
                           <option key={partner.id} value={partner.id}>{partner.name}</option>
@@ -2220,7 +2218,7 @@ export function AdminWorkspace({
                         min={1}
                         max={31}
                         defaultValue={selectedZone!.recurring_pickup_day ?? ""}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                     </label>
                     <label className="text-xs text-white/70">
@@ -2231,7 +2229,7 @@ export function AdminWorkspace({
                         min={0}
                         max={30}
                         defaultValue={selectedZone!.default_cutoff_days_before}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                       <span className="mt-1 block text-[11px] text-white/55">How many days before pickup changes close.</span>
                     </label>
@@ -2241,7 +2239,7 @@ export function AdminWorkspace({
                         name="defaultPickupWindowLabel"
                         type="text"
                         defaultValue={selectedZone!.default_pickup_window_label ?? ""}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                     </label>
                     <label className="text-xs text-white/70 md:col-span-2">
@@ -2283,7 +2281,7 @@ export function AdminWorkspace({
                         setZoneMemberPage(1);
                       }}
                       placeholder="Search members"
-                      className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                      className="dc-input-admin"
                     />
                     <select
                       value={zoneMemberRole}
@@ -2291,7 +2289,7 @@ export function AdminWorkspace({
                         setZoneMemberRole(event.target.value as "all" | "customer" | "admin" | "driver" | "partner_admin" | "partner_coordinator" | "partner_driver");
                         setZoneMemberPage(1);
                       }}
-                      className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                      className="dc-input-admin"
                     >
                       <option value="all">All people</option>
                       <option value="customer">Donor</option>
@@ -2347,7 +2345,7 @@ export function AdminWorkspace({
                         if (event.target.value.trim().length < 3) setEditCenterPredictions([]);
                       }}
                       placeholder="Search zone center address"
-                      className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm"
+                      className="dc-input-admin"
                     />
                     <button onClick={updateZoneCenterAddress} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">Save Center Address</button>
                   </div>
@@ -2442,12 +2440,12 @@ export function AdminWorkspace({
                               value={partnerMemberEmail}
                               onChange={(event) => setPartnerMemberEmail(event.target.value)}
                               placeholder="Work email address"
-                              className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                              className="dc-input-admin"
                             />
                             <select
                               value={partnerMemberRole}
                               onChange={(event) => setPartnerMemberRole(event.target.value as "partner_admin" | "partner_coordinator" | "partner_driver")}
-                              className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                              className="dc-input-admin"
                             >
                               <option value="partner_admin">Organization Admin</option>
                               <option value="partner_coordinator">Coordinator</option>
@@ -2478,17 +2476,17 @@ export function AdminWorkspace({
                               </label>
                             </div>
                             <div className="mt-4 grid gap-3 md:grid-cols-2">
-                              <input value={selectedPartnerForm.name} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, name: event.target.value } : prev))} placeholder="Organization name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartner.code} disabled className="h-10 rounded-lg border border-white/15 bg-black/50 px-3 text-sm opacity-70" />
-                              <input value={selectedPartnerForm.legalName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, legalName: event.target.value } : prev))} placeholder="Legal name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.supportEmail} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportEmail: event.target.value } : prev))} placeholder="Support email" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.supportPhone} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportPhone: event.target.value } : prev))} placeholder="Support phone" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.websiteUrl} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, websiteUrl: event.target.value } : prev))} placeholder="Website URL" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.addressLine1} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, addressLine1: event.target.value } : prev))} placeholder="Mailing address" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm md:col-span-2" />
-                              <input value={selectedPartnerForm.city} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, city: event.target.value } : prev))} placeholder="City" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.name} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, name: event.target.value } : prev))} placeholder="Organization name" className="dc-input-admin" />
+                              <input value={selectedPartner.code} disabled className="dc-input-admin opacity-70" />
+                              <input value={selectedPartnerForm.legalName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, legalName: event.target.value } : prev))} placeholder="Legal name" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.supportEmail} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportEmail: event.target.value } : prev))} placeholder="Support email" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.supportPhone} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportPhone: event.target.value } : prev))} placeholder="Support phone" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.websiteUrl} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, websiteUrl: event.target.value } : prev))} placeholder="Website URL" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.addressLine1} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, addressLine1: event.target.value } : prev))} placeholder="Mailing address" className="dc-input-admin md:col-span-2" />
+                              <input value={selectedPartnerForm.city} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, city: event.target.value } : prev))} placeholder="City" className="dc-input-admin" />
                               <div className="grid gap-3 sm:grid-cols-2">
-                                <input value={selectedPartnerForm.state} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, state: event.target.value } : prev))} placeholder="State" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                                <input value={selectedPartnerForm.postalCode} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, postalCode: event.target.value } : prev))} placeholder="ZIP code" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                                <input value={selectedPartnerForm.state} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, state: event.target.value } : prev))} placeholder="State" className="dc-input-admin" />
+                                <input value={selectedPartnerForm.postalCode} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, postalCode: event.target.value } : prev))} placeholder="ZIP code" className="dc-input-admin" />
                               </div>
                               <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70 md:col-span-2">
                                 Receipt delivery is handled by DonateCrate on behalf of this nonprofit. Payout settings stay internal for now and are not edited here.
@@ -2502,7 +2500,7 @@ export function AdminWorkspace({
                             <p className="text-sm font-semibold text-white">Receipt branding</p>
                             <p className="mt-1 text-xs text-white/65">This branding is used in donation receipt emails while delivery still comes from `giving@donatecrate.com`.</p>
                             <div className="mt-4 grid gap-3 md:grid-cols-2">
-                              <input value={selectedPartnerForm.displayName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, displayName: event.target.value } : prev))} placeholder="Receipt display name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.displayName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, displayName: event.target.value } : prev))} placeholder="Receipt display name" className="dc-input-admin" />
                               <div className="rounded-xl border border-white/10 bg-black/30 p-3">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Logo preview</p>
                                 <div className="mt-3 flex h-24 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/5 p-3">
@@ -2516,9 +2514,9 @@ export function AdminWorkspace({
                                   )}
                                 </div>
                               </div>
-                              <input value={selectedPartnerForm.primaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, primaryColor: event.target.value } : prev))} placeholder="Primary color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.secondaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, secondaryColor: event.target.value } : prev))} placeholder="Secondary color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.accentColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, accentColor: event.target.value } : prev))} placeholder="Accent color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.primaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, primaryColor: event.target.value } : prev))} placeholder="Primary color (#hex)" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.secondaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, secondaryColor: event.target.value } : prev))} placeholder="Secondary color (#hex)" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.accentColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, accentColor: event.target.value } : prev))} placeholder="Accent color (#hex)" className="dc-input-admin" />
                               <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70">
                                 Sender: {selectedPartnerForm.displayName || selectedPartnerForm.name || selectedPartner.name} &lt;giving@donatecrate.com&gt;
                               </div>
@@ -2596,11 +2594,11 @@ export function AdminWorkspace({
               <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
                 <h4 className="text-lg font-bold">Add New Service Area</h4>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input value={zoneForm.name} onChange={(event) => setZoneForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Service area name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={zoneForm.code} onChange={(event) => setZoneForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Internal area code" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={zoneForm.anchorPostalCode} onChange={(event) => setZoneForm((prev) => ({ ...prev, anchorPostalCode: event.target.value }))} placeholder="Anchor ZIP" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input type="number" min={0.5} step={0.5} value={zoneForm.radiusMiles} onChange={(event) => setZoneForm((prev) => ({ ...prev, radiusMiles: Number(event.target.value) }))} placeholder="Service radius (miles)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input type="number" min={1} value={zoneForm.minActiveSubscribers} onChange={(event) => setZoneForm((prev) => ({ ...prev, minActiveSubscribers: Number(event.target.value) }))} placeholder="Active household goal" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={zoneForm.name} onChange={(event) => setZoneForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Service area name" className="dc-input-admin" />
+                  <input value={zoneForm.code} onChange={(event) => setZoneForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Internal area code" className="dc-input-admin" />
+                  <input value={zoneForm.anchorPostalCode} onChange={(event) => setZoneForm((prev) => ({ ...prev, anchorPostalCode: event.target.value }))} placeholder="Anchor ZIP" className="dc-input-admin" />
+                  <input type="number" min={0.5} step={0.5} value={zoneForm.radiusMiles} onChange={(event) => setZoneForm((prev) => ({ ...prev, radiusMiles: Number(event.target.value) }))} placeholder="Service radius (miles)" className="dc-input-admin" />
+                  <input type="number" min={1} value={zoneForm.minActiveSubscribers} onChange={(event) => setZoneForm((prev) => ({ ...prev, minActiveSubscribers: Number(event.target.value) }))} placeholder="Active household goal" className="dc-input-admin" />
                   <input
                     value={createCenterQuery}
                     onChange={(event) => {
@@ -2609,7 +2607,7 @@ export function AdminWorkspace({
                       if (event.target.value.trim().length < 3) setCreateCenterPredictions([]);
                     }}
                     placeholder="Service area center address"
-                    className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm"
+                    className="dc-input-admin"
                   />
                 </div>
                 {createCenterPredictions.length > 0 ? (
@@ -2656,17 +2654,17 @@ export function AdminWorkspace({
                 <h4 className="text-lg font-bold">Add Nonprofit Partner</h4>
                 <p className="mt-1 text-xs text-white/65">This creates the organization record and the nonprofit can brand receipts while delivery still comes from giving@donatecrate.com.</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input value={partnerForm.name} onChange={(event) => setPartnerForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Partner name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.code} onChange={(event) => setPartnerForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Partner code" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.legalName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, legalName: event.target.value }))} placeholder="Legal name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.supportEmail} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportEmail: event.target.value }))} placeholder="Support email" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.supportPhone} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportPhone: event.target.value }))} placeholder="Support phone" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.displayName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, displayName: event.target.value }))} placeholder="Receipt display name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={partnerForm.name} onChange={(event) => setPartnerForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Partner name" className="dc-input-admin" />
+                  <input value={partnerForm.code} onChange={(event) => setPartnerForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Partner code" className="dc-input-admin" />
+                  <input value={partnerForm.legalName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, legalName: event.target.value }))} placeholder="Legal name" className="dc-input-admin" />
+                  <input value={partnerForm.supportEmail} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportEmail: event.target.value }))} placeholder="Support email" className="dc-input-admin" />
+                  <input value={partnerForm.supportPhone} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportPhone: event.target.value }))} placeholder="Support phone" className="dc-input-admin" />
+                  <input value={partnerForm.displayName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, displayName: event.target.value }))} placeholder="Receipt display name" className="dc-input-admin" />
                   <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70 md:col-span-2">
                     Receipt emails are always sent by DonateCrate on behalf of the nonprofit. Payout and revenue-share settings are handled internally and are not configured here yet.
                   </div>
-                  <input value={partnerForm.primaryColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, primaryColor: event.target.value }))} placeholder="Primary color (#hex)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.accentColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, accentColor: event.target.value }))} placeholder="Accent color (#hex)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={partnerForm.primaryColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, primaryColor: event.target.value }))} placeholder="Primary color (#hex)" className="dc-input-admin" />
+                  <input value={partnerForm.accentColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, accentColor: event.target.value }))} placeholder="Accent color (#hex)" className="dc-input-admin" />
                   <div className="rounded-xl border border-white/10 bg-black/30 p-3 md:col-span-2">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Logo preview</p>
                     <div className="mt-3 flex h-24 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/5 p-3">
@@ -2732,7 +2730,7 @@ export function AdminWorkspace({
                 <select
                   value={scheduleForm.zoneCode}
                   onChange={(event) => setScheduleForm((prev) => ({ ...prev, zoneCode: event.target.value }))}
-                  className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                  className="dc-input-admin mt-1 w-full"
                 >
                   {data.zones.map((zone) => (
                     <option key={zone.id} value={zone.code}>{zone.name}</option>
@@ -2795,7 +2793,7 @@ export function AdminWorkspace({
                   </label>
                   <label className="text-xs text-white/70 md:col-span-2">
                     Request cutoff (date/time)
-                    <input type="datetime-local" value={scheduleForm.requestCutoffAt} onChange={(event) => setScheduleForm((prev) => ({ ...prev, requestCutoffAt: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3" />
+                    <input type="datetime-local" value={scheduleForm.requestCutoffAt} onChange={(event) => setScheduleForm((prev) => ({ ...prev, requestCutoffAt: event.target.value }))} className="dc-input-admin mt-1 w-full" />
                   </label>
                 </>
               ) : (
@@ -2844,7 +2842,7 @@ export function AdminWorkspace({
                   {scheduleForm.horizonMode === "months" ? (
                     <label className="text-xs text-white/70">
                       Number of months
-                      <input type="number" min={1} max={60} value={scheduleForm.months} onChange={(event) => setScheduleForm((prev) => ({ ...prev, months: Number(event.target.value) }))} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3" />
+                      <input type="number" min={1} max={60} value={scheduleForm.months} onChange={(event) => setScheduleForm((prev) => ({ ...prev, months: Number(event.target.value) }))} className="dc-input-admin mt-1 w-full" />
                     </label>
                   ) : (
                     <div className="rounded-lg border border-white/20 bg-black/30 p-3 text-xs text-white/70 md:self-end">
@@ -2853,14 +2851,14 @@ export function AdminWorkspace({
                   )}
                   <label className="text-xs text-white/70">
                     Weekend behavior
-                    <select value={scheduleForm.weekendPolicy} onChange={(event) => setScheduleForm((prev) => ({ ...prev, weekendPolicy: event.target.value as "none" | "next_business_day" }))} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                    <select value={scheduleForm.weekendPolicy} onChange={(event) => setScheduleForm((prev) => ({ ...prev, weekendPolicy: event.target.value as "none" | "next_business_day" }))} className="dc-input-admin mt-1 w-full">
                       <option value="none">Keep exact date</option>
                       <option value="next_business_day">Move to next business day</option>
                     </select>
                   </label>
                   <label className="text-xs text-white/70">
                     Cutoff days before pickup
-                    <input type="number" min={0} max={30} value={scheduleForm.cutoffDaysBefore} onChange={(event) => setScheduleForm((prev) => ({ ...prev, cutoffDaysBefore: Number(event.target.value) }))} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3" />
+                    <input type="number" min={0} max={30} value={scheduleForm.cutoffDaysBefore} onChange={(event) => setScheduleForm((prev) => ({ ...prev, cutoffDaysBefore: Number(event.target.value) }))} className="dc-input-admin mt-1 w-full" />
                   </label>
                 </>
               )}
@@ -3249,7 +3247,7 @@ export function AdminWorkspace({
                 <select
                   value={smsTarget}
                   onChange={(event) => setSmsTarget(event.target.value as "individual" | "zone" | "all")}
-                  className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                  className="dc-input-admin mt-1 w-full"
                 >
                   <option value="individual">Individual users</option>
                   <option value="zone">Single zone group</option>
@@ -3262,7 +3260,7 @@ export function AdminWorkspace({
                   <select
                     value={smsZoneId}
                     onChange={(event) => setSmsZoneId(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                    className="dc-input-admin mt-1 w-full"
                   >
                     <option value="">Select zone</option>
                     {data.zones.map((zone) => (

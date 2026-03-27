@@ -127,22 +127,22 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           <p className="mt-1 text-sm" style={{ color: "var(--admin-muted)" }}>{profile.email}</p>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <article className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
-            <p className="text-sm" style={{ color: "var(--admin-muted)" }}>Employee ID</p>
+        <section className="grid gap-4 md:grid-cols-3 dc-stagger">
+          <article className="dc-stat-admin">
+            <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Employee ID</p>
             <p className="mt-2 text-2xl font-bold">{driver?.employee_id ?? "Unassigned"}</p>
           </article>
-          <article className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
-            <p className="text-sm" style={{ color: "var(--admin-muted)" }}>Driver Status</p>
+          <article className="dc-stat-admin">
+            <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Driver Status</p>
             <p className="mt-2 text-2xl font-bold">{driver?.active ? "Active" : "Inactive"}</p>
           </article>
-          <article className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
-            <p className="text-sm" style={{ color: "var(--admin-muted)" }}>Routes Assigned</p>
+          <article className="dc-stat-admin">
+            <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Routes Assigned</p>
             <p className="mt-2 text-2xl font-bold">{routeCount ?? 0}</p>
           </article>
         </section>
 
-        <section className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+        <section className="dc-stat-admin !p-5">
           <h2 className="text-xl font-bold">Next Route</h2>
           <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>
             {nextRoute
@@ -192,7 +192,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>{profile.email}</p>
       </header>
 
-      <section className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+      <section className="dc-stat-admin !p-5">
         <h2 className="text-xl font-bold">How To Use This Workspace</h2>
         <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>
           Overview shows what needs attention first. Pickup Calendar sets the service days, Dispatch turns that calendar into
@@ -200,10 +200,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         </p>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-2 dc-stagger">
         {adminTiles.map((tile) => (
-          <article key={tile.title} className="rounded-2xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
-            <p className="text-sm" style={{ color: "var(--admin-muted)" }}>{tile.title}</p>
+          <article key={tile.title} className="dc-stat-admin">
+            <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>{tile.title}</p>
             <p className="mt-2 text-2xl font-bold">{tile.value}</p>
           </article>
         ))}

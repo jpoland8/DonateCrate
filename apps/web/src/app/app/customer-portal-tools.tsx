@@ -49,6 +49,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
     Array<{ id: string; status: string; createdAt: string; referredEmail: string | null }>
   >([]);
   const [message, setMessage] = useState("");
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -147,18 +148,18 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
       ? {
           eyebrow: "Referrals",
           title: "Share one link. Earn free months.",
-          detail: "Keep this page simple: copy your invite link, then track which households convert into credits.",
+          detail: "Copy your invite link, then track which households convert into credits.",
         }
       : section === "settings"
         ? {
             eyebrow: "Settings",
             title: "Choose how DonateCrate keeps you in the loop.",
-            detail: "Use the simplest setup that works for you. Most households keep billing updates by email and pickup reminders by text.",
+            detail: "Most households keep billing updates by email and pickup reminders by text.",
           }
         : section === "pickups"
           ? {
               eyebrow: "Pickup Details",
-              title: "Stay aligned with this month’s pickup.",
+              title: "Stay aligned with this month's pickup.",
               detail: "Use this screen to understand the current cycle and watch account updates as pickup day gets closer.",
             }
           : null;
@@ -185,16 +186,44 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
   async function copyReferralLink() {
     if (!referralLink) return;
     await navigator.clipboard.writeText(referralLink);
+    setCopied(true);
     setMessage("Referral link copied.");
+    setTimeout(() => setCopied(false), 2000);
   }
 
   if (loading) {
-    return <div className="rounded-2xl border border-black/10 bg-white p-5 text-sm text-[var(--dc-gray-700)]">Loading account details...</div>;
+    return (
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="lg:col-span-2 dc-card p-6">
+          <div className="dc-skeleton h-4 w-20 mb-3" />
+          <div className="dc-skeleton h-7 w-64 mb-2" />
+          <div className="dc-skeleton h-4 w-96" />
+        </div>
+        <div className="dc-card p-6">
+          <div className="dc-skeleton h-6 w-40 mb-4" />
+          <div className="space-y-3">
+            <div className="dc-skeleton h-20 w-full" />
+            <div className="dc-skeleton h-20 w-full" />
+          </div>
+        </div>
+        <div className="dc-card p-6">
+          <div className="dc-skeleton h-6 w-48 mb-4" />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="dc-skeleton h-20" />
+            <div className="dc-skeleton h-20" />
+            <div className="dc-skeleton h-20" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loadError) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+      <div className="dc-toast dc-toast-error">
+        <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0" aria-hidden>
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
         {loadError}
       </div>
     );
@@ -203,65 +232,62 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {activeSectionMeta ? (
-        <section className="lg:col-span-2 rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.8)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">{activeSectionMeta.eyebrow}</p>
+        <section className="lg:col-span-2 dc-card p-5 sm:p-6">
+          <p className="dc-eyebrow">{activeSectionMeta.eyebrow}</p>
           <h2 className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">{activeSectionMeta.title}</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--dc-gray-700)]">{activeSectionMeta.detail}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--dc-gray-600)]">{activeSectionMeta.detail}</p>
         </section>
       ) : null}
 
       {section === "all" || section === "settings" ? (
-        <section className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur">
-          <h3 className="text-xl font-bold">How we contact you</h3>
-          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-            Turn reminders on for the channels you actually use. We only send account-related updates such as pickup reminders and billing notices.
+        <section className="dc-card p-5">
+          <h3 className="text-xl font-bold text-[var(--dc-gray-900)]">How we contact you</h3>
+          <p className="mt-2 text-sm text-[var(--dc-gray-600)]">
+            Turn reminders on for the channels you actually use. We only send account-related updates.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <article className="rounded-[1.5rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-gray-700)]">Right now</p>
-              <p className="mt-2 text-sm font-semibold text-black">{reminderChannelSummary}</p>
-              <p className="mt-1 text-sm text-[var(--dc-gray-700)]">
+            <article className="dc-inner-panel">
+              <p className="dc-eyebrow !text-[var(--dc-gray-500)]">Right now</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--dc-gray-900)]">{reminderChannelSummary}</p>
+              <p className="mt-1 text-xs text-[var(--dc-gray-500)]">
                 Quiet hours: {prefs.quiet_hours_start && prefs.quiet_hours_end ? `${prefs.quiet_hours_start} to ${prefs.quiet_hours_end}` : "Not set"}
               </p>
             </article>
-            <article className="rounded-[1.5rem] border border-black/10 bg-white/70 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-gray-700)]">What you can expect</p>
-              <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-                Email is best for billing and account notices. Text is best for the quick reminder that your bag should go out.
+            <article className="dc-inner-panel">
+              <p className="dc-eyebrow !text-[var(--dc-gray-500)]">What you can expect</p>
+              <p className="mt-2 text-sm text-[var(--dc-gray-600)]">
+                Email is best for billing and account notices. Text is best for the quick pickup reminder.
               </p>
             </article>
           </div>
-          <div className="mt-4 grid gap-3">
-            <label className="flex items-start gap-3 rounded-[1.3rem] border border-black/10 bg-white/70 p-4 text-sm shadow-sm">
+          <div className="mt-4 space-y-2">
+            <label className="flex items-start gap-3 dc-inner-panel cursor-pointer hover:border-black/12 transition-colors">
               <input
                 type="checkbox"
                 checked={prefs.email_enabled}
                 onChange={(event) => setPrefs((prev) => ({ ...prev, email_enabled: event.target.checked }))}
-                className="mt-0.5"
+                className="mt-0.5 h-4 w-4 rounded border-[var(--dc-gray-300)] text-[var(--dc-orange)] focus:ring-[var(--dc-orange)]"
               />
               <span>
-                <span className="block font-semibold text-black">Email reminders and billing alerts</span>
-                <span className="mt-1 block text-[var(--dc-gray-700)]">Best for confirmations, billing updates, and account notices.</span>
+                <span className="block text-sm font-semibold text-[var(--dc-gray-900)]">Email reminders and billing alerts</span>
+                <span className="mt-0.5 block text-xs text-[var(--dc-gray-500)]">Best for confirmations, billing updates, and account notices.</span>
               </span>
             </label>
-            <label className="flex items-start gap-3 rounded-[1.3rem] border border-black/10 bg-white/70 p-4 text-sm shadow-sm">
+            <label className="flex items-start gap-3 dc-inner-panel cursor-pointer hover:border-black/12 transition-colors">
               <input
                 type="checkbox"
                 checked={prefs.sms_enabled}
                 onChange={(event) => setPrefs((prev) => ({ ...prev, sms_enabled: event.target.checked }))}
-                className="mt-0.5"
+                className="mt-0.5 h-4 w-4 rounded border-[var(--dc-gray-300)] text-[var(--dc-orange)] focus:ring-[var(--dc-orange)]"
               />
               <span>
-                <span className="block font-semibold text-black">Text reminders for pickup day</span>
-                <span className="mt-1 block text-[var(--dc-gray-700)]">Best for quick reminders when your bag should be out.</span>
+                <span className="block text-sm font-semibold text-[var(--dc-gray-900)]">Text reminders for pickup day</span>
+                <span className="mt-0.5 block text-xs text-[var(--dc-gray-500)]">Best for quick reminders when your bag should be out.</span>
               </span>
             </label>
           </div>
           <div className="mt-4">
-            <button
-              onClick={savePrefs}
-              className="rounded-full bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white"
-            >
+            <button onClick={savePrefs} className="dc-btn-primary">
               Save preferences
             </button>
           </div>
@@ -269,42 +295,57 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
       ) : null}
 
       {section === "all" || section === "referrals" ? (
-        <section className="overflow-hidden rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-0 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur">
+        <section className="dc-card overflow-hidden p-0">
           <div className="bg-[linear-gradient(120deg,#111_0%,#2a2a2a_45%,#ff6a00_130%)] p-5 text-white">
             <h3 className="text-xl font-bold">Free-Month Referrals</h3>
             <p className="mt-1 text-sm text-white/80">
               Invite neighbors and friends. When a new household activates, both homes earn a free month credit.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="rounded-xl bg-white/15 px-3 py-2 font-mono text-sm tracking-wide">
+              <span className="rounded-[var(--radius-sm)] bg-white/15 px-3 py-2 font-mono text-sm tracking-wide backdrop-blur">
                 {referralCode || "GENERATING"}
               </span>
               <button
                 onClick={copyReferralLink}
-                className="rounded-xl border border-white/50 px-3 py-2 text-sm font-semibold hover:bg-white hover:text-black"
+                className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-white/40 px-3 py-2 text-sm font-semibold transition-all duration-150 hover:bg-white hover:text-black"
               >
-                Copy invite link
+                {copied ? (
+                  <>
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden>
+                      <path d="M3.5 8.5l3 3 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden>
+                      <rect x="5" y="5" width="9" height="9" rx="1.5" strokeWidth="1.5" />
+                      <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" strokeWidth="1.5" />
+                    </svg>
+                    Copy invite link
+                  </>
+                )}
               </button>
             </div>
-            <p className="mt-2 text-xs text-white/70">Share link: {referralLinkLabel}</p>
+            <p className="mt-2 text-xs text-white/60">Share link: {referralLinkLabel}</p>
           </div>
           <div className="grid gap-3 p-5 sm:grid-cols-3">
-            <article className="rounded-[1.35rem] border border-black/10 bg-white/70 p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Invites sent</p>
-              <p className="mt-2 text-2xl font-bold">{referralStats.invitedCount}</p>
+            <article className="dc-stat">
+              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Invites sent</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.invitedCount}</p>
             </article>
-            <article className="rounded-[1.35rem] border border-black/10 bg-white/70 p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Free months earned</p>
-              <p className="mt-2 text-2xl font-bold">{referralStats.creditedCount}</p>
+            <article className="dc-stat">
+              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Free months earned</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.creditedCount}</p>
             </article>
-            <article className="rounded-[1.35rem] border border-black/10 bg-white/70 p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Reward value</p>
-              <p className="mt-2 text-2xl font-bold">${referralValueDollars}</p>
+            <article className="dc-stat">
+              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Reward value</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">${referralValueDollars}</p>
             </article>
-            <article className="rounded-[1.35rem] border border-black/10 bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4 sm:col-span-3">
-              <p className="text-sm font-semibold text-black">Annual credit runway</p>
-              <p className="mt-1 text-sm text-[var(--dc-gray-700)]">
-                You still have {referralStats.annualReferrerCreditsRemaining} of 3 referrer credits left this year.
+            <article className="dc-inner-panel sm:col-span-3">
+              <p className="text-sm font-semibold text-[var(--dc-gray-900)]">Annual credit runway</p>
+              <p className="mt-1 text-sm text-[var(--dc-gray-600)]">
+                You have {referralStats.annualReferrerCreditsRemaining} of 3 referrer credits left this year.
               </p>
             </article>
           </div>
@@ -312,25 +353,25 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
       ) : null}
 
       {section === "all" || section === "pickups" ? (
-        <section className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur lg:col-span-2">
-          <h3 className="text-xl font-bold">Pickup Timeline</h3>
-          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-            Active members are treated as ready by default unless they skip a month. Use the pickup controls above to change this cycle.
+        <section className="dc-card p-5 lg:col-span-2">
+          <h3 className="text-xl font-bold text-[var(--dc-gray-900)]">Pickup Timeline</h3>
+          <p className="mt-2 text-sm text-[var(--dc-gray-600)]">
+            Active members are treated as ready by default unless they skip a month.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <article className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Current cycle</p>
-              <p className="mt-2 text-xl font-bold">
+          <div className="mt-4 grid gap-3 md:grid-cols-3 dc-stagger">
+            <article className="dc-stat">
+              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Current cycle</p>
+              <p className="mt-2 text-xl font-bold text-[var(--dc-gray-900)]">
                 {safeDateLabel(currentCycle?.pickup_date)}
               </p>
             </article>
-            <article className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Your status</p>
-              <p className="mt-2 text-xl font-bold">{formatCycleStatus(currentCycleRequest?.status ?? latestRequest?.status ?? null)}</p>
+            <article className="dc-stat">
+              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Your status</p>
+              <p className="mt-2 text-xl font-bold text-[var(--dc-gray-900)]">{formatCycleStatus(currentCycleRequest?.status ?? latestRequest?.status ?? null)}</p>
             </article>
-            <article className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-700)]">Last account update</p>
-              <p className="mt-2 text-sm font-semibold text-black">
+            <article className="dc-stat">
+              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Last account update</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--dc-gray-900)]">
                 {latestRequest ? safeDateTimeLabel(latestRequest.updated_at, "No update saved yet") : "No update saved yet"}
               </p>
             </article>
@@ -339,27 +380,28 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
       ) : null}
 
       {section === "all" || section === "settings" || section === "pickups" ? (
-        <section className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur lg:col-span-2">
-          <h3 className="text-xl font-bold">Recent messages and account activity</h3>
-          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-            This is your running history for reminders, billing notices, and pickup changes.
+        <section className="dc-card p-5 lg:col-span-2">
+          <h3 className="text-xl font-bold text-[var(--dc-gray-900)]">Recent messages and account activity</h3>
+          <p className="mt-2 text-sm text-[var(--dc-gray-600)]">
+            Running history for reminders, billing notices, and pickup changes.
           </p>
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-2 dc-stagger">
             {activityFeed.length === 0 ? (
-              <p className="text-sm text-[var(--dc-gray-700)]">No account events yet. Reminder and billing activity will appear here.</p>
+              <p className="text-sm text-[var(--dc-gray-500)]">No account events yet. Activity will appear here.</p>
             ) : (
               activityFeed.map((item) => (
-                <article key={item.id} className="rounded-[1.25rem] border border-black/10 bg-white/75 p-4 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">{item.title}</p>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--dc-gray-700)]">
-                      {item.statusLabel}
-                    </p>
+                <article key={item.id} className="dc-inner-panel flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-start gap-3">
+                    <span className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${item.tone === "pickup" ? "bg-[var(--dc-orange)]" : "bg-blue-400"}`} />
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--dc-gray-900)]">{item.title}</p>
+                      <p className="mt-0.5 text-xs text-[var(--dc-gray-500)]">
+                        {item.detail} \u00b7 {safeDateTimeLabel(item.createdAt)}
+                      </p>
+                      {item.error ? <p className="mt-0.5 text-xs text-red-600">Delivery issue: {item.error}</p> : null}
+                    </div>
                   </div>
-                  <p className="mt-1 text-xs text-[var(--dc-gray-700)]">
-                    {item.detail} | {safeDateTimeLabel(item.createdAt)}
-                  </p>
-                  {item.error ? <p className="mt-1 text-xs text-red-600">Delivery issue: {item.error}</p> : null}
+                  <span className="dc-badge dc-badge-neutral">{item.statusLabel}</span>
                 </article>
               ))
             )}
@@ -368,21 +410,21 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
       ) : null}
 
       {section === "all" || section === "referrals" ? (
-        <section className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur lg:col-span-2">
-          <h3 className="text-xl font-bold">Recent Referral Activity</h3>
-          <div className="mt-3 space-y-2">
+        <section className="dc-card p-5 lg:col-span-2">
+          <h3 className="text-xl font-bold text-[var(--dc-gray-900)]">Recent Referral Activity</h3>
+          <div className="mt-3 space-y-2 dc-stagger">
             {recentReferrals.length === 0 ? (
-              <p className="text-sm text-[var(--dc-gray-700)]">No referrals yet. Share your invite link to unlock free-month credits.</p>
+              <p className="text-sm text-[var(--dc-gray-500)]">No referrals yet. Share your invite link to unlock free-month credits.</p>
             ) : (
               recentReferrals.map((item) => (
-                <div key={item.id} className="flex flex-wrap items-center justify-between rounded-[1.25rem] border border-black/10 bg-white/75 p-4 shadow-sm">
+                <div key={item.id} className="dc-inner-panel flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold">{item.referredEmail || "Pending signup"}</p>
-                    <p className="text-xs text-[var(--dc-gray-700)]">{safeDateLabel(item.createdAt)}</p>
+                    <p className="text-sm font-semibold text-[var(--dc-gray-900)]">{item.referredEmail || "Pending signup"}</p>
+                    <p className="text-xs text-[var(--dc-gray-500)]">{safeDateLabel(item.createdAt)}</p>
                   </div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--dc-gray-700)]">
+                  <span className="dc-badge dc-badge-neutral">
                     {item.status.replaceAll("_", " ")}
-                  </p>
+                  </span>
                 </div>
               ))
             )}
@@ -391,9 +433,12 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
       ) : null}
 
       {message ? (
-        <p className="rounded-[1.25rem] border border-black/10 bg-white/80 px-4 py-3 text-sm text-[var(--dc-gray-700)] shadow-sm lg:col-span-2">
+        <div className="dc-toast dc-toast-success lg:col-span-2">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0" aria-hidden>
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+          </svg>
           {message}
-        </p>
+        </div>
       ) : null}
     </div>
   );

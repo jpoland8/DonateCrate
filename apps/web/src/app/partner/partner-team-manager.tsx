@@ -28,6 +28,25 @@ function formatRole(role: PartnerTeamMember["role"]) {
   return "Driver";
 }
 
+function roleColor(role: PartnerTeamMember["role"]) {
+  if (role === "partner_admin") return "dc-badge-orange";
+  if (role === "partner_coordinator") return "dc-badge-neutral";
+  return "dc-badge-neutral";
+}
+
+function MemberInitials({ name, email }: { name: string | null; email: string }) {
+  const display = name || email;
+  const parts = display.split(/[\s@]+/);
+  const initials = parts.length >= 2
+    ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+    : display.slice(0, 2).toUpperCase();
+  return (
+    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--dc-gray-100)_0%,var(--dc-gray-200)_100%)] text-xs font-bold text-[var(--dc-gray-600)]">
+      {initials}
+    </span>
+  );
+}
+
 export function PartnerTeamManager({ partners }: PartnerTeamManagerProps) {
   const [partnerState, setPartnerState] = useState(partners);
   const [drafts, setDrafts] = useState<Record<string, { userEmail: string; role: PartnerTeamMember["role"] }>>(
@@ -160,22 +179,18 @@ export function PartnerTeamManager({ partners }: PartnerTeamManagerProps) {
         const draft = drafts[partner.id] ?? { userEmail: "", role: "partner_coordinator" as const };
 
         return (
-          <section key={partner.id} className="rounded-[1.85rem] border border-black/10 bg-white/90 p-6 shadow-sm">
+          <section key={partner.id} className="dc-card p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold">{partner.name} Team</h2>
-                <p className="text-sm text-[var(--dc-gray-700)]">
+                <h2 className="text-xl font-bold text-[var(--dc-gray-900)]">{partner.name} Team</h2>
+                <p className="mt-1 text-sm text-[var(--dc-gray-500)]">
                   {canManage
-                    ? "Organization admins can add people, change roles, and deactivate access when needed."
+                    ? "Add people, change roles, and deactivate access when needed."
                     : "Read-only visibility into your organization team."}
                 </p>
               </div>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  canManage ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"
-                }`}
-              >
-                {canManage ? "Organization admin access" : "Limited access"}
+              <span className={canManage ? "dc-badge dc-badge-success" : "dc-badge dc-badge-neutral"}>
+                {canManage ? "Admin access" : "Limited access"}
               </span>
             </div>
 
@@ -185,122 +200,124 @@ export function PartnerTeamManager({ partners }: PartnerTeamManagerProps) {
                   event.preventDefault();
                   addMember(partner.id);
                 }}
-                className="mt-4 grid gap-3 rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4 md:grid-cols-[minmax(0,1fr)_180px_auto]"
+                className="mt-5 rounded-[var(--radius-md)] border border-black/6 bg-[var(--dc-gray-50)] p-4"
               >
-                <input
-                  value={draft.userEmail}
-                  onChange={(event) =>
-                    setDrafts((prev) => ({
-                      ...prev,
-                      [partner.id]: {
-                        ...draft,
-                        userEmail: event.target.value,
-                      },
-                    }))
-                  }
-                  placeholder="Work email address"
-                  className="h-10 rounded-lg border border-black/15 bg-white px-3"
-                />
-                <select
-                  value={draft.role}
-                  onChange={(event) =>
-                    setDrafts((prev) => ({
-                      ...prev,
-                      [partner.id]: {
-                        ...draft,
-                        role: event.target.value as PartnerTeamMember["role"],
-                      },
-                    }))
-                  }
-                  className="h-10 rounded-lg border border-black/15 bg-white px-3"
-                >
-                  <option value="partner_admin">Organization Admin</option>
-                  <option value="partner_coordinator">Coordinator</option>
-                  <option value="partner_driver">Driver</option>
-                </select>
-                <button
-                  type="submit"
-                  disabled={workingKey === `add:${partner.id}`}
-                  className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
-                >
-                  {workingKey === `add:${partner.id}` ? "Saving..." : "Add Team Member"}
-                </button>
-                <p className="md:col-span-3 text-xs text-[var(--dc-gray-700)]">
-                  Enter any email address. If the person does not have a DonateCrate account yet, we will create it and send a branded setup email for this organization.
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]">
+                  <input
+                    value={draft.userEmail}
+                    onChange={(event) =>
+                      setDrafts((prev) => ({
+                        ...prev,
+                        [partner.id]: {
+                          ...draft,
+                          userEmail: event.target.value,
+                        },
+                      }))
+                    }
+                    placeholder="Work email address"
+                    className="dc-input w-full"
+                  />
+                  <select
+                    value={draft.role}
+                    onChange={(event) =>
+                      setDrafts((prev) => ({
+                        ...prev,
+                        [partner.id]: {
+                          ...draft,
+                          role: event.target.value as PartnerTeamMember["role"],
+                        },
+                      }))
+                    }
+                    className="dc-input w-full"
+                  >
+                    <option value="partner_admin">Organization Admin</option>
+                    <option value="partner_coordinator">Coordinator</option>
+                    <option value="partner_driver">Driver</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={workingKey === `add:${partner.id}`}
+                    className="dc-btn-primary"
+                  >
+                    {workingKey === `add:${partner.id}` ? "Saving..." : "Add Member"}
+                  </button>
+                </div>
+                <p className="mt-3 text-xs text-[var(--dc-gray-500)]">
+                  Enter any email. If the person does not have a DonateCrate account, we will create one and send a branded setup email.
                 </p>
               </form>
             ) : null}
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-5 space-y-2 dc-stagger">
               {partner.team.map((member) => {
                 const memberWorking = workingKey === `member:${member.id}`;
                 const canEditMember = canManage && member.editable;
                 return (
-                  <article key={member.id} className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">{member.full_name || member.email}</p>
-                        <p className="text-xs text-[var(--dc-gray-700)]">{member.email}</p>
-                        <p className="mt-1 text-xs text-[var(--dc-gray-700)]">{member.phone || "No phone on file"}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--dc-gray-900)]">
-                          {formatRole(member.role)}
-                        </span>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            member.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          {member.active ? "Active" : "Inactive"}
-                        </span>
+                  <article key={member.id} className="dc-inner-panel">
+                    <div className="flex items-start gap-3">
+                      <MemberInitials name={member.full_name} email={member.email} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--dc-gray-900)]">{member.full_name || member.email}</p>
+                            <p className="text-xs text-[var(--dc-gray-500)]">{member.email}{member.phone ? ` \u00b7 ${member.phone}` : ""}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`dc-badge ${roleColor(member.role)}`}>
+                              {formatRole(member.role)}
+                            </span>
+                            <span className={`dc-badge ${member.active ? "dc-badge-success" : "dc-badge-neutral"}`}>
+                              {member.active ? "Active" : "Inactive"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {canEditMember ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <select
+                              value={member.role}
+                              disabled={memberWorking}
+                              onChange={(event) =>
+                                updateMember(member.id, {
+                                  role: event.target.value as PartnerTeamMember["role"],
+                                })
+                              }
+                              className="dc-input !h-8 !text-xs !px-2"
+                            >
+                              <option value="partner_admin">Organization Admin</option>
+                              <option value="partner_coordinator">Coordinator</option>
+                              <option value="partner_driver">Driver</option>
+                            </select>
+                            <button
+                              type="button"
+                              disabled={memberWorking}
+                              onClick={() => updateMember(member.id, { active: !member.active })}
+                              className="dc-btn-secondary !py-1.5 !px-3 !text-xs"
+                            >
+                              {member.active ? "Deactivate" : "Reactivate"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={memberWorking}
+                              onClick={() => deleteMember(partner.id, member.id, member.full_name || member.email)}
+                              className="dc-badge dc-badge-danger cursor-pointer hover:opacity-80 transition-opacity disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : canManage && !member.editable ? (
+                          <p className="mt-2 text-xs text-[var(--dc-gray-400)]">
+                            This row cannot be edited until the membership record is repaired.
+                          </p>
+                        ) : null}
                       </div>
                     </div>
-
-                    {canEditMember ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <select
-                          value={member.role}
-                          disabled={memberWorking}
-                          onChange={(event) =>
-                            updateMember(member.id, {
-                              role: event.target.value as PartnerTeamMember["role"],
-                            })
-                          }
-                          className="rounded-full border border-black/15 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60"
-                        >
-                          <option value="partner_admin">Organization Admin</option>
-                          <option value="partner_coordinator">Coordinator</option>
-                          <option value="partner_driver">Driver</option>
-                        </select>
-                        <button
-                          type="button"
-                          disabled={memberWorking}
-                          onClick={() => updateMember(member.id, { active: !member.active })}
-                          className="rounded-full border border-black/15 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60"
-                        >
-                          {member.active ? "Deactivate" : "Reactivate"}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={memberWorking}
-                          onClick={() => deleteMember(partner.id, member.id, member.full_name || member.email)}
-                          className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-60"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    ) : canManage && !member.editable ? (
-                      <p className="mt-3 text-xs text-[var(--dc-gray-700)]">
-                        This row is shown so you can see your own current access, but it cannot be edited until the membership record is repaired.
-                      </p>
-                    ) : null}
                   </article>
                 );
               })}
               {partner.team.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-black/15 bg-white/60 px-4 py-3 text-sm text-[var(--dc-gray-700)]">
-                  No organization team members assigned yet.
+                <p className="rounded-[var(--radius-md)] border border-dashed border-black/10 bg-white/60 px-4 py-4 text-center text-sm text-[var(--dc-gray-500)]">
+                  No team members assigned yet. Add your first member above.
                 </p>
               ) : null}
             </div>
@@ -309,9 +326,9 @@ export function PartnerTeamManager({ partners }: PartnerTeamManagerProps) {
       })}
 
       {message ? (
-        <p className="rounded-2xl border border-black/10 bg-white/85 px-4 py-3 text-sm text-[var(--dc-gray-800)] shadow-sm">
+        <div className="dc-toast dc-toast-success">
           {message}
-        </p>
+        </div>
       ) : null}
     </div>
   );

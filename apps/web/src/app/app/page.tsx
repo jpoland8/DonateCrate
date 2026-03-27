@@ -241,7 +241,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   return (
     <main className="mx-auto w-full max-w-6xl space-y-8">
       <SubscribedTracker enabled={checkoutStatus === "success"} />
-      <header className="overflow-hidden rounded-[2rem] border border-white/70 bg-[rgba(255,255,255,0.78)] shadow-[0_22px_60px_rgba(17,24,39,0.08)] backdrop-blur">
+      <header className="dc-card overflow-hidden !rounded-[var(--radius-xl)] !p-0">
         <div className="bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#ff6a00_180%)] p-5 text-white sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -251,7 +251,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
                 Review this month’s status, keep your profile current, and stay ahead of reminders without hunting through messages.
               </p>
             </div>
-            <a href={nextStep.href} className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black">
+            <a href={nextStep.href} className="dc-btn-secondary !bg-white">
               {nextStep.cta}
             </a>
           </div>
@@ -283,7 +283,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
               <p className="text-sm font-semibold text-black">{cycleUrgency.label}</p>
               <p className="mt-1 max-w-3xl text-sm text-[var(--dc-gray-700)]">{cycleUrgency.detail}</p>
             </div>
-            <a href="#cycle-actions" className="rounded-full bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white">
+            <a href="#cycle-actions" className="dc-btn-primary">
               Review pickup
             </a>
           </div>
@@ -317,15 +317,12 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
             </section>
           ) : null}
 
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-3 dc-stagger">
             {customerCards.map((card) => (
-              <article
-                key={card.title}
-                className="rounded-[1.6rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-4 shadow-[0_16px_35px_rgba(17,24,39,0.05)] backdrop-blur sm:p-5"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-gray-700)]">{card.title}</p>
+              <article key={card.title} className="dc-card p-4 sm:p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-gray-500)]">{card.title}</p>
                 <p className="mt-3 text-2xl font-bold text-[var(--dc-gray-900)]">{card.value}</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--dc-gray-700)]">{card.detail}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--dc-gray-600)]">{card.detail}</p>
               </article>
             ))}
           </section>
@@ -334,7 +331,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
 
       {activeTab === "home" ? (
         <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <article className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6">
+          <article className="dc-card p-5 sm:p-6">
             <h2 className="text-2xl font-bold">What to Do</h2>
             <div className="mt-4 space-y-3">
               <div className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
@@ -347,14 +344,14 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
               </div>
             </div>
           </article>
-          <article className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6">
+          <article className="dc-card p-5 sm:p-6">
             <h2 className="text-2xl font-bold">Need to change something?</h2>
             <div className="mt-4 space-y-3 text-sm text-[var(--dc-gray-700)]">
               <p><span className="font-semibold text-black">Profile:</span> {profileComplete ? "Ready for routing" : "Needs updates"}</p>
               <p><span className="font-semibold text-black">Reminders:</span> {notificationPrefs?.sms_enabled || notificationPrefs?.email_enabled ? "On" : "Off"}</p>
               <p><span className="font-semibold text-black">Billing:</span> {subscription?.status ?? "not_started"}</p>
             </div>
-            <a href="/app/profile" className="mt-4 inline-block rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-black">
+            <a href="/app/profile" className="mt-4 dc-btn-secondary inline-flex">
               Review profile
             </a>
           </article>
@@ -364,7 +361,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       {activeTab === "pickup" ? (
         <section
           id="cycle-actions"
-          className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6"
+          className="dc-card p-5 sm:p-6"
         >
           <div className="mb-5 rounded-[1.4rem] border border-black/10 bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Pickup</p>

@@ -582,7 +582,7 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
 
   const topHeader =
     activeTab === "home" ? (
-      <header className="overflow-hidden rounded-[2rem] border border-black/10 bg-white/90 shadow-sm">
+      <header className="dc-card overflow-hidden !rounded-[var(--radius-xl)] !p-0">
         <div className="grid gap-6 bg-[linear-gradient(135deg,#16202d_0%,#24424c_55%,#ff6a00_160%)] px-6 py-6 text-white lg:grid-cols-[minmax(0,1.1fr)_360px]">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Home</p>
@@ -591,10 +591,10 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
               This workspace is built around the real job: keep pickups on track, cover the right service areas, and give supporters a clean, trustworthy experience.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link href={primaryAction.href} className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-[var(--dc-gray-900)] shadow-sm">
+              <Link href={primaryAction.href} className="dc-btn-secondary !bg-white">
                 {primaryAction.label}
               </Link>
-              <Link href="/partner?tab=service-areas" className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white">
+              <Link href="/partner?tab=service-areas" className="dc-btn-ghost !text-white !border !border-white/20">
                 Review Service Areas
               </Link>
             </div>
@@ -621,18 +621,18 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
           </div>
         </div>
 
-        <div className="grid gap-4 px-6 py-5 md:grid-cols-3">
-          <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Service areas</p>
-            <p className="mt-2 text-3xl font-bold">{summary.zones}</p>
+        <div className="grid gap-4 px-6 py-5 md:grid-cols-3 dc-stagger">
+          <div className="dc-stat">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--dc-gray-500)]">Service areas</p>
+            <p className="mt-2 text-3xl font-bold text-[var(--dc-gray-900)]">{summary.zones}</p>
           </div>
-          <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Households visible</p>
-            <p className="mt-2 text-3xl font-bold">{summary.members}</p>
+          <div className="dc-stat">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--dc-gray-500)]">Households visible</p>
+            <p className="mt-2 text-3xl font-bold text-[var(--dc-gray-900)]">{summary.members}</p>
           </div>
-          <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Team members</p>
-            <p className="mt-2 text-3xl font-bold">{summary.partnerStaff}</p>
+          <div className="dc-stat">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--dc-gray-500)]">Team members</p>
+            <p className="mt-2 text-3xl font-bold text-[var(--dc-gray-900)]">{summary.partnerStaff}</p>
           </div>
         </div>
       </header>
@@ -666,27 +666,27 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
       {topHeader}
 
       {activeTab !== "home" ? (
-        <section className="rounded-[1.65rem] border border-black/10 bg-white/90 p-6 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-orange)]">{sectionIntro[activeTab].eyebrow}</p>
+        <section className="dc-card p-6">
+          <p className="dc-eyebrow">{sectionIntro[activeTab].eyebrow}</p>
           <h1 className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">{sectionIntro[activeTab].title}</h1>
-          <p className="mt-2 max-w-3xl text-sm text-[var(--dc-gray-700)]">{sectionIntro[activeTab].description}</p>
+          <p className="mt-2 max-w-3xl text-sm text-[var(--dc-gray-600)]">{sectionIntro[activeTab].description}</p>
         </section>
       ) : null}
 
       {activeTab === "home" ? (
         <div className="space-y-6">
           <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
-            <div className="rounded-[1.85rem] border border-black/10 bg-white/90 p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Attention Queue</p>
+            <div className="dc-card p-6">
+              <p className="dc-eyebrow">Attention Queue</p>
               <h2 className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">What needs attention now</h2>
-              <div className="mt-5 space-y-3">
+              <div className="mt-5 space-y-3 dc-stagger">
                 {attentionItems.map((item) => (
-                  <article key={item.title} className="flex flex-col gap-4 rounded-[1.5rem] border border-black/10 bg-[var(--dc-gray-100)] p-4 md:flex-row md:items-center md:justify-between">
+                  <article key={item.title} className="dc-attention-item flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="text-base font-semibold text-[var(--dc-gray-900)]">{item.title}</p>
-                      <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{item.description}</p>
+                      <p className="mt-1 text-sm text-[var(--dc-gray-600)]">{item.description}</p>
                     </div>
-                    <Link href={item.href} className="rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)]">
+                    <Link href={item.href} className="dc-btn-secondary shrink-0">
                       {item.label}
                     </Link>
                   </article>
@@ -694,8 +694,8 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
               </div>
             </div>
 
-            <aside className="rounded-[1.85rem] border border-black/10 bg-white/90 p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Upcoming Pickups</p>
+            <aside className="dc-card p-6">
+              <p className="dc-eyebrow">Upcoming Pickups</p>
               <h2 className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">The next few dates</h2>
               <div className="mt-5 space-y-3">
                 {cycleCards.slice(0, 4).map((cycle) => (
@@ -752,33 +752,33 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
             const nextCycle = nextCycleByZoneId.get(zone.id);
             const households = visibleMembers.filter((member) => member.zones.includes(zone.name)).length;
             return (
-              <article key={zone.id} className="rounded-[1.85rem] border border-black/10 bg-white/90 p-6 shadow-sm">
+              <article key={zone.id} className="dc-card p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-orange)]">{zone.code}</p>
                     <h2 className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">{zone.name}</h2>
                     <p className="mt-2 text-sm text-[var(--dc-gray-700)]">{zone.status} • {zone.operation_model}</p>
                   </div>
-                  <Link href="/partner?tab=pickups" className="rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-900)]">
+                  <Link href="/partner?tab=pickups" className="dc-btn-secondary">
                     Manage Pickup Days
                   </Link>
                 </div>
 
                 <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4 text-sm text-[var(--dc-gray-700)]">
+                  <div className="dc-stat text-sm">
                     <p className="text-xs uppercase tracking-[0.14em] text-[var(--dc-gray-700)]">Starting area</p>
                     <p className="mt-2 font-semibold text-[var(--dc-gray-900)]">{zone.center_address || `Near ZIP ${zone.anchor_postal_code}`}</p>
                   </div>
-                  <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4 text-sm text-[var(--dc-gray-700)]">
+                  <div className="dc-stat text-sm">
                     <p className="text-xs uppercase tracking-[0.14em] text-[var(--dc-gray-700)]">Coverage radius</p>
                     <p className="mt-2 font-semibold text-[var(--dc-gray-900)]">{zone.radius_miles} miles</p>
                   </div>
-                  <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4 text-sm text-[var(--dc-gray-700)]">
+                  <div className="dc-stat text-sm">
                     <p className="text-xs uppercase tracking-[0.14em] text-[var(--dc-gray-700)]">Next pickup</p>
                     <p className="mt-2 font-semibold text-[var(--dc-gray-900)]">{nextCycle ? formatDate(nextCycle.pickupDate) : "Not scheduled"}</p>
                     <p className="mt-1 text-xs">{nextCycle?.pickupWindowLabel || "Pickup window not set"}</p>
                   </div>
-                  <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4 text-sm text-[var(--dc-gray-700)]">
+                  <div className="dc-stat text-sm">
                     <p className="text-xs uppercase tracking-[0.14em] text-[var(--dc-gray-700)]">Repeating day</p>
                     <p className="mt-2 font-semibold text-[var(--dc-gray-900)]">{formatRecurringDay(zone.recurring_pickup_day)}</p>
                     <p className="mt-1 text-xs">{zone.default_pickup_window_label || "No default pickup window set"}</p>
@@ -786,14 +786,14 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-black/10 bg-white p-4 text-sm text-[var(--dc-gray-700)]">
+                  <div className="dc-inner-panel text-sm">
                     <p className="text-xs uppercase tracking-[0.14em] text-[var(--dc-gray-700)]">Scheduling control</p>
                     <p className="mt-2 font-semibold text-[var(--dc-gray-900)]">
                       {zone.partner_pickup_date_override_allowed ? "Your team can schedule this area" : "DonateCrate schedules this area"}
                     </p>
                     <p className="mt-1">Pickup-day changes are made from the Pickups page after you open the exact day you want.</p>
                   </div>
-                  <div className="rounded-2xl border border-black/10 bg-white p-4 text-sm text-[var(--dc-gray-700)]">
+                  <div className="dc-inner-panel text-sm">
                     <p className="text-xs uppercase tracking-[0.14em] text-[var(--dc-gray-700)]">Households in this area</p>
                     <p className="mt-2 font-semibold text-[var(--dc-gray-900)]">{households}</p>
                     <p className="mt-1">People currently visible to your team for planning and pickup-day work.</p>
@@ -828,14 +828,14 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
           />
 
           <section className="space-y-3">
-            <div className="rounded-[1.7rem] border border-black/10 bg-white/90 p-5 shadow-sm">
+            <div className="dc-card p-5">
               <h2 className="text-xl font-bold text-[var(--dc-gray-900)]">Households your team can see</h2>
               <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
                 This list is operational only. It helps your team verify addresses, review pickup status, and resolve route questions.
               </p>
             </div>
             {visibleMembers.map((member) => (
-              <article key={member.id} className="rounded-[1.6rem] border border-black/10 bg-white/90 p-5 shadow-sm">
+              <article key={member.id} className="dc-card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-lg font-bold text-[var(--dc-gray-900)]">{member.full_name || member.email}</p>
@@ -847,10 +847,10 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
                   </div>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4 text-sm text-[var(--dc-gray-700)]">
+                  <div className="dc-stat text-sm">
                     Address: {member.address ? `${member.address.address_line1}, ${member.address.city}, ${member.address.state} ${member.address.postal_code}` : "Not available"}
                   </div>
-                  <div className="rounded-2xl border border-black/10 bg-[var(--dc-gray-100)] p-4 text-sm text-[var(--dc-gray-700)]">
+                  <div className="dc-stat text-sm">
                     Latest pickup status: <span className="font-semibold text-[var(--dc-gray-900)]">{member.pickup?.status || "No response yet"}</span>
                     <p className="mt-1 text-xs">
                       {member.pickup?.pickup_date ? `Pickup date ${formatDate(member.pickup.pickup_date)}` : "No cycle tied to the latest status"}

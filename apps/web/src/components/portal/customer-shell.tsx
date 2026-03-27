@@ -85,21 +85,33 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_top_left,rgba(255,106,0,0.18)_0%,transparent_24%),radial-gradient(circle_at_bottom_right,rgba(17,24,39,0.08)_0%,transparent_26%),linear-gradient(160deg,#f6f3ef_0%,#ebe6df_48%,#e6e0d8_100%)]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
-        <div className="fixed inset-x-0 top-0 z-40 border-b border-black/10 bg-[rgba(248,245,240,0.96)] px-4 py-3 backdrop-blur md:hidden">
+        {/* Mobile topbar */}
+        <div className="fixed inset-x-0 top-0 z-40 border-b border-black/8 bg-[rgba(248,245,240,0.96)] px-4 py-3 backdrop-blur md:hidden" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
+              <p className="dc-eyebrow">DonateCrate</p>
               <p className="text-sm font-semibold text-[var(--dc-gray-900)]">{activeLabel}</p>
             </div>
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="rounded-full border border-black/15 bg-white px-3 py-2 text-xs font-semibold shadow-sm"
+              className="dc-btn-secondary !py-2 !px-3"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             >
+              {mobileMenuOpen ? (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden>
+                  <path d="M4 4l8 8M12 4l-8 8" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden>
+                  <path d="M2 4h12M2 8h12M2 12h12" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              )}
               {mobileMenuOpen ? "Close" : "Menu"}
             </button>
           </div>
         </div>
+
+        {/* Mobile overlay */}
         {mobileMenuOpen ? (
           <button
             type="button"
@@ -108,32 +120,40 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
             aria-label="Close menu overlay"
           />
         ) : null}
+
+        {/* Sidebar */}
         <aside
-          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[320px] overflow-y-auto border-r border-black/10 bg-[rgba(248,245,240,0.97)] backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[280px] md:max-w-none ${
+          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[320px] overflow-y-auto border-r border-black/8 bg-[rgba(248,245,240,0.97)] backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[280px] md:max-w-none ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           } ${collapsed ? "md:w-[72px]" : ""}`}
         >
-          <div className={`border-b border-black/10 py-5 ${collapsed ? "px-2" : "px-4"}`}>
+          <div className={`border-b border-black/8 py-5 ${collapsed ? "px-2" : "px-4"}`}>
             <div className={`flex ${collapsed ? "justify-center" : "items-center justify-between"}`}>
               <div className={collapsed ? "hidden" : "block"}>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
-                <p className="font-bold text-[1.05rem]">Customer Portal</p>
-                <p className="mt-1 max-w-[220px] text-xs leading-5 text-[var(--dc-gray-700)]">
-                  A cleaner home for your monthly donation routine, reminders, and referral rewards.
+                <p className="dc-eyebrow">DonateCrate</p>
+                <p className="font-bold text-[1.05rem] text-[var(--dc-gray-900)]">Customer Portal</p>
+                <p className="mt-1 max-w-[220px] text-xs leading-5 text-[var(--dc-gray-500)]">
+                  Your monthly donation routine, reminders, and referral rewards.
                 </p>
               </div>
               <button
                 onClick={() => setCollapsed((prev) => !prev)}
-                className="hidden rounded-full border border-black/15 bg-white px-2.5 py-1 text-xs font-semibold shadow-sm hover:bg-[var(--dc-gray-100)] md:inline-flex"
+                className="hidden rounded-full border border-black/10 bg-white p-2 text-[var(--dc-gray-500)] shadow-sm hover:bg-[var(--dc-gray-50)] hover:text-[var(--dc-gray-900)] md:inline-flex transition-colors duration-150"
                 aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
-                {collapsed ? ">" : "<"}
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                  {collapsed ? (
+                    <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  ) : (
+                    <path d="M10 3l-5 5 5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  )}
+                </svg>
               </button>
             </div>
           </div>
-          <nav className={`space-y-2 py-4 ${collapsed ? "px-2" : "px-3"}`}>
+          <nav className={`space-y-1.5 py-4 ${collapsed ? "px-2" : "px-3"}`}>
             {!collapsed ? (
-              <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--dc-gray-700)]">
+              <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--dc-gray-500)]">
                 Your account
               </p>
             ) : null}
@@ -147,10 +167,10 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center rounded-2xl text-sm font-semibold transition ${
+                  className={`dc-nav-item ${
                     isActive
-                      ? "bg-[linear-gradient(135deg,#111827_0%,#273447_55%,#ff6a00_170%)] text-white shadow-[0_16px_30px_rgba(17,24,39,0.14)]"
-                      : "border border-black/10 bg-white/70 text-[var(--dc-gray-900)] hover:bg-white"
+                      ? "dc-nav-item-active"
+                      : "dc-nav-item-inactive"
                   } ${collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-3"}`}
                   aria-label={item.label}
                   title={item.label}
@@ -165,7 +185,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
                   {!collapsed ? (
                     <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
                       <span>{item.label}</span>
-                      {isActive ? <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/65">Open</span> : null}
+                      {isActive ? <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Open</span> : null}
                     </span>
                   ) : null}
                 </Link>
@@ -174,10 +194,10 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
           </nav>
           {!collapsed ? (
             <div className="space-y-3 px-3">
-              <div className="rounded-[1.25rem] border border-black/10 bg-white/75 p-4 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Start here</p>
-                <p className="mt-2 text-sm font-semibold text-black">Most months only need one step.</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--dc-gray-700)]">
+              <div className="dc-card p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--dc-orange)]">Start here</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--dc-gray-900)]">Most months only need one step.</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--dc-gray-500)]">
                   Open Pickups, confirm whether your bag is ready, then you are done.
                 </p>
               </div>
@@ -188,8 +208,35 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-x-clip px-4 pb-8 pt-20 md:px-8 md:pt-8">{children}</main>
+        <main className="flex-1 overflow-x-clip px-4 pb-24 pt-20 md:px-8 md:pb-8 md:pt-8">{children}</main>
       </div>
+
+      {/* Mobile bottom nav */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/8 bg-[rgba(248,245,240,0.97)] backdrop-blur dc-safe-bottom md:hidden">
+        <div className="flex items-stretch justify-around">
+          {navItems.slice(0, 4).map((item) => {
+            const isActive =
+              item.href === "/app/profile"
+                ? pathname === "/app/profile"
+                : pathname === "/app" && activeTab === item.tab;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors duration-150 ${
+                  isActive
+                    ? "text-[var(--dc-orange)]"
+                    : "text-[var(--dc-gray-500)]"
+                }`}
+                aria-label={item.label}
+              >
+                <NavIcon kind={item.icon} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

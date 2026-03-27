@@ -29,12 +29,9 @@ export function CustomerActions({
   const urgency = getCycleUrgency(nextPickupDate, requestCutoffAt, new Date());
   const isSkipped = localStatus === "skipped";
   const statusChipLabel = isSkipped ? "Skipped This Month" : "On This Month's Route";
-  const statusChipClassName = isSkipped
-    ? "border-rose-200 bg-rose-50 text-rose-700"
-    : "border-emerald-200 bg-emerald-50 text-emerald-700";
   const statusPanelClassName = isSkipped
-    ? "border-rose-200 bg-[linear-gradient(135deg,#fff1f2_0%,#ffe4e6_100%)] text-rose-950 shadow-[0_20px_40px_rgba(244,63,94,0.10)]"
-    : "border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-950 shadow-[0_20px_40px_rgba(16,185,129,0.12)]";
+    ? "border-rose-200 bg-[linear-gradient(135deg,#fff1f2_0%,#ffe4e6_100%)] text-rose-950"
+    : "border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-950";
   const routeHeadline = isSkipped
     ? "You are skipped for this month's pickup"
     : "You are on this month's pickup route";
@@ -135,90 +132,110 @@ export function CustomerActions({
 
   return (
     <div className="space-y-4">
-      <div className={`rounded-[1.5rem] border px-4 py-3 text-sm font-semibold shadow-sm ${statusChipClassName}`}>
+      {/* Status chip */}
+      <div className={`dc-badge ${isSkipped ? "dc-badge-danger" : "dc-badge-success"} !py-2 !px-4 !text-sm`}>
+        {isSkipped ? (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="mr-1.5 h-4 w-4" aria-hidden>
+            <path d="M4 4l8 8M12 4l-8 8" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="mr-1.5 h-4 w-4" aria-hidden>
+            <path d="M3.5 8.5l3 3 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
         {statusChipLabel}
       </div>
+
+      {/* Status panels */}
       <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className={`rounded-[1.75rem] border p-5 ${statusPanelClassName}`}>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Route Status</p>
+        <div className={`rounded-[var(--radius-lg)] border p-5 shadow-sm ${statusPanelClassName}`}>
+          <p className="dc-eyebrow !text-current opacity-60">Route Status</p>
           <p className="mt-2 text-2xl font-bold">{routeHeadline}</p>
           <p className="mt-2 text-sm opacity-80">
             {nextPickupDate ? `Pickup date: ${safeDateLabel(nextPickupDate, "Not scheduled")}` : "Pickup date is not scheduled yet."}
           </p>
           <p className="mt-2 text-sm opacity-80">{routeDetail}</p>
           {localUpdatedAt ? (
-            <p className="mt-3 text-xs opacity-70">Last saved {safeDateTimeLabel(localUpdatedAt, "recently")}</p>
+            <p className="mt-3 text-xs opacity-60">Last saved {safeDateTimeLabel(localUpdatedAt, "recently")}</p>
           ) : null}
         </div>
-        <div className="rounded-[1.75rem] border border-black/5 bg-[linear-gradient(180deg,#faf8f5_0%,#eee8e0_100%)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">What to do now</p>
-          <p className="mt-2 text-lg font-bold">{nextStepTitle}</p>
-          <p className="mt-2 text-sm text-[var(--dc-gray-700)]">{nextStepDetail}</p>
-          {!cutoffPassed ? <p className={`mt-2 text-xs font-semibold uppercase tracking-[0.16em] ${urgencyAccentClassName}`}>{urgency.label}</p> : null}
-          {!cutoffPassed ? <p className="mt-1 text-sm text-[var(--dc-gray-700)]">{urgency.detail}</p> : null}
+        <div className="dc-card p-5">
+          <p className="dc-eyebrow !text-[var(--dc-gray-500)]">What to do now</p>
+          <p className="mt-2 text-lg font-bold text-[var(--dc-gray-900)]">{nextStepTitle}</p>
+          <p className="mt-2 text-sm text-[var(--dc-gray-600)]">{nextStepDetail}</p>
+          {!cutoffPassed ? <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.16em] ${urgencyAccentClassName}`}>{urgency.label}</p> : null}
+          {!cutoffPassed ? <p className="mt-1 text-sm text-[var(--dc-gray-600)]">{urgency.detail}</p> : null}
           {requestCutoffAt ? (
-            <p className="mt-3 text-xs text-[var(--dc-gray-700)]">
+            <p className="mt-3 text-xs text-[var(--dc-gray-500)]">
               Response deadline: {safeDateTimeLabel(requestCutoffAt, "Not set")}
             </p>
           ) : null}
         </div>
       </div>
+
+      {/* Warnings */}
       {!profileComplete ? (
-        <div className="rounded-[1.5rem] border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_100%)] p-4 text-sm text-amber-900">
+        <div className="dc-toast dc-toast-warning">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0" aria-hidden>
+            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+          </svg>
           Add your phone number and full pickup address in Profile before route planning begins.
         </div>
       ) : null}
       {cutoffPassed ? (
-        <div className="rounded-[1.5rem] border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_100%)] p-4 text-sm text-amber-900">
+        <div className="dc-toast dc-toast-warning">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0" aria-hidden>
+            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+          </svg>
           The response cutoff for this cycle has passed. Contact support if you need a manual change.
         </div>
       ) : null}
-      <div className="rounded-[1.75rem] border border-black/5 bg-[rgba(255,255,255,0.74)] p-4 shadow-[0_12px_30px_rgba(17,24,39,0.04)]">
+
+      {/* Action buttons */}
+      <div className="dc-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-gray-700)]">Change this month only</p>
-            <p className="mt-1 text-sm text-[var(--dc-gray-700)]">
+            <p className="dc-eyebrow !text-[var(--dc-gray-500)]">Change this month only</p>
+            <p className="mt-1 text-sm text-[var(--dc-gray-600)]">
               {isSkipped
                 ? "You are currently skipped. Put yourself back on the route if this was a mistake."
                 : "You are currently on the route. Only skip if you do not want a pickup visit this month."}
             </p>
           </div>
-          <div className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-[var(--dc-gray-700)]">
-            Changes apply to this month
-          </div>
+          <span className="dc-badge dc-badge-neutral">Changes apply to this month</span>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <button
             onClick={() => post("/api/pickup/request")}
             disabled={state === "loading" || cutoffPassed}
-            className="rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm font-semibold text-emerald-900 shadow-sm disabled:opacity-60"
+            className="dc-card-interactive rounded-[var(--radius-md)] border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm font-semibold text-emerald-900 disabled:opacity-50 disabled:pointer-events-none"
           >
             <span className="block">{isSkipped ? "Put me back on the route" : "Keep me on the route"}</span>
-            <span className="mt-1 block text-xs font-medium text-emerald-700">
-              {isSkipped ? "Include your home in this month&apos;s pickup again." : "Stay included for this month&apos;s pickup."}
+            <span className="mt-1 block text-xs font-medium text-emerald-600">
+              {isSkipped ? "Include your home in this month\u2019s pickup again." : "Stay included for this month\u2019s pickup."}
             </span>
           </button>
           <button
             onClick={() => post("/api/pickup/skip")}
             disabled={state === "loading" || cutoffPassed}
-            className="rounded-[1.35rem] border border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm font-semibold text-rose-900 shadow-sm disabled:opacity-60"
+            className="dc-card-interactive rounded-[var(--radius-md)] border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm font-semibold text-rose-900 disabled:opacity-50 disabled:pointer-events-none"
           >
             <span className="block">Skip this month</span>
-            <span className="mt-1 block text-xs font-medium text-rose-700">
+            <span className="mt-1 block text-xs font-medium text-rose-600">
               Take your home off this month&apos;s route without changing billing.
             </span>
           </button>
           {isSkipped ? (
-            <div className="rounded-[1.35rem] border border-black/10 bg-white px-4 py-4 text-left text-sm shadow-sm">
-              <span className="block font-semibold text-black">No pickup visit scheduled</span>
-              <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-700)]">
+            <div className="dc-inner-panel text-left text-sm">
+              <span className="block font-semibold text-[var(--dc-gray-900)]">No pickup visit scheduled</span>
+              <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-500)]">
                 A driver will not stop by this month unless you put yourself back on the route.
               </span>
             </div>
           ) : (
-            <div className="rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm shadow-sm">
+            <div className="dc-inner-panel border-emerald-100 bg-emerald-50/50 text-left text-sm">
               <span className="block font-semibold text-emerald-900">Pickup visit scheduled</span>
-              <span className="mt-1 block text-xs font-medium text-emerald-700">
+              <span className="mt-1 block text-xs font-medium text-emerald-600">
                 Your home is included and no further action is needed right now.
               </span>
             </div>
@@ -227,20 +244,20 @@ export function CustomerActions({
             <button
               onClick={() => post("/api/pickup/unskip")}
               disabled={state === "loading" || cutoffPassed}
-              className="rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm font-semibold text-emerald-900 shadow-sm disabled:opacity-60"
+              className="dc-card-interactive rounded-[var(--radius-md)] border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm font-semibold text-emerald-900 disabled:opacity-50 disabled:pointer-events-none"
             >
               <span className="block">Put me back on route</span>
-              <span className="mt-1 block text-xs font-medium text-emerald-700">
+              <span className="mt-1 block text-xs font-medium text-emerald-600">
                 Undo the skip before the cutoff passes.
               </span>
             </button>
           ) : (
             <a
               href="/app/profile"
-              className="rounded-[1.35rem] border border-black/10 bg-white px-4 py-4 text-left text-sm font-semibold text-black shadow-sm"
+              className="dc-card-interactive rounded-[var(--radius-md)] px-4 py-4 text-left text-sm font-semibold text-[var(--dc-gray-900)]"
             >
               <span className="block">Review profile</span>
-              <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-700)]">
+              <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-500)]">
                 Make sure your address and phone are current for routing.
               </span>
             </a>
@@ -248,27 +265,34 @@ export function CustomerActions({
           <button
             onClick={startCheckout}
             disabled={state === "loading"}
-            className="rounded-[1.35rem] border border-black/10 bg-white px-4 py-4 text-left text-sm font-semibold text-black shadow-sm disabled:opacity-60"
+            className="dc-card-interactive rounded-[var(--radius-md)] px-4 py-4 text-left text-sm font-semibold text-[var(--dc-gray-900)] disabled:opacity-50 disabled:pointer-events-none"
           >
             <span className="block">Manage billing</span>
-            <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-700)]">
+            <span className="mt-1 block text-xs font-medium text-[var(--dc-gray-500)]">
               Update payment details or reopen Stripe checkout.
             </span>
           </button>
         </div>
       </div>
+
+      {/* Feedback message */}
       {message ? (
-        <p
-          className={`rounded-[1.25rem] border px-4 py-3 text-sm ${
-            state === "error"
-              ? "border-red-200 bg-red-50 text-red-700"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700"
-          }`}
-        >
+        <div className={`dc-toast ${state === "error" ? "dc-toast-error" : "dc-toast-success"}`}>
+          {state === "error" ? (
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0" aria-hidden>
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0" aria-hidden>
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+            </svg>
+          )}
           {message}
-        </p>
+        </div>
       ) : null}
-      <div className="rounded-[1.5rem] border border-black/10 bg-white/80 p-4 text-sm text-[var(--dc-gray-700)] shadow-sm">
+
+      {/* Footer note */}
+      <div className="dc-card p-4 text-sm text-[var(--dc-gray-600)]">
         {footerNote}
       </div>
     </div>

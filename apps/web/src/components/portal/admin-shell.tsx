@@ -134,35 +134,57 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       }}
     >
       <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
+        {/* Mobile topbar */}
         <div
           className="fixed inset-x-0 top-0 z-40 border-b px-4 py-3 backdrop-blur md:hidden"
-          style={{ borderColor: "var(--admin-border)", background: "var(--admin-topbar)" }}
+          style={{ borderColor: "var(--admin-border)", background: "var(--admin-topbar)", paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
+              <p className="dc-eyebrow">DonateCrate</p>
               <p className="text-base font-bold">Operations Admin</p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-                className="rounded-full border px-3 py-2 text-xs font-semibold"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors duration-150"
                 style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
               >
-                {theme === "dark" ? "Day" : "Night"}
+                {theme === "dark" ? (
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                    <circle cx="8" cy="8" r="3" strokeWidth="1.5" />
+                    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                    <path d="M13.5 8.5a5.5 5.5 0 0 1-7-7A6 6 0 1 0 13.5 8.5Z" strokeWidth="1.5" />
+                  </svg>
+                )}
+                {theme === "dark" ? "Light" : "Dark"}
               </button>
               <button
                 onClick={() => setMobileMenuOpen((prev) => !prev)}
-                className="rounded-md border px-3 py-2 text-xs font-semibold"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors duration-150"
                 style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               >
+                {mobileMenuOpen ? (
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                    <path d="M4 4l8 8M12 4l-8 8" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                    <path d="M2 4h12M2 8h12M2 12h12" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                )}
                 {mobileMenuOpen ? "Close" : "Menu"}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Mobile overlay */}
         {mobileMenuOpen ? (
           <button
             type="button"
@@ -171,8 +193,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             aria-label="Close menu overlay"
           />
         ) : null}
+
+        {/* Sidebar */}
         <aside
-          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[340px] overflow-y-auto border-r backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[300px] md:max-w-none ${
+          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[340px] overflow-y-auto border-r backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[280px] md:max-w-none ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           } ${collapsed ? "md:w-[72px]" : ""
           }`}
@@ -181,7 +205,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <div className={`border-b py-4 ${collapsed ? "px-2" : "px-4"}`} style={{ borderColor: "var(--admin-border)" }}>
             <div className={`flex ${collapsed ? "justify-center" : "items-center justify-between"}`}>
             <div className={collapsed ? "hidden" : "block"}>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">DonateCrate</p>
+              <p className="dc-eyebrow">DonateCrate</p>
               <p className="font-bold">Operations Admin</p>
               <p className="mt-1 text-xs" style={{ color: "var(--admin-muted)" }}>Dispatch, people, growth, and communications.</p>
             </div>
@@ -190,19 +214,35 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-                  className="rounded-full border px-3 py-1.5 text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-150"
                   style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
                 >
-                  {theme === "dark" ? "Day mode" : "Night mode"}
+                  {theme === "dark" ? (
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                      <circle cx="8" cy="8" r="3" strokeWidth="1.5" />
+                      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                      <path d="M13.5 8.5a5.5 5.5 0 0 1-7-7A6 6 0 1 0 13.5 8.5Z" strokeWidth="1.5" />
+                    </svg>
+                  )}
+                  {theme === "dark" ? "Light" : "Dark"}
                 </button>
               ) : null}
               <button
                 onClick={() => setCollapsed((prev) => !prev)}
-                className="hidden rounded-md border px-2 py-1 text-xs font-semibold md:inline-flex"
+                className="hidden rounded-full border p-2 text-xs font-semibold md:inline-flex transition-colors duration-150"
                 style={{ borderColor: "var(--admin-border-strong)" }}
                 aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
-                {collapsed ? ">" : "<"}
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                  {collapsed ? (
+                    <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  ) : (
+                    <path d="M10 3l-5 5 5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  )}
+                </svg>
               </button>
             </div>
             </div>
@@ -210,7 +250,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
           <nav className={`space-y-4 py-4 ${collapsed ? "px-2" : "px-3"}`}>
             {navGroups.map((group) => (
-              <div key={group.label} className="space-y-2">
+              <div key={group.label} className="space-y-1.5">
                 {!collapsed ? (
                   <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--admin-muted)" }}>
                     {group.label}
@@ -223,11 +263,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center rounded-lg text-sm font-semibold ${
+                      className={`flex items-center rounded-xl text-sm font-semibold transition-all duration-150 ${
                         isActive
-                          ? "bg-[var(--dc-orange)] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.15)]"
+                          ? "bg-[var(--dc-orange)] text-white shadow-[0_4px_12px_rgba(255,106,0,0.25)]"
                           : "border hover:bg-white/10"
-                      } ${collapsed ? "justify-center px-0 py-3" : "gap-2 px-3 py-2"}`}
+                      } ${collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-2.5"}`}
                       style={
                         isActive
                           ? undefined
@@ -236,7 +276,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       aria-label={item.label}
                       title={item.label}
                     >
-                      <NavIcon kind={item.icon} />
+                      <span
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${
+                          isActive ? "bg-white/15" : "bg-white/5"
+                        }`}
+                      >
+                        <NavIcon kind={item.icon} />
+                      </span>
                       {!collapsed ? item.label : null}
                     </Link>
                   );
@@ -251,14 +297,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 className="rounded-xl border p-3"
                 style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-strong)" }}
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Ops Focus</p>
+                <p className="dc-eyebrow">Ops Focus</p>
                 <p className="mt-2 text-sm font-semibold">Run one clean pickup day at a time.</p>
                 <p className="mt-1 text-xs" style={{ color: "var(--admin-muted)" }}>
                   Start in Overview, confirm the pickup calendar, build dispatch, then watch communications and exceptions.
                 </p>
               </div>
               <details className="rounded-xl border p-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} open>
-                <summary className="cursor-pointer text-sm font-semibold">How to run ops here</summary>
+                <summary className="cursor-pointer text-sm font-semibold select-none">How to run ops here</summary>
                 <ul className="mt-2 space-y-2 text-xs" style={{ color: "var(--admin-muted)" }}>
                   <li>1. Overview and Pickups show what is ready to run this cycle.</li>
                   <li>2. Zones and People keep coverage, memberships, and roles accurate.</li>
@@ -268,7 +314,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : null}
 
-          <div className={`mt-4 ${collapsed ? "px-2" : "px-3"}`}>
+          <div className={`mt-4 pb-4 dc-safe-bottom ${collapsed ? "px-2" : "px-3"}`}>
             <SignOutButton tone={theme === "dark" ? "dark" : "light"} />
           </div>
         </aside>
