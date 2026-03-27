@@ -105,13 +105,25 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <div className="inline-flex rounded-full bg-[var(--dc-gray-100)] p-1">
+    <form onSubmit={onSubmit} className="space-y-5">
+      {/* Heading */}
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--dc-orange)]">Sign In</p>
+        <h2 className="mt-1.5 text-2xl font-bold text-[var(--dc-gray-900)] sm:text-3xl">Access your account</h2>
+        <p className="mt-1.5 text-sm leading-6 text-[var(--dc-gray-600)]">
+          Password or magic link — team members are routed to the right workspace.
+        </p>
+      </div>
+
+      {/* Mode toggle */}
+      <div className="inline-flex rounded-full border border-black/[0.07] bg-[var(--dc-gray-100)] p-1">
         <button
           type="button"
           onClick={() => setMode("password")}
-          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-            mode === "password" ? "bg-black text-white shadow-sm" : "text-black"
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+            mode === "password"
+              ? "bg-[var(--dc-orange)] text-white shadow-sm"
+              : "text-[var(--dc-gray-600)] hover:text-[var(--dc-gray-900)]"
           }`}
         >
           Password
@@ -119,13 +131,17 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => setMode("magic_link")}
-          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-            mode === "magic_link" ? "bg-black text-white shadow-sm" : "text-black"
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+            mode === "magic_link"
+              ? "bg-[var(--dc-orange)] text-white shadow-sm"
+              : "text-[var(--dc-gray-600)] hover:text-[var(--dc-gray-900)]"
           }`}
         >
           Magic Link
         </button>
       </div>
+
+      {/* Email */}
       <div className="space-y-1.5">
         <label htmlFor="login-email" className="text-sm font-semibold text-[var(--dc-gray-700)]">
           Email
@@ -137,54 +153,77 @@ export function LoginForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
-          className="h-12 w-full rounded-2xl border border-black/15 px-4 outline-none transition focus:border-[var(--dc-orange)]"
+          className="dc-input w-full"
         />
       </div>
+
+      {/* Password */}
       {mode === "password" ? (
         <div className="space-y-1.5">
-          <label htmlFor="login-password" className="text-sm font-semibold text-[var(--dc-gray-700)]">
-            Password
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="login-password" className="text-sm font-semibold text-[var(--dc-gray-700)]">
+              Password
+            </label>
+            <button
+              type="button"
+              onClick={sendPasswordReset}
+              disabled={status === "sending" || status === "sending_reset"}
+              className="text-xs font-semibold text-[var(--dc-orange)] transition hover:text-[var(--dc-orange-strong)] disabled:opacity-60"
+            >
+              {status === "sending_reset" ? "Sending…" : "Forgot password?"}
+            </button>
+          </div>
           <input
             id="login-password"
             type="password"
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Password"
-            className="h-12 w-full rounded-2xl border border-black/15 px-4 outline-none transition focus:border-[var(--dc-orange)]"
+            placeholder="Enter your password"
+            className="dc-input w-full"
           />
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={sendPasswordReset}
-              disabled={status === "sending" || status === "sending_reset"}
-              className="text-sm font-semibold text-[var(--dc-orange)] transition hover:text-[var(--dc-orange-strong)] disabled:opacity-60"
-            >
-              {status === "sending_reset" ? "Sending reset..." : "Forgot password?"}
-            </button>
-          </div>
         </div>
-      ) : null}
+      ) : (
+        <p className="rounded-xl border border-black/[0.07] bg-[var(--dc-gray-50)] px-4 py-3 text-sm leading-6 text-[var(--dc-gray-600)]">
+          We&apos;ll email you a one-click sign-in link — no password needed.
+        </p>
+      )}
+
+      {/* Submit */}
       <button
         type="submit"
         disabled={status === "sending" || status === "sending_reset"}
-        className="h-12 w-full rounded-2xl bg-[var(--dc-orange)] font-semibold text-white transition hover:bg-[var(--dc-orange-strong)] disabled:opacity-60"
+        className="dc-btn-primary h-12 w-full text-base"
       >
         {status === "sending" || status === "sending_reset"
-          ? "Working..."
+          ? "Working…"
           : mode === "password"
             ? "Sign In"
             : "Send Magic Link"}
       </button>
-      <p className="text-sm text-[var(--dc-gray-700)]">
+
+      {/* Sign up link */}
+      <p className="text-sm text-[var(--dc-gray-600)]">
         New here?{" "}
-        <Link href={requestedNextPath ? `/signup?next=${encodeURIComponent(safeNextPath)}` : "/signup"} className="font-semibold text-black underline">
+        <Link
+          href={requestedNextPath ? `/signup?next=${encodeURIComponent(safeNextPath)}` : "/signup"}
+          className="font-semibold text-[var(--dc-gray-900)] underline underline-offset-2 hover:text-[var(--dc-orange)]"
+        >
           Create an account
         </Link>
       </p>
+
+      {/* Status message */}
       {message ? (
-        <p className={`text-sm ${status === "error" ? "text-red-600" : "text-green-700"}`}>{message}</p>
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm leading-6 ${
+            status === "error"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          {message}
+        </div>
       ) : null}
     </form>
   );
