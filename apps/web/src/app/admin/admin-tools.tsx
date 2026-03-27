@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 export function AdminTools() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 10));
   const [pickupDate, setPickupDate] = useState(new Date().toISOString().slice(0, 10));
-  const [cutoff, setCutoff] = useState(new Date().toISOString());
   const [zoneCode, setZoneCode] = useState("knoxville-37922");
   const [zoneOptions, setZoneOptions] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [message, setMessage] = useState("");
@@ -20,9 +19,7 @@ export function AdminTools() {
         setZoneOptions(zones);
         if (zones.length > 0) setZoneCode(zones[0].code);
       })
-      .catch(() => {
-        setZoneOptions([]);
-      });
+      .catch(() => setZoneOptions([]));
   }, []);
 
   async function createCycle() {
@@ -31,12 +28,7 @@ export function AdminTools() {
     const response = await fetch("/api/admin/pickup-cycles", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        zoneCode,
-        cycleMonth: month,
-        pickupDate,
-        requestCutoffAt: cutoff,
-      }),
+      body: JSON.stringify({ zoneCode, cycleMonth: month, pickupDate }),
     });
     const json = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -52,57 +44,29 @@ export function AdminTools() {
     <section className="rounded-[var(--radius-xl)] border p-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-strong)" }}>
       <h2 className="text-2xl font-bold">Admin Tools</h2>
       <p className="mt-2 text-sm" style={{ color: "var(--admin-muted)" }}>
-        Create monthly pickup cycles. Active subscribers are automatically marked as pickup requested by default.
+        Create monthly pickup cycles. Active subscribers are automatically marked as pickup requested.
       </p>
-      <div className="mt-5 grid gap-4 md:grid-cols-4">
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Zone</label>
-          <select
-            value={zoneCode}
-            onChange={(event) => setZoneCode(event.target.value)}
-            className="dc-input-admin w-full"
-          >
+          <select value={zoneCode} onChange={(e) => setZoneCode(e.target.value)} className="dc-input-admin w-full">
             {zoneOptions.map((zone) => (
-              <option key={zone.id} value={zone.code}>
-                {zone.name} ({zone.code})
-              </option>
+              <option key={zone.id} value={zone.code}>{zone.name} ({zone.code})</option>
             ))}
           </select>
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Cycle Month</label>
-          <input
-            type="date"
-            value={month}
-            onChange={(event) => setMonth(event.target.value)}
-            className="dc-input-admin w-full"
-          />
+          <input type="date" value={month} onChange={(e) => setMonth(e.target.value)} className="dc-input-admin w-full" />
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Pickup Date</label>
-          <input
-            type="date"
-            value={pickupDate}
-            onChange={(event) => setPickupDate(event.target.value)}
-            className="dc-input-admin w-full"
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>Response Cutoff</label>
-          <input
-            type="datetime-local"
-            value={cutoff.slice(0, 16)}
-            onChange={(event) => setCutoff(new Date(event.target.value).toISOString())}
-            className="dc-input-admin w-full"
-          />
+          <input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="dc-input-admin w-full" />
+          <p className="mt-1 text-xs" style={{ color: "var(--admin-soft)" }}>Responses lock at midnight before this date.</p>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <button
-          onClick={createCycle}
-          disabled={status === "saving"}
-          className="dc-btn-primary"
-        >
+        <button onClick={createCycle} disabled={status === "saving"} className="dc-btn-primary">
           {status === "saving" ? "Creating..." : "Create Pickup Cycle"}
         </button>
         {message ? (

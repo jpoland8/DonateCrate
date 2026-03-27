@@ -37,17 +37,6 @@ function formatDate(value: string | null | undefined) {
   }).format(parsed);
 }
 
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "Not set";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "Not set";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(parsed);
-}
 
 function formatRecurringDay(day: number | null | undefined) {
   if (day === null || day === undefined) return "No repeating day set";
@@ -192,7 +181,7 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
       .order("created_at", { ascending: true }),
     supabaseAdmin
       .from("pickup_cycles")
-      .select("id,zone_id,pickup_date,request_cutoff_at,pickup_window_label,service_zones!inner(name,partner_id,partner_pickup_date_override_allowed)")
+      .select("id,zone_id,pickup_date,pickup_window_label,service_zones!inner(name,partner_id,partner_pickup_date_override_allowed)")
       .gte("pickup_date", new Date().toISOString().slice(0, 10))
       .in("service_zones.partner_id", partnerIds)
       .order("pickup_date", { ascending: true })
@@ -364,13 +353,12 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
   }
 
   const zoneNameById = new Map((zones ?? []).map((zone) => [zone.id, zone.name]));
-  const nextCycleByZoneId = new Map<string, { pickupDate: string; pickupWindowLabel: string | null; requestCutoffAt: string }>();
+  const nextCycleByZoneId = new Map<string, { pickupDate: string; pickupWindowLabel: string | null }>();
   for (const cycle of pickupCycles ?? []) {
     if (!nextCycleByZoneId.has(cycle.zone_id)) {
       nextCycleByZoneId.set(cycle.zone_id, {
         pickupDate: cycle.pickup_date,
         pickupWindowLabel: cycle.pickup_window_label ?? null,
-        requestCutoffAt: cycle.request_cutoff_at,
       });
     }
   }
@@ -427,7 +415,6 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
       zoneName: zoneMeta?.name || "Zone",
       partnerId: zoneMeta?.partner_id ?? null,
       pickupDate: cycle.pickup_date,
-      requestCutoffAt: cycle.request_cutoff_at,
       pickupWindowLabel: cycle.pickup_window_label ?? null,
       overrideAllowed: Boolean(zoneMeta?.partner_pickup_date_override_allowed),
       recurringPickupDay: zoneConfig?.recurring_pickup_day ?? null,
@@ -703,7 +690,6 @@ export default async function PartnerPage({ searchParams }: PartnerPageProps) {
                     <p className="text-base font-semibold text-[var(--dc-gray-900)]">{cycle.zoneName}</p>
                     <p className="mt-1 text-sm text-[var(--dc-gray-800)]">{formatDate(cycle.pickupDate)}</p>
                     <p className="mt-1 text-xs text-[var(--dc-gray-700)]">{cycle.pickupWindowLabel || "Pickup window not set"}</p>
-                    <p className="mt-2 text-xs text-[var(--dc-gray-700)]">Response deadline: {formatDateTime(cycle.requestCutoffAt)}</p>
                   </article>
                 ))}
                 {cycleCards.length === 0 ? (

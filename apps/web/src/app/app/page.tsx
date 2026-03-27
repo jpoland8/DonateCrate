@@ -136,7 +136,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       .eq("status", "credited"),
     supabase
       .from("pickup_cycles")
-      .select("id,pickup_date,request_cutoff_at")
+      .select("id,pickup_date")
       .gte("pickup_date", today)
       .order("pickup_date", { ascending: true })
       .limit(1)
@@ -183,12 +183,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       address?.postal_code?.trim(),
   );
   const nextReminderLabel = getNextReminderLabel(latestCycle?.pickup_date, notificationPrefs, new Date());
-  const cycleUrgency = getCycleUrgency(latestCycle?.pickup_date, latestCycle?.request_cutoff_at, new Date());
-  const safeCutoffDetail = (() => {
-    if (!latestCycle?.request_cutoff_at) return "No pickup deadline published yet";
-    const parsed = new Date(latestCycle.request_cutoff_at);
-    return Number.isNaN(parsed.getTime()) ? "No pickup deadline published yet" : `Reply by ${parsed.toLocaleString()}`;
-  })();
+  const cycleUrgency = getCycleUrgency(latestCycle?.pickup_date, new Date());
   const safePickupBadge = (() => {
     if (!latestCycle?.pickup_date) return "Pickup date pending";
     const parsed = new Date(latestCycle.pickup_date);
@@ -197,7 +192,6 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   const nextStep = getCustomerNextStep({
     profileComplete,
     pickupDate: latestCycle?.pickup_date,
-    requestCutoffAt: latestCycle?.request_cutoff_at,
     status: currentCycleRequest?.status,
   });
 
@@ -205,7 +199,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
     {
       title: "This Month",
       value: formatCycleStatus(currentCycleRequest?.status ?? null),
-      detail: safeCutoffDetail,
+      detail: cycleUrgency.label,
     },
     {
       title: "Next Pickup",
@@ -367,15 +361,13 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Pickup</p>
             <h2 className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">Handle this month&apos;s pickup in one place</h2>
             <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-              Confirm whether your bag is ready, check the deadline, and make changes without leaving this screen.
+              Check your route status, skip this month, or manage your billing — all in one place.
             </p>
           </div>
-          <h2 className="text-2xl font-bold">Cycle Actions</h2>
           <div className="mt-4">
             <CustomerActions
               nextPickupDate={latestCycle?.pickup_date ?? null}
               currentStatus={currentCycleRequest?.status ?? null}
-              requestCutoffAt={latestCycle?.request_cutoff_at ?? null}
               lastUpdatedAt={currentCycleRequest?.updated_at ?? null}
               profileComplete={profileComplete}
             />

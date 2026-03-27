@@ -9,7 +9,6 @@ const updateCycleSchema = z.object({
   action: z.literal("update_cycle"),
   cycleId: z.string().uuid(),
   pickupDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  requestCutoffAt: z.string(),
   pickupWindowLabel: z.string().max(120).optional(),
 });
 
@@ -32,6 +31,11 @@ const patchSchema = z.discriminatedUnion("action", [updateCycleSchema, recurring
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
+}
+
+// Cutoff is set to midnight of the pickup day — responses are accepted until the day before.
+function cutoffForPickup(pickupDate: string) {
+  return `${pickupDate}T00:00:00.000Z`;
 }
 
 function getPickupDateForMonth(year: number, monthIndex: number, dayOfMonth: number, weekendPolicy: "none" | "next_business_day") {
@@ -65,7 +69,7 @@ export async function GET() {
 
   const { data, error } = await ctx.supabase
     .from("pickup_cycles")
-    .select("id,zone_id,cycle_month,pickup_date,request_cutoff_at,pickup_window_label,scheduled_by_partner_id,service_zones!inner(id,name,code,partner_id,partner_pickup_date_override_allowed,recurring_pickup_day,default_cutoff_days_before,default_pickup_window_label)")
+    .select("id,zone_id,cycle_month,pickup_date,pickup_window_label,scheduled_by_partner_id,service_zones!inner(id,name,code,partner_id,partner_pickup_date_override_allowed,recurring_pickup_day,default_pickup_window_label)")
     .in("service_zones.partner_id", partnerIds)
     .order("pickup_date", { ascending: true });
 
@@ -111,7 +115,7 @@ export async function PATCH(request: Request) {
 
     const updatePayload = {
       pickup_date: input.pickupDate,
-      request_cutoff_at: input.requestCutoffAt,
+      request_cutoff_at: cutoffForPickup(input.pickupDate),
       pickup_window_label: input.pickupWindowLabel?.trim() ? input.pickupWindowLabel.trim() : null,
       scheduled_by_partner_id: zone?.partner_id ?? null,
     };
@@ -120,7 +124,7 @@ export async function PATCH(request: Request) {
       .from("pickup_cycles")
       .update(updatePayload)
       .eq("id", input.cycleId)
-      .select("id,pickup_date,request_cutoff_at,pickup_window_label,scheduled_by_partner_id")
+      .select("id,pickup_date,pickup_window_label,scheduled_by_partner_id")
       .limit(1);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -153,6 +157,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true, deletedCycleId: input.cycleId });
   }
 
+  // set_recurring_schedule
   const { data: zoneRows, error: zoneError } = await ctx.supabase
     .from("service_zones")
     .select("id,partner_id,partner_pickup_date_override_allowed")
@@ -182,13 +187,12 @@ export async function PATCH(request: Request) {
       anchorDay,
       input.weekendPolicy,
     );
-    const cutoff = new Date(pickup);
-    cutoff.setUTCDate(cutoff.getUTCDate() - 7);
+    const pickupDateStr = isoDate(pickup);
     return {
       zone_id: zone.id,
       cycle_month: isoDate(monthDate),
-      pickup_date: isoDate(pickup),
-      request_cutoff_at: cutoff.toISOString(),
+      pickup_date: pickupDateStr,
+      request_cutoff_at: cutoffForPickup(pickupDateStr),
       pickup_window_label: input.pickupWindowLabel?.trim() ? input.pickupWindowLabel.trim() : null,
       scheduled_by_partner_id: zone.partner_id ?? null,
     };
@@ -197,7 +201,7 @@ export async function PATCH(request: Request) {
   const { data: cycles, error: cyclesError } = await supabaseAdmin
     .from("pickup_cycles")
     .upsert(cycleInputs, { onConflict: "zone_id,cycle_month" })
-    .select("id,zone_id,cycle_month,pickup_date,request_cutoff_at,pickup_window_label");
+    .select("id,zone_id,cycle_month,pickup_date,pickup_window_label");
   if (cyclesError) return NextResponse.json({ error: cyclesError.message }, { status: 500 });
 
   const { data: activeMembers, error: activeMembersError } = await supabaseAdmin
@@ -241,7 +245,6 @@ export async function PATCH(request: Request) {
     .from("service_zones")
     .update({
       recurring_pickup_day: anchorDay,
-      default_cutoff_days_before: 7,
       default_pickup_window_label: input.pickupWindowLabel?.trim() ? input.pickupWindowLabel.trim() : null,
       updated_at: new Date().toISOString(),
     })
@@ -253,7 +256,6 @@ export async function PATCH(request: Request) {
     schedule: {
       zoneId: zone.id,
       recurringPickupDay: anchorDay,
-      defaultCutoffDaysBefore: 7,
       defaultPickupWindowLabel: input.pickupWindowLabel?.trim() ? input.pickupWindowLabel.trim() : null,
     },
     pickupCycles: cycles ?? [],

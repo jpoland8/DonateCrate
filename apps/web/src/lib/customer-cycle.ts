@@ -21,7 +21,6 @@ export function formatCycleStatus(status: string | null) {
 
 export function getCycleUrgency(
   pickupDate: string | null | undefined,
-  requestCutoffAt: string | null | undefined,
   now = new Date(),
 ) {
   if (!pickupDate) {
@@ -32,11 +31,13 @@ export function getCycleUrgency(
     };
   }
 
-  if (requestCutoffAt && now > new Date(requestCutoffAt)) {
+  const today = now.toISOString().slice(0, 10);
+
+  if (today >= pickupDate) {
     return {
       tone: "warning" as const,
-      label: "This cycle is locked",
-      detail: "The response cutoff has passed, so changes now require manual help from operations.",
+      label: "Pickup is today — responses are locked",
+      detail: "Changes are no longer accepted for this cycle. Contact support if you need a manual adjustment.",
     };
   }
 
@@ -46,7 +47,7 @@ export function getCycleUrgency(
   if (daysUntilPickup <= 1) {
     return {
       tone: "high" as const,
-      label: "Pickup day is close",
+      label: "Pickup is tomorrow",
       detail: "Set your orange bag out before route time and keep your phone nearby for any updates.",
     };
   }
@@ -55,25 +56,24 @@ export function getCycleUrgency(
     return {
       tone: "medium" as const,
       label: "Pickup is coming up this week",
-      detail: "Your stop stays on the route unless you skip this cycle before the cutoff.",
+      detail: "Your stop stays on the route unless you skip before pickup day.",
     };
   }
 
   return {
     tone: "low" as const,
     label: "You still have time to make changes",
-    detail: "You are included by default. Skip this month before the cutoff only if you need to miss this cycle.",
+    detail: "You are included by default. Only skip this month if you do not want a pickup.",
   };
 }
 
 export function getCustomerNextStep(params: {
   profileComplete: boolean;
   pickupDate: string | null | undefined;
-  requestCutoffAt: string | null | undefined;
   status: string | null | undefined;
   now?: Date;
 }) {
-  const { profileComplete, pickupDate, requestCutoffAt, status, now = new Date() } = params;
+  const { profileComplete, pickupDate, status, now = new Date() } = params;
 
   if (!profileComplete) {
     return {
@@ -93,12 +93,13 @@ export function getCustomerNextStep(params: {
     };
   }
 
-  if (requestCutoffAt && now > new Date(requestCutoffAt)) {
+  const today = now.toISOString().slice(0, 10);
+  if (today >= pickupDate) {
     return {
-      title: "This month is locked",
-      detail: "The route cutoff has passed. Review reminders and activity while the current cycle runs.",
-      href: "/app?tab=settings",
-      cta: "View account activity",
+      title: "Pickup is today",
+      detail: "Set your orange bag out and keep your phone nearby. The route is locked for the day.",
+      href: "/app?tab=pickups",
+      cta: "View cycle",
     };
   }
 
@@ -114,7 +115,7 @@ export function getCustomerNextStep(params: {
   if (status === "skipped") {
     return {
       title: "You are skipped this month",
-      detail: "If plans changed, undo the skip before the cutoff so your stop can go back onto the route.",
+      detail: "If plans changed, undo the skip before pickup day so your stop goes back on the route.",
       href: "/app?tab=pickups",
       cta: "Update cycle",
     };

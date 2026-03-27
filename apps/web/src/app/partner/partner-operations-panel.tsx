@@ -42,7 +42,6 @@ type PartnerCycle = {
   zoneName: string;
   partnerId: string | null;
   pickupDate: string;
-  requestCutoffAt: string;
   pickupWindowLabel: string | null;
   overrideAllowed: boolean;
   recurringPickupDay: number | null;
@@ -67,13 +66,6 @@ type DriverOption = {
   role: "partner_coordinator" | "partner_driver";
 };
 
-function localDateTimeValue(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
 function formatDate(value: string | null) {
   if (!value) return "Not scheduled";
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -84,17 +76,6 @@ function formatDate(value: string | null) {
     day: "numeric",
     year: "numeric",
     timeZone: "UTC",
-  }).format(parsed);
-}
-
-function formatDateTime(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "Not set";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
   }).format(parsed);
 }
 
@@ -378,7 +359,6 @@ export function PartnerOperationsPanel({
           action: "update_cycle",
           cycleId,
           pickupDate: String(formData.get("pickupDate") || ""),
-          requestCutoffAt: new Date(String(formData.get("requestCutoffAt") || "")).toISOString(),
           pickupWindowLabel: String(formData.get("pickupWindowLabel") || ""),
         }),
       });
@@ -393,7 +373,6 @@ export function PartnerOperationsPanel({
             ? {
                 ...cycle,
                 pickupDate: json.pickupCycle?.pickup_date ?? cycle.pickupDate,
-                requestCutoffAt: json.pickupCycle?.request_cutoff_at ?? cycle.requestCutoffAt,
                 pickupWindowLabel: json.pickupCycle?.pickup_window_label ?? cycle.pickupWindowLabel,
               }
             : cycle,
@@ -440,12 +419,11 @@ export function PartnerOperationsPanel({
       }
 
       const zoneName = zones.find((zone) => zone.id === zoneId)?.name ?? "Zone";
-      const createdCycles = (json.pickupCycles ?? []).map((cycle: { id: string; zone_id: string; pickup_date: string; request_cutoff_at: string; pickup_window_label: string | null }) => ({
+      const createdCycles = (json.pickupCycles ?? []).map((cycle: { id: string; zone_id: string; pickup_date: string; pickup_window_label: string | null }) => ({
         id: cycle.id,
         zoneId: cycle.zone_id,
         zoneName,
         pickupDate: cycle.pickup_date,
-        requestCutoffAt: cycle.request_cutoff_at,
         pickupWindowLabel: cycle.pickup_window_label,
         overrideAllowed: true,
         recurringPickupDay: json.schedule?.recurringPickupDay ?? null,
@@ -638,10 +616,6 @@ export function PartnerOperationsPanel({
                     <div>
                       <p className="text-xs uppercase tracking-[0.16em] text-[var(--dc-gray-700)]">Pickup window</p>
                       <p className="mt-1 font-semibold text-[var(--dc-gray-900)]">{selectedCycle.pickupWindowLabel || "Window not set"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-[var(--dc-gray-700)]">Response deadline</p>
-                      <p className="mt-1 font-semibold text-[var(--dc-gray-900)]">{formatDateTime(selectedCycle.requestCutoffAt)}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-[0.16em] text-[var(--dc-gray-700)]">Donors on this pickup</p>
@@ -939,14 +913,10 @@ export function PartnerOperationsPanel({
                   {workingCycleId === selectedCycle.id ? "Deleting..." : "Delete Pickup Day"}
                 </button>
               </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Pickup date
                   <input name="pickupDate" type="date" defaultValue={selectedCycle.pickupDate} disabled={!selectedCycle.overrideAllowed} className="dc-input mt-1 w-full disabled:opacity-50" />
-                </label>
-                <label className="text-xs text-[var(--dc-gray-700)]">
-                  Response deadline
-                  <input name="requestCutoffAt" type="datetime-local" defaultValue={localDateTimeValue(selectedCycle.requestCutoffAt)} disabled={!selectedCycle.overrideAllowed} className="dc-input mt-1 w-full disabled:opacity-50" />
                 </label>
                 <label className="text-xs text-[var(--dc-gray-700)]">
                   Pickup window
