@@ -70,6 +70,22 @@ body {
   --admin-icon-active: rgba(255, 255, 255, 0.18);
   --admin-icon-inactive: rgba(255, 255, 255, 0.07);
   --admin-nav-hover: rgba(255, 255, 255, 0.07);
+  /* Status badges */
+  --admin-badge-green-bg: rgba(52, 211, 153, 0.12);
+  --admin-badge-green-border: rgba(52, 211, 153, 0.30);
+  --admin-badge-green-text: #6ee7b7;
+  --admin-badge-red-bg: rgba(248, 113, 113, 0.12);
+  --admin-badge-red-border: rgba(248, 113, 113, 0.30);
+  --admin-badge-red-text: #fca5a5;
+  --admin-badge-amber-bg: rgba(251, 191, 36, 0.12);
+  --admin-badge-amber-border: rgba(251, 191, 36, 0.30);
+  --admin-badge-amber-text: #fcd34d;
+  --admin-badge-indigo-bg: rgba(129, 140, 248, 0.12);
+  --admin-badge-indigo-border: rgba(129, 140, 248, 0.30);
+  --admin-badge-indigo-text: #a5b4fc;
+  --admin-badge-slate-bg: rgba(148, 163, 184, 0.12);
+  --admin-badge-slate-border: rgba(148, 163, 184, 0.30);
+  --admin-badge-slate-text: #cbd5e1;
 }
 
 .admin-theme-light {
@@ -91,6 +107,22 @@ body {
   --admin-icon-active: rgba(255, 106, 0, 0.14);
   --admin-icon-inactive: rgba(15, 23, 42, 0.06);
   --admin-nav-hover: rgba(15, 23, 42, 0.04);
+  /* Status badges — dark text on light tinted backgrounds */
+  --admin-badge-green-bg: rgba(5, 150, 105, 0.08);
+  --admin-badge-green-border: rgba(5, 150, 105, 0.25);
+  --admin-badge-green-text: #047857;
+  --admin-badge-red-bg: rgba(220, 38, 38, 0.08);
+  --admin-badge-red-border: rgba(220, 38, 38, 0.25);
+  --admin-badge-red-text: #b91c1c;
+  --admin-badge-amber-bg: rgba(217, 119, 6, 0.08);
+  --admin-badge-amber-border: rgba(217, 119, 6, 0.25);
+  --admin-badge-amber-text: #b45309;
+  --admin-badge-indigo-bg: rgba(79, 70, 229, 0.08);
+  --admin-badge-indigo-border: rgba(79, 70, 229, 0.25);
+  --admin-badge-indigo-text: #4338ca;
+  --admin-badge-slate-bg: rgba(71, 85, 105, 0.08);
+  --admin-badge-slate-border: rgba(71, 85, 105, 0.25);
+  --admin-badge-slate-text: #475569;
 }
 
 /* ========== Typography ========== */
@@ -265,6 +297,43 @@ h6 {
   }
   .dc-input::placeholder {
     color: var(--dc-gray-400);
+  }
+
+  /* Admin theme-aware utility classes */
+  .text-admin { color: var(--admin-text); }
+  .text-admin-muted { color: var(--admin-muted); }
+  .text-admin-soft { color: var(--admin-soft-text); }
+  .border-admin { border-color: var(--admin-border); }
+  .border-admin-strong { border-color: var(--admin-border-strong); }
+  .bg-admin-panel { background: var(--admin-panel); }
+  .bg-admin-surface { background: var(--admin-surface); }
+  .bg-admin-surface-strong { background: var(--admin-surface-strong); }
+
+  /* Admin status badge classes — readable in both light and dark admin themes */
+  .admin-badge-green {
+    border: 1px solid var(--admin-badge-green-border);
+    background: var(--admin-badge-green-bg);
+    color: var(--admin-badge-green-text);
+  }
+  .admin-badge-red {
+    border: 1px solid var(--admin-badge-red-border);
+    background: var(--admin-badge-red-bg);
+    color: var(--admin-badge-red-text);
+  }
+  .admin-badge-amber {
+    border: 1px solid var(--admin-badge-amber-border);
+    background: var(--admin-badge-amber-bg);
+    color: var(--admin-badge-amber-text);
+  }
+  .admin-badge-indigo {
+    border: 1px solid var(--admin-badge-indigo-border);
+    background: var(--admin-badge-indigo-bg);
+    color: var(--admin-badge-indigo-text);
+  }
+  .admin-badge-slate {
+    border: 1px solid var(--admin-badge-slate-border);
+    background: var(--admin-badge-slate-bg);
+    color: var(--admin-badge-slate-text);
   }
 
   /* Admin-themed inputs */

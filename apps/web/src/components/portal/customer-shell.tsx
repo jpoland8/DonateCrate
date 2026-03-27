@@ -123,9 +123,9 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
 
         {/* Sidebar */}
         <aside
-          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[320px] overflow-y-auto border-r border-black/[0.08] bg-[rgba(252,249,246,0.97)] backdrop-blur transition-all duration-200 md:sticky md:z-auto md:w-[272px] md:max-w-none ${
-            mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-          } ${collapsed ? "md:w-[72px]" : ""}`}
+          className={`fixed left-0 top-0 z-40 h-screen w-[86vw] max-w-[320px] overflow-y-auto border-r border-black/[0.08] bg-[rgba(252,249,246,0.97)] backdrop-blur transition-all duration-200 md:sticky md:z-auto md:max-w-none ${
+            collapsed ? "md:w-[72px]" : "md:w-[272px]"
+          } ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
           style={{ boxShadow: "2px 0 12px rgba(0,0,0,0.04)" }}
         >
           {collapsed ? (
