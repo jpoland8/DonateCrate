@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { apiLimiter } from "@/lib/rate-limit";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

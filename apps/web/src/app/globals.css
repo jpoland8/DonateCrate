@@ -217,6 +217,7 @@ h6 {
   .dc-btn-primary:disabled {
     opacity: 0.55;
     pointer-events: none;
+    cursor: not-allowed;
   }
   .dc-btn-primary:focus-visible {
     outline: 2px solid var(--dc-orange);
@@ -251,6 +252,7 @@ h6 {
   .dc-btn-secondary:disabled {
     opacity: 0.55;
     pointer-events: none;
+    cursor: not-allowed;
   }
   .dc-btn-secondary:focus-visible {
     outline: 2px solid var(--dc-orange);

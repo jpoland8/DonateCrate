@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createCorrelationId, getAuthenticatedContext } from "@/lib/api-auth";
 import { buildNotificationEmailContent, getEmailConfigError } from "@/lib/email";
 import { getNotificationRetryState } from "@/lib/notification-health";
+import { parsePagination, paginatedResponse } from "@/lib/pagination";
+import { adminLimiter } from "@/lib/rate-limit";
 import { normalizeToE164US } from "@/lib/twilio";
 
 const queueRemindersSchema = z.object({
@@ -23,22 +25,43 @@ function buildReminderMessage(pickupDate: string, cadence: "72h" | "24h" | "day_
   return `DonateCrate reminder: pickup day is here. Place your DonateCrate bag out for collection today, ${formattedDate}.`;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { data, error } = await ctx.supabase
+  const url = new URL(request.url);
+  const channelFilter = url.searchParams.get("channel") ?? "";
+  const statusFilter = url.searchParams.get("status") ?? "";
+  const { page, pageSize, from, to } = parsePagination(request, { pageSize: 50, maxPageSize: 200 });
+
+  let query = ctx.supabase
     .from("notification_events")
-    .select("id,user_id,channel,event_type,status,provider_message_id,attempt_count,last_attempt_at,last_error,correlation_id,created_at")
-    .order("created_at", { ascending: false })
-    .limit(120);
+    .select("id,user_id,channel,event_type,status,provider_message_id,attempt_count,last_attempt_at,last_error,correlation_id,created_at", { count: "exact" })
+    .order("created_at", { ascending: false });
+
+  if (channelFilter && channelFilter !== "all") {
+    query = query.eq("channel", channelFilter);
+  }
+  if (statusFilter && statusFilter !== "all") {
+    query = query.eq("status", statusFilter);
+  }
+
+  const { data, count, error } = await query.range(from, to);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ notificationEvents: data ?? [] });
+
+  const paginated = paginatedResponse(data ?? [], count ?? 0, { page, pageSize });
+  return NextResponse.json({ notificationEvents: data ?? [], ...paginated });
 }
 
 export async function POST(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });

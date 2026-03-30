@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { PARTNER_TEAM_ROLES } from "@/lib/access";
+import { apiLimiter } from "@/lib/rate-limit";
 import { getAuthenticatedContext } from "@/lib/api-auth";
 import { syncPartnerDriverProfile } from "@/lib/partner-driver";
 import { userCanAccessPartner } from "@/lib/partner-access";
@@ -29,6 +30,9 @@ function isOrganizationAdmin(role: string) {
 }
 
 export async function POST(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.partnerRole !== "partner_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -107,6 +111,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.partnerRole !== "partner_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -201,6 +208,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.partnerRole !== "partner_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });

@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { apiLimiter } from "@/lib/rate-limit";
 import { sendPartnerDonationReceipt } from "@/lib/partner-donation-receipt";
 import { userCanAccessPartner } from "@/lib/partner-access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const patchSchema = z.object({
   requestId: z.string().uuid(),
-  status: z.enum(["picked_up", "missed", "requested"]),
+  status: z.enum(["picked_up", "missed", "not_ready", "requested"]),
 });
 
 export async function PATCH(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!ctx.partnerRole) {
@@ -24,7 +28,9 @@ export async function PATCH(request: Request) {
   const parsed = patchSchema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
 
-  const { data: requestRow, error: requestError } = await ctx.supabase
+  // Use admin client so RLS doesn't block coordinator access to pickup_requests
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { data: requestRow, error: requestError } = await supabaseAdmin
     .from("pickup_requests")
     .select("id,status,pickup_cycle_id,pickup_cycles!inner(pickup_date,zone_id,service_zones!inner(partner_id))")
     .eq("id", parsed.data.requestId)
@@ -48,9 +54,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "This pickup request is not assigned to your nonprofit" }, { status: 403 });
   }
 
-  const supabaseAdmin = createSupabaseAdminClient();
   const nextNote =
-    parsed.data.status === "picked_up" ? null : parsed.data.status === "missed" ? "Partner marked pickup as could not be retrieved" : null;
+    parsed.data.status === "picked_up" ? null
+    : parsed.data.status === "missed" ? "Partner marked pickup as could not be retrieved"
+    : parsed.data.status === "not_ready" ? "Partner marked bag not set out"
+    : null;
   const pickupDate = cycle?.pickup_date ?? null;
   const { data: updatedRows, error: updateError } = await supabaseAdmin
     .from("pickup_requests")

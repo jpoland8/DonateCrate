@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ToastProvider } from "@/components/ui/toast";
 
 function NavIcon({ kind }: { kind: "overview" | "pickups" | "referrals" | "settings" | "profile" }) {
   const base = "h-4 w-4";
@@ -54,25 +55,23 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const rawTab = searchParams.get("tab") || "home";
   const activeTab =
-    rawTab === "overview"
+    rawTab === "overview" || rawTab === "pickup" || rawTab === "pickups" || rawTab === "rewards" || rawTab === "referrals"
       ? "home"
-      : rawTab === "pickups"
-        ? "pickup"
-        : rawTab === "referrals"
-          ? "rewards"
-          : rawTab === "settings"
-            ? "account"
-            : rawTab;
+      : rawTab === "settings"
+        ? "account"
+        : rawTab;
   const navItems = [
     { href: "/app?tab=home", tab: "home", label: "Home", icon: "overview" as const },
-    { href: "/app?tab=pickup", tab: "pickup", label: "Pickup", icon: "pickups" as const },
-    { href: "/app?tab=rewards", tab: "rewards", label: "Rewards", icon: "referrals" as const },
-    { href: "/app?tab=account", tab: "account", label: "Account", icon: "settings" as const },
-    { href: "/app/profile", label: "Profile", icon: "profile" as const },
+    { href: "/app?tab=account", tab: "account", label: "Activity", icon: "referrals" as const },
+    { href: "/app/settings", label: "Settings", icon: "settings" as const },
   ];
   const activeLabel = navItems.find((item) =>
-    item.href === "/app/profile" ? pathname === "/app/profile" : pathname === "/app" && activeTab === item.tab,
-  )?.label ?? "Overview";
+    item.href === "/app/settings"
+      ? pathname === "/app/settings"
+      : item.href === "/app/profile"
+        ? pathname === "/app/profile"
+        : pathname === "/app" && activeTab === item.tab,
+  )?.label ?? "Home";
   useEffect(() => {
     if (!mobileMenuOpen) return;
     const original = document.body.style.overflow;
@@ -146,7 +145,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
                 <p className="dc-eyebrow">DonateCrate</p>
                 <p className="font-bold text-[1.05rem] text-[var(--dc-gray-900)]">Customer Portal</p>
                 <p className="mt-1 max-w-[220px] text-xs leading-5 text-[var(--dc-gray-500)]">
-                  Your monthly donation routine, reminders, and referral rewards.
+                  Your monthly donation pickup at a glance.
                 </p>
               </div>
               <button
@@ -168,9 +167,11 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
             ) : null}
             {navItems.map((item) => {
               const isActive =
-                item.href === "/app/profile"
-                  ? pathname === "/app/profile"
-                  : pathname === "/app" && activeTab === item.tab;
+                item.href === "/app/settings"
+                  ? pathname === "/app/settings"
+                  : item.href === "/app/profile"
+                    ? pathname === "/app/profile"
+                    : pathname === "/app" && activeTab === item.tab;
               return (
                 <Link
                   key={item.href}
@@ -214,10 +215,10 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
           {!collapsed ? (
             <div className="space-y-2.5 px-3">
               <div className="rounded-xl border border-black/[0.07] bg-white/80 p-3.5 backdrop-blur">
-                <p className="dc-eyebrow">Start here</p>
-                <p className="mt-2 text-sm font-semibold text-[var(--dc-gray-900)]">Most months only need one step.</p>
+                <p className="dc-eyebrow">How it works</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--dc-gray-900)]">Most months need zero action.</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--dc-gray-500)]">
-                  Open Pickups, confirm whether your bag is ready, then you're done.
+                  You are on the route by default. Only skip if you don't want a pickup this month.
                 </p>
               </div>
             </div>
@@ -227,7 +228,9 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-x-clip px-4 pb-24 pt-20 md:px-8 md:pb-8 md:pt-8">{children}</main>
+        <main className="flex-1 overflow-x-clip px-4 pb-24 pt-20 md:px-8 md:pb-8 md:pt-8">
+          <ToastProvider>{children}</ToastProvider>
+        </main>
       </div>
 
       {/* Mobile bottom nav */}
@@ -235,9 +238,11 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-stretch justify-around">
           {navItems.slice(0, 4).map((item) => {
             const isActive =
-              item.href === "/app/profile"
-                ? pathname === "/app/profile"
-                : pathname === "/app" && activeTab === item.tab;
+              item.href === "/app/settings"
+                ? pathname === "/app/settings"
+                : item.href === "/app/profile"
+                  ? pathname === "/app/profile"
+                  : pathname === "/app" && activeTab === item.tab;
             return (
               <Link
                 key={item.href}

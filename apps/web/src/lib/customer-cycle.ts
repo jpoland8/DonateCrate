@@ -1,23 +1,7 @@
-export function formatCycleStatus(status: string | null) {
-  switch (status) {
-    case "requested":
-      return "Ready for pickup";
-    case "skipped":
-      return "Skipped this month";
-    case "confirmed":
-      return "Confirmed for route";
-    case "picked_up":
-      return "Pickup completed";
-    case "completed":
-      return "Pickup completed";
-    case "missed":
-      return "Pickup missed";
-    case "not_ready":
-      return "Marked not ready";
-    default:
-      return "Included by default";
-  }
-}
+import { formatPickupStatus } from "@/lib/constants/status";
+
+/** @deprecated Use `formatPickupStatus` from `@/lib/constants/status` directly. */
+export const formatCycleStatus = formatPickupStatus;
 
 export function getCycleUrgency(
   pickupDate: string | null | undefined,
@@ -37,7 +21,7 @@ export function getCycleUrgency(
     return {
       tone: "warning" as const,
       label: "Pickup is today — responses are locked",
-      detail: "Changes are no longer accepted for this cycle. Contact support if you need a manual adjustment.",
+      detail: "Changes are no longer accepted for this cycle. Email support@donatecrate.com if you need a manual adjustment.",
     };
   }
 
@@ -88,7 +72,7 @@ export function getCustomerNextStep(params: {
     return {
       title: "Wait for the next cycle",
       detail: "Your upcoming pickup date has not been published yet. We will notify you when it is ready.",
-      href: "/app?tab=settings",
+      href: "/app?tab=account",
       cta: "Review alerts",
     };
   }
@@ -98,7 +82,7 @@ export function getCustomerNextStep(params: {
     return {
       title: "Pickup is today",
       detail: "Set your orange bag out and keep your phone nearby. The route is locked for the day.",
-      href: "/app?tab=pickups",
+      href: "/app?tab=home",
       cta: "View cycle",
     };
   }
@@ -107,7 +91,7 @@ export function getCustomerNextStep(params: {
     return {
       title: "Your bag is on the list",
       detail: "Keep the bag ready and watch for your next reminder as pickup day gets closer.",
-      href: "/app?tab=pickups",
+      href: "/app?tab=home",
       cta: "Review cycle",
     };
   }
@@ -116,7 +100,7 @@ export function getCustomerNextStep(params: {
     return {
       title: "You are skipped this month",
       detail: "If plans changed, undo the skip before pickup day so your stop goes back on the route.",
-      href: "/app?tab=pickups",
+      href: "/app?tab=home",
       cta: "Update cycle",
     };
   }
@@ -124,7 +108,7 @@ export function getCustomerNextStep(params: {
   return {
     title: "You are set for this month",
     detail: "Your stop is included by default. Only skip this month if you do not want a pickup.",
-    href: "/app?tab=pickups",
+    href: "/app?tab=home",
     cta: "Review this cycle",
   };
 }

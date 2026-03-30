@@ -160,8 +160,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const [{ data: zone }, { count: subscribers }, { count: drivers }, { count: routes }] = await Promise.all([
     supabase
       .from("service_zones")
-      .select("anchor_postal_code,radius_miles")
-      .eq("code", "knoxville-37922")
+      .select("anchor_postal_code,radius_miles,code")
+      .eq("status", "active")
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle(),
     supabase
       .from("subscriptions")

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ToastProvider } from "@/components/ui/toast";
 
 function NavIcon({
   kind,
@@ -79,7 +80,62 @@ function NavIcon({
   }
 }
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+const NAV_GROUPS = [
+  {
+    id: "operations",
+    label: "Operations",
+    icon: "overview" as const,
+    defaultHref: "/admin?tab=overview",
+    items: [
+      { href: "/admin?tab=overview",      tab: "overview",      sub: null,        label: "Overview"  },
+      { href: "/admin?tab=pickups",       tab: "pickups",       sub: null,        label: "Pickups"   },
+      { href: "/admin?tab=logistics",     tab: "logistics",     sub: null,        label: "Dispatch"  },
+      { href: "/admin?tab=communication", tab: "communication", sub: null,        label: "Messages"  },
+    ],
+  },
+  {
+    id: "members",
+    label: "Members",
+    icon: "people" as const,
+    defaultHref: "/admin?tab=people&sub=customers",
+    items: [
+      { href: "/admin?tab=people&sub=customers", tab: "people",  sub: "customers", label: "Customers" },
+      { href: "/admin?tab=people&sub=staff",     tab: "people",  sub: "staff",     label: "Staff"     },
+      { href: "/admin?tab=billing",              tab: "billing", sub: null,        label: "Billing"   },
+    ],
+  },
+  {
+    id: "network",
+    label: "Network",
+    icon: "network" as const,
+    defaultHref: "/admin?tab=network&sub=zones",
+    items: [
+      { href: "/admin?tab=network&sub=zones",    tab: "network", sub: "zones",    label: "Zones"    },
+      { href: "/admin?tab=network&sub=partners", tab: "network", sub: "partners", label: "Partners" },
+    ],
+  },
+  {
+    id: "growth",
+    label: "Growth",
+    icon: "growth" as const,
+    defaultHref: "/admin?tab=growth",
+    items: [
+      { href: "/admin?tab=growth", tab: "growth", sub: null, label: "Waitlist & Referrals" },
+    ],
+  },
+];
+
+function getActiveGroup(tab: string): string {
+  if (["overview", "pickups", "logistics", "communication"].includes(tab)) return "operations";
+  if (tab === "people" || tab === "billing") return "members";
+  if (tab === "network") return "network";
+  if (tab === "growth") return "growth";
+  return "operations";
+}
+
+type PortalLink = { label: string; href: string };
+
+export function AdminShell({ children, portalLinks = [] }: { children: React.ReactNode; portalLinks?: PortalLink[] }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
@@ -90,27 +146,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     if (storedTheme === "light" || storedTheme === "dark") return storedTheme;
     return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   });
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
   const activeTab = searchParams.get("tab") || "overview";
-  const navGroups = [
-    {
-      label: "Run Today",
-      items: [
-        { href: "/admin?tab=overview", tab: "overview", label: "Overview", icon: "overview" as const },
-        { href: "/admin?tab=pickups", tab: "pickups", label: "Pickup Calendar", icon: "pickups" as const },
-        { href: "/admin?tab=logistics", tab: "logistics", label: "Dispatch", icon: "logistics" as const },
-        { href: "/admin?tab=communication", tab: "communication", label: "Messages", icon: "communication" as const },
-      ],
-    },
-    {
-      label: "Operate The Network",
-      items: [
-        { href: "/admin?tab=people", tab: "people", label: "People", icon: "people" as const },
-        { href: "/admin?tab=network&sub=zones", tab: "network", label: "Network", icon: "network" as const },
-        { href: "/admin?tab=billing", tab: "billing", label: "Billing", icon: "billing" as const },
-        { href: "/admin?tab=growth", tab: "growth", label: "Growth", icon: "growth" as const },
-      ],
-    },
-  ];
+  const activeSub = searchParams.get("sub");
+  const activeGroup = getActiveGroup(activeTab);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -256,60 +296,133 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          <nav className={`space-y-4 py-4 ${collapsed ? "px-2" : "px-3"}`}>
-            {navGroups.map((group) => (
-              <div key={group.label} className="space-y-1.5">
-                {!collapsed ? (
-                  <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--admin-muted)" }}>
-                    {group.label}
-                  </p>
-                ) : null}
-                {group.items.map((item) => {
-                  const isActive = pathname === "/admin" && activeTab === item.tab;
-                  return (
+          <nav className={`space-y-1.5 py-4 ${collapsed ? "px-2" : "px-3"}`}>
+            {NAV_GROUPS.map((group) => {
+              const isActiveGroup = group.id === activeGroup;
+              const isOpen = isActiveGroup || openGroups.has(group.id);
+
+              return (
+                <div key={group.id}>
+                  {/* Group parent row */}
+                  {collapsed ? (
+                    /* Collapsed: icon only, no label, no chevron */
                     <Link
-                      key={item.href}
-                      href={item.href}
+                      href={group.defaultHref}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center rounded-xl text-sm font-semibold transition-all duration-150 ${
-                        collapsed
-                          ? "justify-center border-none bg-transparent px-0 py-1.5"
-                          : isActive
-                            ? "gap-3 px-3 py-2.5 bg-[var(--dc-orange)] text-white shadow-[0_4px_12px_rgba(255,106,0,0.28)]"
-                            : "gap-3 px-3 py-2.5 border"
-                      }`}
-                      style={
-                        !collapsed && !isActive
-                          ? { borderColor: "var(--admin-border)", color: "var(--admin-sidebar-text)", background: "transparent" }
-                          : undefined
-                      }
-                      onMouseEnter={!isActive && !collapsed ? (e) => { (e.currentTarget as HTMLElement).style.background = "var(--admin-nav-hover)"; } : undefined}
-                      onMouseLeave={!isActive && !collapsed ? (e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; } : undefined}
-                      aria-label={item.label}
-                      title={item.label}
+                      className="flex justify-center rounded-xl py-1.5 cursor-pointer"
+                      aria-label={group.label}
+                      title={group.label}
                     >
                       <span
                         className="inline-flex items-center justify-center rounded-lg transition-all duration-150"
                         style={{
-                          width: collapsed ? "2.5rem" : "2rem",
-                          height: collapsed ? "2.5rem" : "2rem",
-                          background: isActive
-                            ? collapsed
-                              ? "var(--dc-orange)"
-                              : "var(--admin-icon-active)"
-                            : "var(--admin-icon-inactive)",
-                          color: isActive ? "white" : "var(--admin-sidebar-text)",
-                          boxShadow: isActive && collapsed ? "0 4px 14px rgba(255,106,0,0.32)" : undefined,
+                          width: "2.5rem",
+                          height: "2.5rem",
+                          background: isActiveGroup ? "var(--dc-orange)" : "var(--admin-icon-inactive)",
+                          color: isActiveGroup ? "white" : "var(--admin-sidebar-text)",
+                          boxShadow: isActiveGroup ? "0 4px 14px rgba(255,106,0,0.32)" : undefined,
                         }}
                       >
-                        <NavIcon kind={item.icon} />
+                        <NavIcon kind={group.icon} />
                       </span>
-                      {!collapsed ? item.label : null}
                     </Link>
-                  );
-                })}
-              </div>
-            ))}
+                  ) : (
+                    /* Expanded: Link (icon+label → navigate) + chevron button (toggle only) */
+                    <div
+                      className={`flex w-full items-center rounded-xl text-sm font-semibold transition-all duration-150 ${
+                        isActiveGroup
+                          ? "bg-[var(--dc-orange)] text-white shadow-[0_4px_12px_rgba(255,106,0,0.28)]"
+                          : "border"
+                      }`}
+                      style={
+                        !isActiveGroup
+                          ? { borderColor: "var(--admin-border)", color: "var(--admin-sidebar-text)" }
+                          : undefined
+                      }
+                    >
+                      <Link
+                        href={group.defaultHref}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex flex-1 items-center gap-3 px-3 py-2.5 cursor-pointer"
+                        aria-label={group.label}
+                      >
+                        <span
+                          className="inline-flex shrink-0 items-center justify-center rounded-lg transition-all duration-150"
+                          style={{
+                            width: "2rem",
+                            height: "2rem",
+                            background: isActiveGroup ? "var(--admin-icon-active)" : "var(--admin-icon-inactive)",
+                            color: isActiveGroup ? "white" : "var(--admin-sidebar-text)",
+                          }}
+                        >
+                          <NavIcon kind={group.icon} />
+                        </span>
+                        <span className="flex-1 text-left">{group.label}</span>
+                      </Link>
+                      {/* Chevron — toggle expand/collapse only */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenGroups((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(group.id)) next.delete(group.id);
+                            else next.add(group.id);
+                            return next;
+                          });
+                        }}
+                        className="group flex items-center justify-center px-3 py-2.5 cursor-pointer"
+                        aria-expanded={isOpen}
+                        aria-label={`${isOpen ? "Collapse" : "Expand"} ${group.label}`}
+                      >
+                        <span className="inline-flex items-center justify-center rounded-md w-6 h-6 transition-colors duration-150 group-hover:bg-white/15">
+                        <svg
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          className="h-3.5 w-3.5 shrink-0 transition-transform duration-150"
+                          style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}
+                          aria-hidden
+                        >
+                          <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Sub-items (expanded sidebar only) */}
+                  {!collapsed && isOpen ? (
+                    <div className="mt-1 pl-4 ml-3 border-l" style={{ borderColor: "var(--admin-border)" }}>
+                      {group.items.map((item) => {
+                        const isActiveSub =
+                          pathname === "/admin" &&
+                          activeTab === item.tab &&
+                          (item.sub === null || activeSub === item.sub);
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`block rounded-lg px-3 py-1.5 text-sm transition-all duration-150 cursor-pointer ${
+                              isActiveSub ? "font-semibold" : "font-medium"
+                            }`}
+                            style={
+                              isActiveSub
+                                ? { background: "color-mix(in srgb, var(--dc-orange) 15%, transparent)", color: "var(--dc-orange)" }
+                                : { color: "var(--admin-muted)" }
+                            }
+                            onMouseEnter={!isActiveSub ? (e) => { (e.currentTarget as HTMLElement).style.background = "var(--admin-nav-hover)"; } : undefined}
+                            onMouseLeave={!isActiveSub ? (e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; } : undefined}
+                          >
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </nav>
 
           {!collapsed ? (
@@ -332,6 +445,51 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   <li className="flex gap-2"><span className="font-bold" style={{ color: "var(--dc-orange)" }}>3.</span> Logistics: build, review, and assign routes.</li>
                 </ol>
               </details>
+              {portalLinks.length > 0 ? (
+                <div className="rounded-xl border p-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+                  <p className="dc-eyebrow mb-2">Switch portal</p>
+                  {portalLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors duration-150 hover:bg-white/10"
+                      style={{ color: "var(--admin-sidebar-text)" }}
+                    >
+                      <span
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                        style={{ background: "var(--admin-icon-inactive)" }}
+                      >
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                          <path d="M11 2l3 3-3 3M5 14l-3-3 3-3M2 5h12M2 11h12" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      <span className="flex-1">{link.label}</span>
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3 w-3 shrink-0 opacity-40" aria-hidden>
+                        <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {collapsed && portalLinks.length > 0 ? (
+            <div className="flex flex-col items-center gap-1.5 px-2 pb-2">
+              {portalLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="inline-flex rounded-full border p-2 transition-colors duration-150 hover:bg-white/10"
+                  style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-sidebar-text)" }}
+                  title={link.label}
+                  aria-label={`Switch to ${link.label}`}
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                    <path d="M11 2l3 3-3 3M5 14l-3-3 3-3M2 5h12M2 11h12" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              ))}
             </div>
           ) : null}
 
@@ -340,7 +498,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-x-clip px-4 pb-6 pt-20 md:px-6 md:pt-6">{children}</main>
+        <main className="flex-1 overflow-x-clip px-4 pb-6 pt-20 md:px-6 md:pt-6">
+          <ToastProvider>{children}</ToastProvider>
+        </main>
       </div>
     </div>
   );

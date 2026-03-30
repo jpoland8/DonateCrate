@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
 import { geocodeAddress } from "@/lib/geocode";
+import { adminLimiter } from "@/lib/rate-limit";
 
 const postSchema = z.object({
   pickupCycleId: z.string().uuid(),
-  zoneCode: z.string().default("knoxville-37922"),
+  zoneCode: z.string().min(1),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -39,6 +43,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });

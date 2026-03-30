@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { adminLimiter } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   name: z.string().min(2),
@@ -10,6 +11,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });

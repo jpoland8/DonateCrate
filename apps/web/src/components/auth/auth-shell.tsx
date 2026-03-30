@@ -89,9 +89,9 @@ export function AuthShell({
             <Image
               src="/images/logo-provided-520.webp"
               alt="DonateCrate"
-              width={150}
-              height={38}
-              className="h-8 w-auto"
+              width={180}
+              height={46}
+              className="h-10 w-auto"
             />
           </a>
           <Link
@@ -100,6 +100,19 @@ export function AuthShell({
           >
             Sign in
           </Link>
+        </div>
+
+        {/* Desktop logo (right panel — left panel is visible on lg+) */}
+        <div className="hidden items-center justify-between px-10 pt-8 lg:flex">
+          <a href={siteUrl}>
+            <Image
+              src="/images/logo-provided-520.webp"
+              alt="DonateCrate"
+              width={180}
+              height={46}
+              className="h-10 w-auto"
+            />
+          </a>
         </div>
 
         {/* Centered form area */}

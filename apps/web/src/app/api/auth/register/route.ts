@@ -3,6 +3,8 @@ import { z } from "zod";
 import { sendBrandedEmail } from "@/lib/email";
 import { checkEligibility } from "@/lib/eligibility";
 import { geocodeAddress } from "@/lib/geocode";
+import { fallbackCoordsForPostalCode } from "@/lib/geo";
+import { authLimiter } from "@/lib/rate-limit";
 import { normalizeCode } from "@/lib/referrals";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -20,6 +22,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const limited = authLimiter.check(request);
+  if (limited) return limited;
+
   const payload = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(payload);
   if (!parsed.success) {
@@ -35,17 +40,7 @@ export async function POST(request: Request) {
     lat: geocoded?.lat,
     lng: geocoded?.lng,
   });
-
-  if (eligibility.status !== "active") {
-    return NextResponse.json(
-      {
-        error: "Signup is not currently open for this address",
-        reason: eligibility.reason,
-        zone: eligibility.zone?.code ?? null,
-      },
-      { status: 409 },
-    );
-  }
+  const isWaitlisted = eligibility.status !== "active";
 
   const supabase = createSupabaseAdminClient();
   const normalizedReferralCode = parsed.data.referralCode ? normalizeCode(parsed.data.referralCode) : null;
@@ -177,6 +172,32 @@ export async function POST(request: Request) {
       }
     }
 
+    // Auto-enroll in waitlist if zone is not active
+    if (isWaitlisted && profile?.id) {
+      try {
+        const fallbackCoords = fallbackCoordsForPostalCode(parsed.data.postalCode);
+        await supabase.from("waitlist_entries").upsert(
+          {
+            full_name: parsed.data.fullName,
+            email: parsed.data.email.toLowerCase(),
+            phone: parsed.data.phone ?? null,
+            address_line1: parsed.data.addressLine1,
+            address_line2: parsed.data.addressLine2 ?? null,
+            city: parsed.data.city,
+            state: parsed.data.state.toUpperCase(),
+            postal_code: parsed.data.postalCode,
+            referral_code: parsed.data.referralCode ?? null,
+            lat: geocoded?.lat ?? fallbackCoords?.lat ?? null,
+            lng: geocoded?.lng ?? fallbackCoords?.lng ?? null,
+            status: "pending",
+            has_account: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "email,postal_code" },
+        );
+      } catch { /* non-fatal */ }
+    }
+
     try {
       await sendBrandedEmail({
         eventType: "account_welcome",
@@ -184,14 +205,25 @@ export async function POST(request: Request) {
           email: parsed.data.email.toLowerCase(),
           fullName: parsed.data.fullName,
         },
-        metadata: {
-          next_step: "Finish billing to unlock your first pickup request.",
-        },
+        metadata: isWaitlisted
+          ? {
+              next_step: "We'll notify you by email as soon as service opens in your area. No action needed — your spot is saved.",
+              waitlisted: "true",
+            }
+          : {
+              next_step: "Finish billing to unlock your first pickup request.",
+            },
       });
     } catch (emailError) {
       console.error("Failed to send welcome email", emailError);
     }
   }
 
-  return NextResponse.json({ ok: true, userId: data.user?.id ?? null, warning: referralWarning });
+  return NextResponse.json({
+    ok: true,
+    userId: data.user?.id ?? null,
+    warning: referralWarning,
+    zoneStatus: eligibility.status,
+    isWaitlisted,
+  });
 }

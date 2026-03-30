@@ -31,16 +31,22 @@ describe("getNextReminderLabel", () => {
 });
 
 describe("getCycleUrgency", () => {
-  it("shows a locked state after the cutoff", () => {
+  it("shows a locked state on pickup day", () => {
     expect(
-      getCycleUrgency("2026-03-06", "2026-03-03T10:00:00Z", new Date("2026-03-04T10:00:00Z")).label,
-    ).toBe("This cycle is locked");
+      getCycleUrgency("2026-03-04", new Date("2026-03-04T10:00:00Z")).label,
+    ).toBe("Pickup is today — responses are locked");
   });
 
-  it("shows a near-term state when pickup is within one day", () => {
+  it("shows a near-term state when pickup is within three days", () => {
+    const result = getCycleUrgency("2026-03-06", new Date("2026-03-05T11:00:00Z"));
+    expect(["Pickup is tomorrow", "Pickup is coming up this week"]).toContain(result.label);
+    expect(["high", "medium"]).toContain(result.tone);
+  });
+
+  it("shows low urgency for distant pickup", () => {
     expect(
-      getCycleUrgency("2026-03-06", "2026-03-05T22:00:00Z", new Date("2026-03-05T11:00:00Z")).label,
-    ).toBe("Pickup is coming up this week");
+      getCycleUrgency("2026-03-20", new Date("2026-03-05T11:00:00Z")).tone,
+    ).toBe("low");
   });
 });
 
@@ -50,7 +56,6 @@ describe("getCustomerNextStep", () => {
       getCustomerNextStep({
         profileComplete: false,
         pickupDate: "2026-03-06",
-        requestCutoffAt: "2026-03-05T22:00:00Z",
         status: null,
       }).href,
     ).toBe("/app/profile");
@@ -61,10 +66,20 @@ describe("getCustomerNextStep", () => {
       getCustomerNextStep({
         profileComplete: true,
         pickupDate: "2026-03-06",
-        requestCutoffAt: "2026-03-06T22:00:00Z",
         status: "requested",
         now: new Date("2026-03-05T10:00:00Z"),
       }).title,
     ).toBe("Your bag is on the list");
+  });
+
+  it("directs to home tab for skipped status", () => {
+    expect(
+      getCustomerNextStep({
+        profileComplete: true,
+        pickupDate: "2026-03-06",
+        status: "skipped",
+        now: new Date("2026-03-03T10:00:00Z"),
+      }).href,
+    ).toBe("/app?tab=home");
   });
 });

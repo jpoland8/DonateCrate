@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"main": ".open-next/worker.js",
+	"main": "worker-entry.ts",
 	"name": "web",
 	"account_id": "22b513793397cd283646c437f1514bdd",
 	"compatibility_date": "2026-02-26",
@@ -24,5 +24,12 @@
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image
 		"binding": "IMAGES"
+	},
+	"triggers": {
+		"crons": [
+			"*/5 * * * *",
+			"0 8 * * *",
+			"0 3 * * sun"
+		]
 	}
 }

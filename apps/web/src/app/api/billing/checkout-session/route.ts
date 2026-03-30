@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { apiLimiter } from "@/lib/rate-limit";
 import { getAppUrl } from "@/lib/urls";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   try {
     const ctx = await getAuthenticatedContext();
     if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

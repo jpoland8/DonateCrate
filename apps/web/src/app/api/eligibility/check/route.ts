@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { checkEligibility } from "@/lib/eligibility";
 import { geocodeAddress } from "@/lib/geocode";
+import { rateLimit } from "@/lib/rate-limit";
+
+const limiter = rateLimit({ windowMs: 60_000, max: 20 });
 
 const bodySchema = z.object({
   addressLine1: z.string().min(5),
@@ -23,6 +26,9 @@ export function OPTIONS() {
 }
 
 export async function POST(request: Request) {
+  const limited = limiter.check(request);
+  if (limited) return limited;
+
   const payload = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(payload);
 

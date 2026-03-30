@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { getCycleUrgency } from "@/lib/customer-cycle";
 import { trackMeta } from "@/lib/meta-pixel";
+import { Spinner } from "@/components/ui/spinner";
 
 type ActionState = "idle" | "loading" | "error" | "success";
 
@@ -38,7 +39,7 @@ export function CustomerActions({
     : "On this month's pickup route";
 
   const routeDetail = isLocked
-    ? "The route for today is locked. Contact support if you need a manual change."
+    ? "The route for today is locked."
     : isSkipped
     ? "A driver will not stop at your home this cycle. Put yourself back on the route if plans changed."
     : "Your home is included. You do not need to do anything else unless your plans changed.";
@@ -162,34 +163,52 @@ export function CustomerActions({
             <button
               onClick={() => post("/api/pickup/unskip")}
               disabled={state === "loading" || isLocked}
-              className="dc-card-interactive flex-1 rounded-[var(--radius-md)] border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm font-semibold text-emerald-900 disabled:pointer-events-none disabled:opacity-40"
+              className="dc-card-interactive flex-1 rounded-[var(--radius-md)] border-emerald-200 bg-emerald-50 px-4 py-4 text-left text-sm font-semibold text-emerald-900 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-40"
             >
-              <span className="block">Back on the route</span>
-              <span className="mt-0.5 block text-xs font-medium text-emerald-600">
-                Include your home in this month's pickup.
-              </span>
+              {state === "loading" ? (
+                <span className="flex items-center gap-2"><Spinner size="sm" color="current" /><span>Saving...</span></span>
+              ) : (
+                <>
+                  <span className="block">Back on the route</span>
+                  <span className="mt-0.5 block text-xs font-medium text-emerald-600">
+                    Include your home in this month's pickup.
+                  </span>
+                </>
+              )}
             </button>
           ) : (
             <button
               onClick={() => post("/api/pickup/skip")}
               disabled={state === "loading" || isLocked}
-              className="dc-card-interactive flex-1 rounded-[var(--radius-md)] border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm font-semibold text-rose-900 disabled:pointer-events-none disabled:opacity-40"
+              className="dc-card-interactive flex-1 rounded-[var(--radius-md)] border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm font-semibold text-rose-900 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-40"
             >
-              <span className="block">Skip this month</span>
-              <span className="mt-0.5 block text-xs font-medium text-rose-600">
-                Take your home off this month's route. Billing stays unchanged.
-              </span>
+              {state === "loading" ? (
+                <span className="flex items-center gap-2"><Spinner size="sm" color="current" /><span>Saving...</span></span>
+              ) : (
+                <>
+                  <span className="block">Skip this month</span>
+                  <span className="mt-0.5 block text-xs font-medium text-rose-600">
+                    Take your home off this month's route. Billing stays unchanged.
+                  </span>
+                </>
+              )}
             </button>
           )}
           <button
             onClick={startCheckout}
             disabled={state === "loading"}
-            className="dc-card-interactive flex-1 rounded-[var(--radius-md)] px-4 py-4 text-left text-sm font-semibold text-[var(--dc-gray-900)] disabled:pointer-events-none disabled:opacity-40"
+            className="dc-card-interactive flex-1 rounded-[var(--radius-md)] px-4 py-4 text-left text-sm font-semibold text-[var(--dc-gray-900)] disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-40"
           >
-            <span className="block">Manage billing</span>
-            <span className="mt-0.5 block text-xs font-medium text-[var(--dc-gray-500)]">
-              Update payment or reopen Stripe checkout.
-            </span>
+            {state === "loading" ? (
+              <span className="flex items-center gap-2"><Spinner size="sm" color="current" /><span>Loading...</span></span>
+            ) : (
+              <>
+                <span className="block">Manage billing</span>
+                <span className="mt-0.5 block text-xs font-medium text-[var(--dc-gray-500)]">
+                  Update payment or reopen Stripe checkout.
+                </span>
+              </>
+            )}
           </button>
           <a
             href="/app/profile"
@@ -221,7 +240,9 @@ export function CustomerActions({
 
       {/* Footer note */}
       <p className="text-center text-sm text-[var(--dc-gray-500)]">
-        {isSkipped
+        {isLocked
+          ? <>Need a manual change? <a href="mailto:support@donatecrate.com" className="font-semibold text-[var(--dc-orange)] hover:underline">Contact support</a>.</>
+          : isSkipped
           ? "Skipped applies to this month only. Your membership and billing stay active."
           : "You are included this month. Only skip if you do not want a pickup visit."}
       </p>

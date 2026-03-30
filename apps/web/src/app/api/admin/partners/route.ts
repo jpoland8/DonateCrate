@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
 import { resolvePartnerLogoUrl } from "@/lib/partner-logo-storage";
+import { adminLimiter } from "@/lib/rate-limit";
 
 const createPartnerSchema = z.object({
   code: z.string().min(3),
@@ -68,7 +69,10 @@ function normalizeNullableText(value: string | undefined) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -202,6 +206,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -268,6 +275,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatCycleStatus } from "@/lib/customer-cycle";
+import { formatPickupStatus, formatReferralStatus } from "@/lib/constants/status";
 import { formatNotificationEventType, formatNotificationStatus } from "@/lib/notification-labels";
+import { Spinner } from "@/components/ui/spinner";
 
 type Prefs = {
   email_enabled: boolean;
@@ -19,7 +20,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
     quiet_hours_end: null,
   });
   const [latestRequest, setLatestRequest] = useState<{ status: string; updated_at: string } | null>(null);
-  const [currentCycle, setCurrentCycle] = useState<{ pickup_date: string } | null>(null);
+  const [currentCycle, setCurrentCycle] = useState<{ pickup_date: string; pickup_window_label?: string | null } | null>(null);
   const [currentCycleRequest, setCurrentCycleRequest] = useState<{ status: string; updated_at: string } | null>(null);
   const [notificationEvents, setNotificationEvents] = useState<
     Array<{
@@ -52,6 +53,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   function safeDateLabel(value: string | null | undefined, fallback = "Not scheduled") {
     if (!value) return fallback;
@@ -110,7 +112,7 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
         createdAt: request.updated_at,
         title: "Pickup status updated",
         tone: "pickup" as const,
-        statusLabel: formatCycleStatus(request.status),
+        statusLabel: formatPickupStatus(request.status),
         detail: cycle?.pickup_date ? `For ${safeDateLabel(cycle.pickup_date)}` : "Saved to your account",
         error: null,
       };
@@ -162,25 +164,36 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
               title: "Stay aligned with this month's pickup.",
               detail: "Use this screen to understand the current cycle and watch account updates as pickup day gets closer.",
             }
-          : null;
+          : section === "all"
+            ? {
+                eyebrow: "Account",
+                title: "Your account at a glance.",
+                detail: "Manage notifications, referrals, and review your pickup history.",
+              }
+            : null;
 
   async function savePrefs() {
-    const response = await fetch("/api/notifications/preferences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        emailEnabled: prefs.email_enabled,
-        smsEnabled: prefs.sms_enabled,
-        quietHoursStart: prefs.quiet_hours_start || undefined,
-        quietHoursEnd: prefs.quiet_hours_end || undefined,
-      }),
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setMessage(json.error || "Could not save preferences");
-      return;
+    setSaving(true);
+    try {
+      const response = await fetch("/api/notifications/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailEnabled: prefs.email_enabled,
+          smsEnabled: prefs.sms_enabled,
+          quietHoursStart: prefs.quiet_hours_start || undefined,
+          quietHoursEnd: prefs.quiet_hours_end || undefined,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setMessage(json.error || "Could not save preferences");
+        return;
+      }
+      setMessage("Preferences saved.");
+    } finally {
+      setSaving(false);
     }
-    setMessage("Preferences saved.");
   }
 
   async function copyReferralLink() {
@@ -287,8 +300,8 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
             </label>
           </div>
           <div className="mt-4">
-            <button onClick={savePrefs} className="dc-btn-primary">
-              Save preferences
+            <button onClick={savePrefs} disabled={saving} className="dc-btn-primary inline-flex items-center gap-2">
+              {saving ? <><Spinner size="sm" color="current" /> Saving...</> : "Save preferences"}
             </button>
           </div>
         </section>
@@ -296,58 +309,113 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
 
       {section === "all" || section === "referrals" ? (
         <section className="dc-card overflow-hidden p-0">
-          <div className="bg-[linear-gradient(120deg,#111_0%,#2a2a2a_45%,#ff6a00_130%)] p-5 text-white">
-            <h3 className="text-xl font-bold">Free-Month Referrals</h3>
-            <p className="mt-1 text-sm text-white/80">
-              Invite neighbors and friends. When a new household activates, both homes earn a free month credit.
+          <div className="bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#ff6a00_180%)] p-5 sm:p-6 text-white">
+            <div className="flex items-center gap-2 mb-3">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-[var(--dc-orange)]" aria-hidden>
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Referral Program</p>
+            </div>
+            <h3 className="text-xl font-bold">Give a free month, get a free month</h3>
+            <p className="mt-2 text-sm text-white/80 max-w-lg">
+              Share your personal invite link with neighbors and friends. When a new household subscribes, you each earn a $5 credit — one free month of DonateCrate.
             </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="rounded-[var(--radius-sm)] bg-white/15 px-3 py-2 font-mono text-sm tracking-wide backdrop-blur">
-                {referralCode || "GENERATING"}
-              </span>
+
+            {/* How it works steps */}
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-white/10 p-3 backdrop-blur">
+                <p className="text-xs font-bold text-white/50">Step 1</p>
+                <p className="mt-1 text-sm font-semibold">Share your link</p>
+                <p className="mt-0.5 text-xs text-white/60">Copy and send to anyone in your area</p>
+              </div>
+              <div className="rounded-lg bg-white/10 p-3 backdrop-blur">
+                <p className="text-xs font-bold text-white/50">Step 2</p>
+                <p className="mt-1 text-sm font-semibold">They subscribe</p>
+                <p className="mt-0.5 text-xs text-white/60">Your neighbor signs up at $5/mo</p>
+              </div>
+              <div className="rounded-lg bg-white/10 p-3 backdrop-blur">
+                <p className="text-xs font-bold text-white/50">Step 3</p>
+                <p className="mt-1 text-sm font-semibold">Both homes earn $5</p>
+                <p className="mt-0.5 text-xs text-white/60">Credit applied to your next billing cycle</p>
+              </div>
+            </div>
+
+            {/* Code + share */}
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 backdrop-blur">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-white/50">Your code</span>
+                <span className="font-mono text-sm font-bold tracking-wide">{referralCode || "Generating..."}</span>
+              </div>
               <button
                 onClick={copyReferralLink}
-                className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-white/40 px-3 py-2 text-sm font-semibold transition-all duration-150 hover:bg-white hover:text-black"
+                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#111827] shadow-sm transition-all duration-150 hover:bg-white/90 active:scale-[0.97]"
               >
                 {copied ? (
                   <>
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden>
                       <path d="M3.5 8.5l3 3 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    Copied!
+                    Link copied!
                   </>
                 ) : (
                   <>
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden>
-                      <rect x="5" y="5" width="9" height="9" rx="1.5" strokeWidth="1.5" />
-                      <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" strokeWidth="1.5" />
+                      <path d="M4 12a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM12 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM5.7 10.7l4.6 1.6M5.7 9.3l4.6-1.6" strokeWidth="1.5" strokeLinecap="round" />
                     </svg>
-                    Copy invite link
+                    Share invite link
                   </>
                 )}
               </button>
             </div>
-            <p className="mt-2 text-xs text-white/60">Share link: {referralLinkLabel}</p>
+            {referralLinkLabel ? (
+              <p className="mt-2 text-xs text-white/50 font-mono">{referralLinkLabel}</p>
+            ) : null}
           </div>
-          <div className="grid gap-3 p-5 sm:grid-cols-3">
-            <article className="dc-stat">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Invites sent</p>
-              <p className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.invitedCount}</p>
+
+          {/* Stats grid */}
+          <div className="grid gap-px bg-black/5 sm:grid-cols-4">
+            <article className="bg-white p-4 text-center">
+              <p className="text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.invitedCount}</p>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--dc-gray-400)]">Invited</p>
             </article>
-            <article className="dc-stat">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Free months earned</p>
-              <p className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.creditedCount}</p>
+            <article className="bg-white p-4 text-center">
+              <p className="text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.qualifiedCount}</p>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--dc-gray-400)]">Subscribed</p>
             </article>
-            <article className="dc-stat">
-              <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Reward value</p>
-              <p className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">${referralValueDollars}</p>
+            <article className="bg-white p-4 text-center">
+              <p className="text-2xl font-bold text-emerald-600">{referralStats.creditedCount}</p>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--dc-gray-400)]">Credits earned</p>
             </article>
-            <article className="dc-inner-panel sm:col-span-3">
-              <p className="text-sm font-semibold text-[var(--dc-gray-900)]">Annual credit runway</p>
-              <p className="mt-1 text-sm text-[var(--dc-gray-600)]">
-                You have {referralStats.annualReferrerCreditsRemaining} of 3 referrer credits left this year.
-              </p>
+            <article className="bg-white p-4 text-center">
+              <p className="text-2xl font-bold text-[var(--dc-orange)]">${referralValueDollars}</p>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--dc-gray-400)]">Total value</p>
             </article>
+          </div>
+
+          {/* Credit runway */}
+          <div className="border-t border-black/5 bg-white p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[var(--dc-gray-900)]">Annual referrer credits</p>
+                <p className="mt-0.5 text-xs text-[var(--dc-gray-500)]">
+                  {referralStats.annualReferrerCreditsRemaining > 0
+                    ? `You can earn ${referralStats.annualReferrerCreditsRemaining} more referrer credit${referralStats.annualReferrerCreditsRemaining !== 1 ? "s" : ""} this year (max 3 per year).`
+                    : "You've reached your 3 referrer credits for this year. Credits reset in January."}
+                </p>
+              </div>
+              <div className="flex gap-1">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-3 w-3 rounded-full ${
+                      i < (3 - referralStats.annualReferrerCreditsRemaining)
+                        ? "bg-emerald-500"
+                        : "border border-black/10 bg-[var(--dc-gray-100)]"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       ) : null}
@@ -363,11 +431,16 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
               <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Current cycle</p>
               <p className="mt-2 text-xl font-bold text-[var(--dc-gray-900)]">
                 {safeDateLabel(currentCycle?.pickup_date)}
+                {currentCycle?.pickup_window_label ? (
+                  <span className="mt-0.5 block text-sm font-normal text-[var(--dc-gray-500)]">
+                    {currentCycle.pickup_window_label}
+                  </span>
+                ) : null}
               </p>
             </article>
             <article className="dc-stat">
               <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Your status</p>
-              <p className="mt-2 text-xl font-bold text-[var(--dc-gray-900)]">{formatCycleStatus(currentCycleRequest?.status ?? latestRequest?.status ?? null)}</p>
+              <p className="mt-2 text-xl font-bold text-[var(--dc-gray-900)]">{formatPickupStatus(currentCycleRequest?.status ?? latestRequest?.status ?? null)}</p>
             </article>
             <article className="dc-stat">
               <p className="text-xs uppercase tracking-wide text-[var(--dc-gray-500)]">Last account update</p>
@@ -411,22 +484,90 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
 
       {section === "all" || section === "referrals" ? (
         <section className="dc-card p-5 lg:col-span-2">
-          <h3 className="text-xl font-bold text-[var(--dc-gray-900)]">Recent Referral Activity</h3>
-          <div className="mt-3 space-y-2 dc-stagger">
+          <h3 className="text-xl font-bold text-[var(--dc-gray-900)]">Referral Activity</h3>
+          <p className="mt-1 text-sm text-[var(--dc-gray-500)]">
+            Track who signed up through your link and where they are in the process.
+          </p>
+          <div className="mt-4 space-y-2 dc-stagger">
             {recentReferrals.length === 0 ? (
-              <p className="text-sm text-[var(--dc-gray-500)]">No referrals yet. Share your invite link to unlock free-month credits.</p>
-            ) : (
-              recentReferrals.map((item) => (
-                <div key={item.id} className="dc-inner-panel flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--dc-gray-900)]">{item.referredEmail || "Pending signup"}</p>
-                    <p className="text-xs text-[var(--dc-gray-500)]">{safeDateLabel(item.createdAt)}</p>
-                  </div>
-                  <span className="dc-badge dc-badge-neutral">
-                    {item.status.replaceAll("_", " ")}
-                  </span>
+              <div className="dc-inner-panel text-center py-8">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--dc-gray-100)]">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-6 w-6 text-[var(--dc-gray-400)]" aria-hidden>
+                    <circle cx="18" cy="5" r="3" strokeWidth="1.5" />
+                    <circle cx="6" cy="12" r="3" strokeWidth="1.5" />
+                    <circle cx="18" cy="19" r="3" strokeWidth="1.5" />
+                    <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
                 </div>
-              ))
+                <p className="mt-4 text-sm font-bold text-[var(--dc-gray-900)]">No referrals yet</p>
+                <p className="mt-1.5 max-w-xs mx-auto text-xs text-[var(--dc-gray-500)]">
+                  Share your link to earn $5 for every friend who signs up
+                </p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const url = referralLink || (referralCode ? `https://donatecrate.com/signup?ref=${referralCode}` : "");
+                      if (!url) return;
+                      await navigator.clipboard.writeText(url);
+                      setCopied(true);
+                      setMessage("Referral link copied.");
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--dc-orange)]/30 bg-[var(--dc-orange)]/8 px-4 py-2 text-sm font-semibold text-[var(--dc-orange)] transition-all duration-150 hover:bg-[var(--dc-orange)]/15 active:scale-[0.97]"
+                  >
+                    {copied ? (
+                      <>
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden>
+                          <path d="M3.5 8.5l3 3 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden>
+                          <rect x="5" y="5" width="9" height="9" rx="1.5" strokeWidth="1.5" />
+                          <path d="M3 11V3a1 1 0 0 1 1-1h8" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                        Copy my referral link
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              recentReferrals.map((item) => {
+                const statusColor =
+                  item.status === "credited"
+                    ? "dc-badge-success"
+                    : item.status === "qualified"
+                      ? "dc-badge-warning"
+                      : "dc-badge-neutral";
+                const statusLabel =
+                  item.status === "credited"
+                    ? "Credited"
+                    : item.status === "qualified"
+                      ? "Subscribed"
+                      : item.status === "pending"
+                        ? "Signed up"
+                        : item.status.replaceAll("_", " ");
+                return (
+                  <div key={item.id} className="dc-inner-panel flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--dc-gray-100)] text-xs font-bold text-[var(--dc-gray-500)]">
+                        {item.referredEmail ? item.referredEmail.charAt(0).toUpperCase() : "?"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--dc-gray-900)]">{item.referredEmail || "Pending signup"}</p>
+                        <p className="text-xs text-[var(--dc-gray-500)]">{safeDateLabel(item.createdAt)}</p>
+                      </div>
+                    </div>
+                    <span className={`dc-badge ${statusColor}`}>
+                      {statusLabel}
+                    </span>
+                  </div>
+                );
+              })
             )}
           </div>
         </section>

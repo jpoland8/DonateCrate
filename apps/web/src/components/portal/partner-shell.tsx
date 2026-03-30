@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ToastProvider } from "@/components/ui/toast";
+
+type PortalLink = { label: string; href: string };
 
 type PartnerShellProps = {
   children: React.ReactNode;
+  portalLinks?: PortalLink[];
 };
 
 function NavIcon({ kind }: { kind: "home" | "pickups" | "service-areas" | "team" | "organization" }) {
@@ -55,7 +59,7 @@ function NavIcon({ kind }: { kind: "home" | "pickups" | "service-areas" | "team"
   }
 }
 
-export function PartnerShell({ children }: PartnerShellProps) {
+export function PartnerShell({ children, portalLinks = [] }: PartnerShellProps) {
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "home";
   const [collapsed, setCollapsed] = useState(false);
@@ -183,6 +187,46 @@ export function PartnerShell({ children }: PartnerShellProps) {
                   <span className="font-semibold text-[var(--dc-gray-900)]">Pickups</span> is where route-day work happens.
                 </p>
               </div>
+              {portalLinks.length > 0 ? (
+                <div className="rounded-xl border border-black/[0.07] bg-white/80 p-3 backdrop-blur">
+                  <p className="dc-eyebrow mb-2">Switch portal</p>
+                  {portalLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-[var(--dc-gray-700)] transition-colors duration-150 hover:bg-[var(--dc-gray-100)] hover:text-[var(--dc-gray-900)]"
+                    >
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--dc-gray-100)]">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5 text-[var(--dc-gray-600)]" aria-hidden>
+                          <path d="M11 2l3 3-3 3M5 14l-3-3 3-3M2 5h12M2 11h12" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      <span className="flex-1">{link.label}</span>
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3 w-3 shrink-0 opacity-40" aria-hidden>
+                        <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {collapsed && portalLinks.length > 0 ? (
+            <div className="flex flex-col items-center gap-1.5 px-2 pb-2">
+              {portalLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="inline-flex rounded-full border border-black/10 bg-white p-2 text-[var(--dc-gray-500)] shadow-sm transition-colors duration-150 hover:bg-[var(--dc-gray-50)] hover:text-[var(--dc-gray-900)]"
+                  title={link.label}
+                  aria-label={`Switch to ${link.label}`}
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden>
+                    <path d="M11 2l3 3-3 3M5 14l-3-3 3-3M2 5h12M2 11h12" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              ))}
             </div>
           ) : null}
 
@@ -213,7 +257,7 @@ export function PartnerShell({ children }: PartnerShellProps) {
               </div>
             </div>
           </div>
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </main>
       </div>
 
@@ -253,13 +297,36 @@ export function PartnerShell({ children }: PartnerShellProps) {
 
         {renderNav(() => setMobileNavOpen(false))}
 
-        <div className="px-3">
+        <div className="space-y-2.5 px-3">
           <div className="rounded-xl border border-black/[0.07] bg-white/80 p-3.5">
             <p className="dc-eyebrow">Quick guide</p>
             <p className="mt-2 text-xs leading-5 text-[var(--dc-gray-600)]">
               Home shows what needs attention. Pickups is where route-day work happens.
             </p>
           </div>
+          {portalLinks.length > 0 ? (
+            <div className="rounded-xl border border-black/[0.07] bg-white/80 p-3">
+              <p className="dc-eyebrow mb-2">Switch portal</p>
+              {portalLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileNavOpen(false)}
+                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-[var(--dc-gray-700)] transition-colors duration-150 hover:bg-[var(--dc-gray-100)] hover:text-[var(--dc-gray-900)]"
+                >
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--dc-gray-100)]">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3.5 w-3.5 text-[var(--dc-gray-600)]" aria-hidden>
+                      <path d="M11 2l3 3-3 3M5 14l-3-3 3-3M2 5h12M2 11h12" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="flex-1">{link.label}</span>
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" className="h-3 w-3 shrink-0 opacity-40" aria-hidden>
+                    <path d="M6 3l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-auto p-4 dc-safe-bottom">
