@@ -175,7 +175,18 @@ export async function PATCH(request: Request) {
   const input = parsed.data;
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (typeof input.radiusMiles === "number") patch.radius_miles = input.radiusMiles;
-  if (typeof input.status === "string") patch.status = input.status;
+  if (typeof input.status === "string") {
+    patch.status = input.status;
+    // Activating a zone should open signups automatically unless the caller
+    // explicitly passes signupEnabled: false in the same request.
+    if (input.status === "active" && typeof input.signupEnabled !== "boolean") {
+      patch.signup_enabled = true;
+    }
+    // Pausing a zone should close signups automatically unless explicitly overridden.
+    if (input.status === "paused" && typeof input.signupEnabled !== "boolean") {
+      patch.signup_enabled = false;
+    }
+  }
   if (typeof input.minActiveSubscribers === "number") patch.min_active_subscribers = input.minActiveSubscribers;
   if (typeof input.signupEnabled === "boolean") patch.signup_enabled = input.signupEnabled;
   if (typeof input.demoOnly === "boolean") patch.demo_only = input.demoOnly;

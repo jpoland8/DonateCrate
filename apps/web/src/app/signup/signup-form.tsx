@@ -239,6 +239,8 @@ export function SignupForm() {
         state: stateValue,
         postalCode,
         referralCode: referralCode.trim() || undefined,
+        lat: lat ?? undefined,
+        lng: lng ?? undefined,
       }),
     });
     const registerJson = await registerResponse.json().catch(() => ({}));

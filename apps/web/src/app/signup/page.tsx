@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SignupForm } from "./signup-form";
 
@@ -61,7 +62,9 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         </div>
       ) : null}
       <div className="mt-6">
-        <SignupForm />
+        <Suspense fallback={<div className="h-12 animate-pulse rounded-2xl bg-black/5" />}>
+          <SignupForm />
+        </Suspense>
       </div>
     </AuthShell>
   );

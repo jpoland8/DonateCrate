@@ -19,6 +19,8 @@ const bodySchema = z.object({
   state: z.string().length(2),
   postalCode: z.string().min(5).max(10),
   referralCode: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
 });
 
 export async function POST(request: Request) {
@@ -37,8 +39,8 @@ export async function POST(request: Request) {
   const geocoded = await geocodeAddress(parsed.data);
   const eligibility = await checkEligibility({
     postalCode: parsed.data.postalCode,
-    lat: geocoded?.lat,
-    lng: geocoded?.lng,
+    lat: geocoded?.lat ?? parsed.data.lat,
+    lng: geocoded?.lng ?? parsed.data.lng,
   });
   const isWaitlisted = eligibility.status !== "active";
 
