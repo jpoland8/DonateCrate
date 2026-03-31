@@ -152,6 +152,8 @@ a {
   color: white;
 }
 
+/* ── Hero: full-viewport split layout ───────────────────── */
+
 .hero {
   position: relative;
   padding: 2rem 1.25rem 4rem;
@@ -991,6 +993,11 @@ a {
 
   .hero__stats {
     display: none;
+  }
+
+  .service-check__form,
+  .waitlist-form {
+    grid-template-columns: 1fr;
   }
 
   .service-check__actions {

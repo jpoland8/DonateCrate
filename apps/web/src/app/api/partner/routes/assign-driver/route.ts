@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { canManagePartnerSchedule } from "@/lib/access";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { apiLimiter } from "@/lib/rate-limit";
 import { userCanAccessPartner } from "@/lib/partner-access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -11,6 +12,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canManagePartnerSchedule(ctx.partnerRole)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

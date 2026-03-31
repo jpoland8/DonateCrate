@@ -1,0 +1,280 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { cities } from "../../data/cities";
+import type { CityData } from "../../data/cities";
+
+export function getStaticPaths() {
+  return cities.map((city) => ({
+    params: { slug: city.slug },
+    props: { city },
+  }));
+}
+
+type Props = { city: CityData };
+
+const { city } = Astro.props;
+const accountBaseUrl =
+  import.meta.env.PUBLIC_ACCOUNT_URL ||
+  import.meta.env.PUBLIC_APP_URL ||
+  "https://app.donatecrate.com";
+
+const signupUrl = city.active
+  ? `${accountBaseUrl}/signup?source=city-${city.slug}`
+  : `/waitlist?source=city-${city.slug}`;
+
+const structuredData = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  name: `DonateCrate ${city.name}`,
+  description: city.metaDescription,
+  url: `https://donatecrate.com/cities/${city.slug}`,
+  areaServed: {
+    "@type": "City",
+    name: city.name,
+    addressRegion: city.state,
+    addressCountry: "US",
+  },
+  serviceType: "Donation Pickup",
+});
+---
+
+<SiteLayout
+  title={`DonateCrate in ${city.name}, ${city.state} — Monthly Donation Pickup`}
+  description={city.metaDescription}
+>
+  <script type="application/ld+json" set:html={structuredData} />
+
+  <main class="simple-page">
+    <a class="back-link" href="/neighborhoods">All neighborhoods</a>
+    <span class="eyebrow">{city.name}, {city.stateFull}</span>
+    <h1>{city.tagline}</h1>
+    <p class="simple-page__lede">
+      {city.active
+        ? `DonateCrate monthly donation pickup is active in ${city.name}. Bag your gently used clothing and household items, set them out on pickup day, and we handle the rest.`
+        : `DonateCrate is planning to expand to ${city.name}. Join the waitlist to help us launch in your neighborhood and be the first to know when service opens.`}
+    </p>
+
+    {city.active ? (
+      <div class="city-status city-status--active">
+        <span class="city-status__dot"></span>
+        <span>Pickups are active in {city.name}</span>
+      </div>
+    ) : (
+      <div class="city-status city-status--planned">
+        <span class="city-status__dot"></span>
+        <span>Coming soon — join the waitlist</span>
+      </div>
+    )}
+
+    <section class="city-hero-cta">
+      <a class="button" href={signupUrl}>
+        {city.active ? "Check your address & sign up" : "Join the waitlist"}
+      </a>
+      <p class="city-hero-cta__sub">
+        {city.active
+          ? "$5/month. Cancel anytime. No contracts."
+          : "Free to join. We'll email you when your area opens."}
+      </p>
+    </section>
+
+    <div class="simple-grid">
+      <article>
+        <h2>How it works</h2>
+        <p>
+          {city.active
+            ? "Create your account, confirm your address is in our service area, and start your monthly subscription. We'll remind you before each pickup day."
+            : "Once we have enough interest in your area, we open signups. You'll get an email with next steps as soon as your neighborhood goes live."}
+        </p>
+      </article>
+      <article>
+        <h2>What we pick up</h2>
+        <p>
+          Gently used clothing, shoes, linens, towels, small household items, and soft goods.
+          Anything clean and in reusable condition.
+          <a href="/what-we-take">See the full list</a>.
+        </p>
+      </article>
+      <article>
+        <h2>Where donations go</h2>
+        <p>
+          Items are sorted and distributed through local nonprofit partners{city.partnerName ? ` like ${city.partnerName}` : ""}.
+          Nothing goes to a landfill — reusable goods stay in the community.
+        </p>
+      </article>
+    </div>
+
+    {city.neighborhoods.length > 0 && (
+      <section class="city-neighborhoods">
+        <h2>Neighborhoods {city.active ? "we serve" : "we're planning for"} in {city.name}</h2>
+        <div class="city-neighborhoods__grid">
+          {city.neighborhoods.map((hood) => (
+            <div class="city-neighborhoods__item">
+              <span>{hood}</span>
+              {city.active && <span class="city-neighborhoods__badge">Active</span>}
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {city.zipCodes.length > 0 && (
+      <section class="city-zips">
+        <h2>Zip codes {city.active ? "currently served" : "targeted for launch"}</h2>
+        <div class="city-zips__list">
+          {city.zipCodes.map((zip) => (
+            <span class="city-zips__code">{zip}</span>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <section class="feature-band">
+      <article>
+        <span class="eyebrow">$5 per month</span>
+        <h2>One flat price. No hidden fees.</h2>
+        <p>Your subscription covers monthly pickup, reminders, and a donation receipt from our nonprofit partner after each collection.</p>
+      </article>
+      <article>
+        <span class="eyebrow">Skip anytime</span>
+        <h2>Only pay when you use it.</h2>
+        <p>Not ready this month? Skip with one tap before pickup day. No penalty, no questions.</p>
+      </article>
+    </section>
+
+    <section class="city-final-cta">
+      <h2>
+        {city.active
+          ? `Ready to start donating in ${city.name}?`
+          : `Help bring DonateCrate to ${city.name}`}
+      </h2>
+      <p>
+        {city.active
+          ? "Check your address, create your account, and schedule your first pickup."
+          : "Every waitlist signup helps us prioritize your neighborhood for launch."}
+      </p>
+      <a class="button" href={signupUrl}>
+        {city.active ? "Get started — $5/mo" : "Join the waitlist"}
+      </a>
+    </section>
+  </main>
+</SiteLayout>
+
+<style>
+  .city-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+  }
+  .city-status--active {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+  }
+  .city-status--planned {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+  .city-status__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .city-status--active .city-status__dot {
+    background: #10b981;
+  }
+  .city-status--planned .city-status__dot {
+    background: #f59e0b;
+  }
+
+  .city-hero-cta {
+    margin-top: 2rem;
+    text-align: center;
+  }
+  .city-hero-cta__sub {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--clr-text-muted, #6b7280);
+  }
+
+  .city-neighborhoods {
+    margin-top: 3rem;
+  }
+  .city-neighborhoods h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .city-neighborhoods__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+  }
+  .city-neighborhoods__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--clr-border, #e5e7eb);
+    font-size: 0.9rem;
+  }
+  .city-neighborhoods__badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #059669;
+    background: #ecfdf5;
+    padding: 0.15rem 0.5rem;
+    border-radius: 1rem;
+  }
+
+  .city-zips {
+    margin-top: 2rem;
+  }
+  .city-zips h2 {
+    font-size: 1.125rem;
+    margin-bottom: 0.75rem;
+  }
+  .city-zips__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .city-zips__code {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--clr-border, #e5e7eb);
+    background: var(--clr-surface, #f9fafb);
+  }
+
+  .city-final-cta {
+    margin-top: 3rem;
+    text-align: center;
+    padding: 3rem 2rem;
+    border-radius: 1.5rem;
+    background: var(--clr-surface, #f9fafb);
+    border: 1px solid var(--clr-border, #e5e7eb);
+  }
+  .city-final-cta h2 {
+    font-size: 1.5rem;
+  }
+  .city-final-cta p {
+    margin-top: 0.75rem;
+    color: var(--clr-text-muted, #6b7280);
+    max-width: 40rem;
+    margin-inline: auto;
+  }
+  .city-final-cta .button {
+    margin-top: 1.5rem;
+  }
+</style>

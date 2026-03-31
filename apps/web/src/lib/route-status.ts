@@ -1,5 +1,5 @@
 export function isResolvedStopStatus(status: string) {
-  return ["picked_up", "no_access", "not_ready", "rescheduled"].includes(status);
+  return ["picked_up", "no_access", "not_ready", "rescheduled", "missed"].includes(status);
 }
 
 export function deriveRouteStatus(params: {

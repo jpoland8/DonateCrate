@@ -1,341 +1,44 @@
 "use client";
 
 import { isDemoOnlyZone } from "@/lib/zone-flags";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GlobalAppRole } from "@/lib/access";
+import { Spinner } from "@/components/ui/spinner";
 import { getNotificationRetryState } from "@/lib/notification-health";
 import { formatNotificationChannel, formatNotificationEventType, formatNotificationStatus } from "@/lib/notification-labels";
 
-type WorkspaceSection = "overview" | "pickups" | "logistics" | "people" | "network" | "billing" | "growth" | "communication";
-type NetworkSubtab = "zones" | "partners";
-type PeopleSubtab = "customers" | "staff";
+import type {
+  WorkspaceSection,
+  NetworkSubtab,
+  PeopleSubtab,
+  AdminData,
+  AdminUser,
+  ZoneMember,
+  CommunicationChannelHealth,
+  LogisticsRoutePreview,
+} from "./admin-types";
+import {
+  localDateISO,
+  localDateTimeISO,
+  isValidDate,
+  formatCurrency,
+  formatDateTime,
+  formatDate,
+  formatCardExpiry,
+  formatStatusLabel,
+  formatRouteStatusLabel,
+  formatPartnerTeamRole,
+  formatRoleLabel,
+  formatZoneStatusLabel,
+  formatPickupRequestLabel,
+} from "./admin-utils";
+import { useAdminData } from "./use-admin-data";
+import { PickupWindowPicker } from "@/components/ui/pickup-window-picker";
+import { WaitlistMap } from "./waitlist-map";
 
-type AdminUser = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  phone: string | null;
-  role: GlobalAppRole;
-  created_at: string;
-  primary_address: {
-    address_line1: string;
-    city: string;
-    state: string;
-    postal_code: string;
-  } | null;
-  zones: Array<{
-    id: string;
-    code: string;
-    name: string;
-    membershipStatus: string;
-  }>;
-};
+// Types are now imported from ./admin-types
 
-type AdminData = {
-  users: AdminUser[];
-  waitlist: Array<{ id: string; full_name: string; status: string; postal_code: string }>;
-  pickupRequests: Array<{
-    id: string;
-    status: string;
-    updated_at?: string;
-    user_id?: string;
-    pickup_cycle_id?: string;
-    users: { email: string; full_name?: string | null };
-    pickup_cycles: { pickup_date: string };
-  }>;
-  routes: Array<{
-    id: string;
-    status: string;
-    driver_id: string | null;
-    pickup_cycle_id?: string;
-    zone_id?: string;
-    created_at?: string;
-    stopCount?: number;
-    drivers?: { employee_id?: string | null } | null;
-    service_zones?: { code?: string | null; name?: string | null } | Array<{ code?: string | null; name?: string | null }> | null;
-    pickup_cycles?: { pickup_date?: string | null } | Array<{ pickup_date?: string | null }> | null;
-  }>;
-  notificationEvents?: Array<{
-    id: string;
-    user_id: string | null;
-    channel: string;
-    event_type: string;
-    status: string;
-    provider_message_id: string | null;
-    attempt_count: number | null;
-    last_attempt_at: string | null;
-    last_error: string | null;
-    correlation_id: string | null;
-    created_at: string;
-  }>;
-  drivers: Array<{ id: string; employee_id: string; users: { email: string } }>;
-  pickupCycles: Array<{
-    id: string;
-    zone_id: string;
-    cycle_month: string;
-    pickup_date: string;
-    request_cutoff_at: string;
-    service_zones?: { code: string; name: string } | Array<{ code: string; name: string }> | null;
-  }>;
-  subscriptions: Array<{
-    id: string;
-    status: string;
-    updatedAt: string;
-    currentPeriodStart: string | null;
-    currentPeriodEnd: string | null;
-    stripeCustomerId: string | null;
-    stripeSubscriptionId: string | null;
-    cancelAtPeriodEnd: boolean;
-    canceledAt: string | null;
-    latestInvoiceStatus: string | null;
-    paymentMethodSummary: string | null;
-    paymentMethod: {
-      type: string | null;
-      brand: string | null;
-      last4: string | null;
-      expMonth: number | null;
-      expYear: number | null;
-      funding: string | null;
-      country: string | null;
-    } | null;
-    latestInvoice: {
-      status: string | null;
-      amountDueCents: number | null;
-      amountPaidCents: number | null;
-      currency: string | null;
-      hostedInvoiceUrl: string | null;
-    } | null;
-    plan: {
-      name: string | null;
-      amountCents: number | null;
-      currency: string;
-      stripePriceId?: string | null;
-    };
-    user: {
-      email: string;
-      fullName: string | null;
-      phone: string | null;
-    };
-  }>;
-  referrals: Array<{ id: string; referral_code: string; status: string; referrer_email: string | null; referred_email: string | null }>;
-  partners: Array<{
-    id: string;
-    code: string;
-    name: string;
-    legal_name: string | null;
-    support_email: string | null;
-    support_phone: string | null;
-    address_line1: string | null;
-    city: string | null;
-    state: string | null;
-    postal_code: string | null;
-    about_paragraph: string | null;
-    active: boolean;
-    receipt_mode: "partner_issued" | "platform_on_behalf" | "manual";
-    payout_model: "inventory_only" | "revenue_share" | "hybrid";
-    platform_share_bps: number;
-    partner_share_bps: number;
-    notes: string | null;
-    branding: {
-      display_name: string | null;
-      logo_url: string | null;
-      primary_color: string | null;
-      secondary_color: string | null;
-      accent_color: string | null;
-      website_url: string | null;
-      receipt_footer: string | null;
-    } | null;
-    members: Array<{
-      id: string;
-      user_id: string;
-      email: string;
-      full_name: string | null;
-      phone: string | null;
-      role: string;
-      active: boolean;
-    }>;
-    zones: Array<{ id: string; name: string; code: string; operation_model: string }>;
-  }>;
-  zones: Array<{
-    id: string;
-    code: string;
-    name: string;
-    anchor_postal_code: string;
-    radius_miles: number;
-    min_active_subscribers: number;
-    status: "pending" | "launching" | "active" | "paused";
-    center_address: string | null;
-    signup_enabled: boolean;
-    demo_only: boolean;
-    operation_model: "donatecrate_operated" | "partner_operated";
-    partner_id: string | null;
-    partner_pickup_date_override_allowed: boolean;
-    recurring_pickup_day: number | null;
-    default_cutoff_days_before: number;
-    default_pickup_window_label: string | null;
-    partner_notes: string | null;
-    partner: { id: string; name: string; code: string } | null;
-  }>;
-};
-
-type ZoneMember = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  phone: string | null;
-  role: string;
-  primary_address: {
-    address_line1: string;
-    city: string;
-    state: string;
-    postal_code: string;
-  } | null;
-};
-
-type CommunicationChannelHealth = {
-  configured: boolean;
-  ready: boolean;
-  status: "verified" | "not_configured" | "error";
-  detail: string;
-  fromNumber?: string | null;
-  messagingServiceSid?: string | null;
-  fromEmail?: string | null;
-  fromName?: string | null;
-  host?: string | null;
-};
-
-function localDateISO(d = new Date()) {
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
-}
-
-function localDateTimeISO(d = new Date()) {
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
-function isValidDate(value: Date) {
-  return !Number.isNaN(value.getTime());
-}
-
-function formatCurrency(amountCents: number | null, currency = "usd") {
-  if (amountCents == null) return "Plan not linked";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(amountCents / 100);
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return "Not set";
-  const parsed = new Date(value);
-  if (!isValidDate(parsed)) return "Not set";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(parsed);
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "Not set";
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (!isValidDate(parsed)) return "Not set";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(parsed);
-}
-
-function formatCardExpiry(month: number | null, year: number | null) {
-  if (!month || !year) return "Not available";
-  return `${String(month).padStart(2, "0")}/${String(year).slice(-2)}`;
-}
-
-function formatStatusLabel(status: string) {
-  return status.replaceAll("_", " ");
-}
-
-function formatRouteStatusLabel(status: string) {
-  switch (status) {
-    case "draft":
-      return "Draft route";
-    case "assigned":
-      return "Driver assigned";
-    case "in_progress":
-      return "In progress";
-    case "completed":
-      return "Completed";
-    default:
-      return formatStatusLabel(status);
-  }
-}
-
-function formatPartnerTeamRole(role: string) {
-  switch (role) {
-    case "partner_admin":
-      return "Organization Admin";
-    case "partner_coordinator":
-      return "Coordinator";
-    case "partner_driver":
-      return "Driver";
-    default:
-      return formatStatusLabel(role);
-  }
-}
-
-function formatRoleLabel(role: string) {
-  switch (role) {
-    case "customer":
-      return "Donor";
-    case "admin":
-      return "DonateCrate Admin";
-    case "driver":
-      return "Driver";
-    case "partner_admin":
-    case "partner_coordinator":
-    case "partner_driver":
-      return formatPartnerTeamRole(role);
-    default:
-      return formatStatusLabel(role);
-  }
-}
-
-function formatZoneStatusLabel(status: "pending" | "launching" | "active" | "paused") {
-  switch (status) {
-    case "pending":
-      return "Planning";
-    case "launching":
-      return "Opening Soon";
-    case "active":
-      return "Active";
-    case "paused":
-      return "Paused";
-  }
-}
-
-function formatPickupRequestLabel(status: string) {
-  switch (status) {
-    case "requested":
-      return "Ready for pickup";
-    case "skipped":
-      return "Skipped this month";
-    case "confirmed":
-      return "Confirmed by ops";
-    case "picked_up":
-      return "Collected";
-    case "not_ready":
-      return "Not ready";
-    case "missed":
-      return "Missed";
-    default:
-      return formatStatusLabel(status);
-  }
-}
+// Utilities and formatting functions are now imported from ./admin-utils
 
 function getCycleDisplayLabel(cycle: AdminData["pickupCycles"][number]) {
   const zoneMeta = Array.isArray(cycle.service_zones) ? cycle.service_zones[0] : cycle.service_zones;
@@ -363,17 +66,17 @@ function getNotificationStateTone(severity: "healthy" | "attention" | "blocked")
 function getBillingStatusTone(status: string) {
   switch (status) {
     case "active":
-      return "border-emerald-400/35 bg-emerald-400/12 text-emerald-100";
+      return "admin-badge-green";
     case "trialing":
-      return "border-slate-400/35 bg-slate-400/12 text-slate-100";
+      return "admin-badge-slate";
     case "past_due":
-      return "border-amber-400/35 bg-amber-400/12 text-amber-100";
+      return "admin-badge-amber";
     case "paused":
-      return "border-indigo-400/35 bg-indigo-400/12 text-indigo-100";
+      return "admin-badge-indigo";
     case "canceled":
-      return "border-red-400/35 bg-red-400/12 text-red-100";
+      return "admin-badge-red";
     default:
-      return "border-white/15 bg-white/10 text-white";
+      return "border-admin bg-admin-surface-strong text-admin";
   }
 }
 
@@ -449,7 +152,8 @@ export function AdminWorkspace({
   const singlePickupDateRef = useRef<HTMLInputElement | null>(null);
   const recurringStartPickupDateRef = useRef<HTMLInputElement | null>(null);
   const logisticsPreviewAbortRef = useRef<AbortController | null>(null);
-  const [data, setData] = useState<AdminData | null>(null);
+  const { data: adminData, setData: setAdminData, loading: adminLoading, loadAll, refreshSlices } = useAdminData(section);
+  const data: AdminData | null = adminData.zones.length > 0 || adminData.users.length > 0 ? adminData : null;
   const [message, setMessage] = useState("");
   const [logisticsMessage, setLogisticsMessage] = useState("");
   const [subscriptionSearch, setSubscriptionSearch] = useState("");
@@ -546,20 +250,20 @@ export function AdminWorkspace({
   const [pickupMode, setPickupMode] = useState<"single" | "recurring">("single");
   const [applyToAllActiveZones, setApplyToAllActiveZones] = useState(false);
   const [timelineZoneFilter, setTimelineZoneFilter] = useState("all");
+  const [editingCycleId, setEditingCycleId] = useState<string | null>(null);
+  const [cycleEditForm, setCycleEditForm] = useState<{ pickupDate: string; pickupWindowLabel: string } | null>(null);
+  const [cycleEditSaving, setCycleEditSaving] = useState(false);
   const [scheduleForm, setScheduleForm] = useState(() => {
     const now = new Date();
-    const cutoffSeed = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     return {
       zoneCode: "knoxville-37922",
-      cycleMonth: localDateISO(now),
-    pickupDate: localDateISO(now),
-    requestCutoffAt: localDateTimeISO(cutoffSeed),
-    startPickupDate: localDateISO(now),
-    horizonMode: "months" as "months" | "forever",
-    months: 6,
-    weekendPolicy: "next_business_day" as "none" | "next_business_day",
-    cutoffDaysBefore: 7,
-  };
+      pickupDate: localDateISO(now),
+      startPickupDate: localDateISO(now),
+      pickupWindowLabel: "",
+      horizonMode: "months" as "months" | "forever",
+      months: 6,
+      weekendPolicy: "next_business_day" as "none" | "next_business_day",
+    };
   });
   const [smsTarget, setSmsTarget] = useState<"individual" | "zone" | "all">("individual");
   const [smsUserIds, setSmsUserIds] = useState<string[]>([]);
@@ -581,67 +285,49 @@ export function AdminWorkspace({
   const [notificationSelection, setNotificationSelection] = useState<string[]>([]);
   const [mapLoadError, setMapLoadError] = useState(false);
 
-  const loadAll = useCallback(async () => {
-    const [usersRes, waitlistRes, requestsRes, routesRes, driversRes, cyclesRes, subsRes, refsRes, zonesRes, partnersRes, notificationRes] = await Promise.all([
-      fetch("/api/admin/users"),
-      fetch("/api/admin/waitlist"),
-      fetch("/api/admin/pickup-requests"),
-      fetch("/api/admin/routes"),
-      fetch("/api/admin/drivers"),
-      fetch("/api/admin/pickup-cycles"),
-      fetch("/api/admin/subscriptions"),
-      fetch("/api/admin/referrals"),
-      fetch("/api/admin/zones"),
-      fetch("/api/admin/partners"),
-      fetch("/api/admin/notifications"),
-    ]);
+  // Scheduled reminders state
+  const [scheduledReminders, setScheduledReminders] = useState<
+    Array<{ id: string; status: string; channel: string; metadata: Record<string, unknown>; created_at: string }>
+  >([]);
+  const [scheduledRemindersLoading, setScheduledRemindersLoading] = useState(false);
+  const [scheduleReminderForm, setScheduleReminderForm] = useState({
+    message: "",
+    targetType: "all" as "zone" | "all",
+    zoneId: "",
+    scheduledFor: "",
+    includeStaff: false,
+  });
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [commSubtab, setCommSubtab] = useState<"scheduled" | "send-now" | "history" | "test-email">("scheduled");
+  const [testEmailAddress, setTestEmailAddress] = useState("");
+  const [testEmailSending, setTestEmailSending] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ sent: number; failed: number; results: Array<{ eventType: string; status: string; error?: string }> } | null>(null);
+  const [reminderTemplates, setReminderTemplates] = useState<Record<string, string | boolean> | null>(null);
+  const [reminderTemplatesLoading, setReminderTemplatesLoading] = useState(false);
+  const [reminderTemplatesSaving, setReminderTemplatesSaving] = useState(false);
+  const [reminderTemplatesOpen, setReminderTemplatesOpen] = useState(false);
 
-    const [users, waitlist, pickupRequests, routes, drivers, pickupCycles, subscriptions, referrals, zones, partners, notifications] = await Promise.all([
-      usersRes.json(),
-      waitlistRes.json(),
-      requestsRes.json(),
-      routesRes.json(),
-      driversRes.json(),
-      cyclesRes.json(),
-      subsRes.json(),
-      refsRes.json(),
-      zonesRes.json(),
-      partnersRes.json(),
-      notificationRes.json(),
-    ]);
+  // Data loading is now handled by useAdminData hook (lazy per-tab loading).
+  // The `loadAll` and `refreshSlices` functions are available for mutations.
 
-    const zoneRows = zones.zones ?? [];
-    const partnerRows = partners.partners ?? [];
-    if (zones.error) setMessage(`Pickup areas could not be loaded: ${zones.error}`);
-
-    setSelectedZoneCode((prev) =>
-      zoneRows.length > 0 && !zoneRows.some((zone: { code: string }) => zone.code === prev) ? zoneRows[0].code : prev,
-    );
-    setSelectedZoneId((prev) =>
-      zoneRows.length > 0 && !zoneRows.some((zone: { id: string }) => zone.id === prev) ? zoneRows[0].id : prev,
-    );
-    setSelectedPartnerId((prev) =>
-      partnerRows.length > 0 && !partnerRows.some((partner: { id: string }) => partner.id === prev) ? partnerRows[0].id : prev,
-    );
-
-    setData({
-      users: users.users ?? [],
-      waitlist: waitlist.waitlist ?? [],
-      pickupRequests: pickupRequests.pickupRequests ?? [],
-      routes: routes.routes ?? [],
-      notificationEvents: notifications.notificationEvents ?? [],
-      drivers: drivers.drivers ?? [],
-      pickupCycles: pickupCycles.pickupCycles ?? [],
-      subscriptions: subscriptions.subscriptions ?? [],
-      referrals: referrals.referrals ?? [],
-      partners: partnerRows,
-      zones: zoneRows,
-    });
-  }, []);
-
+  // Sync selected zone/partner when data loads
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    const zoneRows = adminData.zones;
+    const partnerRows = adminData.partners;
+    if (zoneRows.length > 0) {
+      setSelectedZoneCode((prev) =>
+        !zoneRows.some((zone) => zone.code === prev) ? zoneRows[0].code : prev,
+      );
+      setSelectedZoneId((prev) =>
+        !zoneRows.some((zone) => zone.id === prev) ? zoneRows[0].id : prev,
+      );
+    }
+    if (partnerRows.length > 0) {
+      setSelectedPartnerId((prev) =>
+        !partnerRows.some((partner) => partner.id === prev) ? partnerRows[0].id : prev,
+      );
+    }
+  }, [adminData.zones, adminData.partners]);
 
   const driverOptions = useMemo(() => data?.drivers ?? [], [data]);
   const routeOptions = useMemo(() => data?.routes ?? [], [data]);
@@ -1035,16 +721,12 @@ export function AdminWorkspace({
       if (!response.ok) return setMessage(json.error || "Could not update Stripe subscription");
 
       if (json.subscription) {
-        setData((prev) =>
-          prev
-            ? {
-                ...prev,
-                subscriptions: prev.subscriptions.map((subscription) =>
-                  subscription.id === json.subscription.id ? json.subscription : subscription,
-                ),
-              }
-            : prev,
-        );
+        setAdminData((prev) => ({
+          ...prev,
+          subscriptions: prev.subscriptions.map((subscription) =>
+            subscription.id === json.subscription.id ? json.subscription : subscription,
+          ),
+        }));
       }
 
       const successMessage =
@@ -1356,16 +1038,52 @@ export function AdminWorkspace({
     setEditCenterSelection(null);
   }
 
+  async function saveCycleEdit() {
+    if (!editingCycleId || !cycleEditForm) return;
+    setCycleEditSaving(true);
+    const response = await fetch(`/api/admin/pickup-cycles/${editingCycleId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pickupDate: cycleEditForm.pickupDate,
+        pickupWindowLabel: cycleEditForm.pickupWindowLabel || null,
+      }),
+    });
+    const json = await response.json().catch(() => ({}));
+    setCycleEditSaving(false);
+    if (!response.ok) {
+      setMessage(json.error || "Failed to save cycle");
+      return;
+    }
+    // Update local data
+    setAdminData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pickupCycles: prev.pickupCycles.map((c) =>
+          c.id === editingCycleId
+            ? { ...c, pickup_date: cycleEditForm.pickupDate, pickup_window_label: cycleEditForm.pickupWindowLabel || null }
+            : c,
+        ),
+      };
+    });
+    setEditingCycleId(null);
+    setCycleEditForm(null);
+    setMessage("Pickup cycle updated.");
+  }
+
   async function createPickupCycle() {
+    // Derive cycle month automatically from pickup date (first of that month)
+    const cycleMonth = scheduleForm.pickupDate.slice(0, 7) + "-01";
     const payload =
       pickupMode === "single"
         ? {
             mode: "single",
             zoneCode: scheduleForm.zoneCode,
             applyToAllActiveZones,
-            cycleMonth: scheduleForm.cycleMonth,
+            cycleMonth,
             pickupDate: scheduleForm.pickupDate,
-            requestCutoffAt: new Date(scheduleForm.requestCutoffAt).toISOString(),
+            pickupWindowLabel: scheduleForm.pickupWindowLabel || undefined,
           }
         : {
             mode: "recurring",
@@ -1375,7 +1093,7 @@ export function AdminWorkspace({
             horizonMode: scheduleForm.horizonMode,
             months: Number(scheduleForm.months),
             weekendPolicy: scheduleForm.weekendPolicy,
-            cutoffDaysBefore: Number(scheduleForm.cutoffDaysBefore),
+            pickupWindowLabel: scheduleForm.pickupWindowLabel || undefined,
           };
 
     const response = await fetch("/api/admin/pickup-cycles", {
@@ -1507,61 +1225,171 @@ export function AdminWorkspace({
     }
   }
 
-  if (!data) return <p className="text-sm text-white/75">Loading admin workspace...</p>;
+  // Load reminder templates when the editor is opened
+  useEffect(() => {
+    if (!reminderTemplatesOpen || reminderTemplates) return;
+    const controller = new AbortController();
+    const load = async () => {
+      setReminderTemplatesLoading(true);
+      try {
+        const response = await fetch("/api/admin/reminder-templates", { signal: controller.signal });
+        const json = await response.json().catch(() => ({}));
+        if (response.ok) setReminderTemplates(json.templates ?? {});
+      } catch { /* abort */ }
+      finally { setReminderTemplatesLoading(false); }
+    };
+    load();
+    return () => controller.abort();
+  }, [reminderTemplatesOpen, reminderTemplates]);
+
+  async function saveReminderTemplates() {
+    if (!reminderTemplates) return;
+    setReminderTemplatesSaving(true);
+    try {
+      const response = await fetch("/api/admin/reminder-templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templates: reminderTemplates }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(json.error || "Could not save templates.");
+      setMessage("Reminder templates saved. Changes take effect on the next cron run.");
+      setReminderTemplates(json.templates ?? reminderTemplates);
+    } catch {
+      setMessage("Could not reach server.");
+    } finally {
+      setReminderTemplatesSaving(false);
+    }
+  }
+
+  // Load scheduled reminders when communication tab is active
+  useEffect(() => {
+    if (section !== "communication") return;
+    const controller = new AbortController();
+    const loadScheduledReminders = async () => {
+      setScheduledRemindersLoading(true);
+      try {
+        const response = await fetch("/api/admin/scheduled-reminders?limit=50", { signal: controller.signal });
+        const json = await response.json().catch(() => ({}));
+        if (response.ok) setScheduledReminders(json.reminders ?? []);
+      } catch {
+        // abort or network error
+      } finally {
+        setScheduledRemindersLoading(false);
+      }
+    };
+    loadScheduledReminders();
+    return () => controller.abort();
+  }, [section]);
+
+  async function createScheduledReminder() {
+    const { message, targetType, zoneId, scheduledFor, includeStaff } = scheduleReminderForm;
+    if (!message.trim()) return setMessage("Enter a message for the reminder.");
+    if (!scheduledFor) return setMessage("Pick a date and time for the reminder.");
+    if (new Date(scheduledFor) <= new Date()) return setMessage("Scheduled time must be in the future.");
+    if (targetType === "zone" && !zoneId) return setMessage("Select a zone.");
+
+    setScheduleSaving(true);
+    try {
+      const response = await fetch("/api/admin/scheduled-reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: message.trim(),
+          targetType,
+          zoneId: targetType === "zone" ? zoneId : undefined,
+          scheduledFor: new Date(scheduledFor).toISOString(),
+          includeStaff,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(json.error || "Could not schedule reminder.");
+      setMessage(`Reminder scheduled for ${new Date(scheduledFor).toLocaleString()}.`);
+      setScheduleReminderForm({ message: "", targetType: "all", zoneId: "", scheduledFor: "", includeStaff: false });
+      // Refresh list
+      const refreshResponse = await fetch("/api/admin/scheduled-reminders?limit=50");
+      const refreshJson = await refreshResponse.json().catch(() => ({}));
+      if (refreshResponse.ok) setScheduledReminders(refreshJson.reminders ?? []);
+    } catch {
+      setMessage("Could not reach scheduling service.");
+    } finally {
+      setScheduleSaving(false);
+    }
+  }
+
+  async function cancelScheduledReminder(id: string) {
+    const confirmed = window.confirm("Cancel this scheduled reminder?");
+    if (!confirmed) return;
+    try {
+      const response = await fetch("/api/admin/scheduled-reminders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(json.error || "Could not cancel reminder.");
+      setMessage("Scheduled reminder canceled.");
+      setScheduledReminders((prev) => prev.map((r) => (r.id === id ? { ...r, status: "canceled" } : r)));
+    } catch {
+      setMessage("Could not reach scheduling service.");
+    }
+  }
+
+  if (!data) return <p className="text-sm text-admin-muted">Loading admin workspace...</p>;
 
   return (
     <div className="space-y-6">
       {section === "overview" ? (
         <section className="space-y-4">
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+          <article className="rounded-3xl border border-admin bg-admin-surface p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Operational Snapshot</p>
             <h2 className="mt-2 text-2xl font-bold">What needs attention first</h2>
-            <p className="mt-2 max-w-3xl text-sm text-white/70">
+            <p className="mt-2 max-w-3xl text-sm text-admin-muted">
               Treat this page as the top of the day board: confirm cycle volume, clear delivery failures, then move into dispatch once the stop list is stable.
             </p>
           </article>
           <section className="grid gap-4 xl:grid-cols-3">
-            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Ready Routes</p>
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-admin-soft">Ready Routes</p>
               <p className="mt-2 text-4xl font-bold">{opsOverview.readyRoutes}</p>
-              <p className="mt-2 text-sm text-white/70">Routes already assigned or in progress.</p>
+              <p className="mt-2 text-sm text-admin-muted">Routes already assigned or in progress.</p>
             </article>
-            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Draft Routes</p>
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-admin-soft">Draft Routes</p>
               <p className="mt-2 text-4xl font-bold">{opsOverview.draftRoutes}</p>
-              <p className="mt-2 text-sm text-white/70">Cycles with a route built but not yet staffed.</p>
+              <p className="mt-2 text-sm text-admin-muted">Cycles with a route built but not yet staffed.</p>
             </article>
-            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Cycle Exceptions</p>
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
+              <p className="text-xs uppercase tracking-[0.2em] text-admin-soft">Cycle Exceptions</p>
               <p className="mt-2 text-4xl font-bold">{opsOverview.cycleExceptions}</p>
-              <p className="mt-2 text-sm text-white/70">Households marked not ready or missed and likely needing follow-up.</p>
+              <p className="mt-2 text-sm text-admin-muted">Households marked not ready or missed and likely needing follow-up.</p>
             </article>
           </section>
           <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
               <h3 className="text-lg font-bold">Recommended workflow</h3>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <div className="rounded-2xl border border-admin bg-admin-panel p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">1. Calendar</p>
-                  <p className="mt-2 text-sm text-white/80">Check Pickup Calendar for the next service day and request volume.</p>
+                  <p className="mt-2 text-sm text-admin-muted">Check Pickup Calendar for the next service day and request volume.</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <div className="rounded-2xl border border-admin bg-admin-panel p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">2. Dispatch</p>
-                  <p className="mt-2 text-sm text-white/80">Build one route per zone and cycle, then assign the driver.</p>
+                  <p className="mt-2 text-sm text-admin-muted">Build one route per zone and cycle, then assign the driver.</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                <div className="rounded-2xl border border-admin bg-admin-panel p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">3. Support</p>
-                  <p className="mt-2 text-sm text-white/80">Use Messages and Billing to clear failures before they snowball.</p>
+                  <p className="mt-2 text-sm text-admin-muted">Use Messages and Billing to clear failures before they snowball.</p>
                 </div>
               </div>
             </article>
-            <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
               <h3 className="text-lg font-bold">Attention queue</h3>
-              <div className="mt-4 space-y-3 text-sm text-white/75">
-                <p><span className="font-semibold text-white">{opsOverview.activeZones}</span> active zones currently open.</p>
-                <p><span className="font-semibold text-white">{opsOverview.attentionSubscriptions}</span> subscriber accounts need billing review.</p>
-                <p><span className="font-semibold text-white">{failedNotificationEvents.length}</span> message failures are in the log.</p>
-                <p><span className="font-semibold text-white">{opsOverview.openWaitlist}</span> waitlist records still need conversion planning.</p>
+              <div className="mt-4 space-y-3 text-sm text-admin-muted">
+                <p><span className="font-semibold text-admin">{opsOverview.activeZones}</span> active zones currently open.</p>
+                <p><span className="font-semibold text-admin">{opsOverview.attentionSubscriptions}</span> subscriber accounts need billing review.</p>
+                <p><span className="font-semibold text-admin">{failedNotificationEvents.length}</span> message failures are in the log.</p>
+                <p><span className="font-semibold text-admin">{opsOverview.openWaitlist}</span> waitlist records still need conversion planning.</p>
               </div>
             </article>
           </section>
@@ -1569,14 +1397,14 @@ export function AdminWorkspace({
       ) : null}
 
       {section === "people" ? (
-        <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+        <section className="rounded-3xl border border-admin bg-admin-surface p-6">
           <div className="mb-4 flex flex-wrap gap-2">
             <a
               href="/admin?tab=people&sub=customers"
               className={`rounded-xl border px-4 py-2 text-sm font-semibold ${
                 peopleSubtab === "customers"
                   ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
-                  : "border-white/20 bg-black/30 hover:bg-white/10"
+                  : "border-admin-strong bg-admin-panel hover:bg-admin-surface-strong"
               }`}
             >
               Customers
@@ -1586,7 +1414,7 @@ export function AdminWorkspace({
               className={`rounded-xl border px-4 py-2 text-sm font-semibold ${
                 peopleSubtab === "staff"
                   ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
-                  : "border-white/20 bg-black/30 hover:bg-white/10"
+                  : "border-admin-strong bg-admin-panel hover:bg-admin-surface-strong"
               }`}
             >
               Staff
@@ -1595,7 +1423,7 @@ export function AdminWorkspace({
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">{peopleSubtab === "customers" ? "Donor Directory" : "Team Directory"}</p>
-              <p className="text-xs text-white/65">
+              <p className="text-xs text-admin-soft">
                 {peopleSubtab === "customers"
                   ? "Search donor accounts by name, email, or ZIP and check where they are assigned."
                   : "Review DonateCrate staff and organization team roles without donor records mixed in."}
@@ -1605,13 +1433,13 @@ export function AdminWorkspace({
               value={userSearch}
               onChange={(event) => setUserSearch(event.target.value)}
               placeholder="Search users"
-              className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:min-w-[220px] sm:w-auto"
+              className="dc-input-admin w-full sm:min-w-[220px] sm:w-auto"
             />
             {peopleSubtab === "staff" ? (
               <select
                 value={roleFilter}
                 onChange={(event) => setRoleFilter(event.target.value as "all" | GlobalAppRole)}
-                className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:w-auto"
+                className="dc-input-admin w-full sm:w-auto"
               >
                 <option value="all">All team roles</option>
                 <option value="customer">Donor accounts</option>
@@ -1619,14 +1447,14 @@ export function AdminWorkspace({
                 <option value="admin">DonateCrate Admin</option>
               </select>
             ) : (
-              <div className="h-10 rounded-xl border border-white/15 bg-black/30 px-3 text-sm flex items-center text-white/60">
+              <div className="h-10 rounded-xl border border-admin bg-admin-panel px-3 text-sm flex items-center text-admin-soft">
                 Showing donor accounts
               </div>
             )}
             <select
               value={userZoneFilter}
               onChange={(event) => setUserZoneFilter(event.target.value)}
-              className="h-10 w-full rounded-xl border border-white/25 bg-black px-3 text-sm sm:w-auto"
+              className="dc-input-admin w-full sm:w-auto"
             >
               <option value="all">All zones</option>
               {data.zones.map((zone) => (
@@ -1637,27 +1465,27 @@ export function AdminWorkspace({
 
           <div className="mt-4 space-y-2">
             {(peopleSubtab === "customers" ? filteredCustomerUsers : filteredStaffUsers).map((user) => (
-              <article key={user.id} className="rounded-2xl border border-white/10 bg-black/35 p-4">
+              <article key={user.id} className="rounded-2xl border border-admin bg-admin-panel p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold">{user.full_name || "No name set"}</p>
-                    <p className="text-xs text-white/70">{user.email}</p>
+                    <p className="text-xs text-admin-muted">{user.email}</p>
                   </div>
                   {peopleSubtab === "staff" ? (
                     <select
                       value={user.role}
                       onChange={(event) => updateUserRole(user.id, event.target.value as GlobalAppRole)}
-                      className="h-9 rounded-lg border border-white/30 bg-black px-3 text-xs"
+                      className="dc-input-admin !h-9 text-xs"
                     >
                       <option value="customer">Donor</option>
                       <option value="driver">Driver</option>
                       <option value="admin">DonateCrate Admin</option>
                     </select>
                   ) : (
-                    <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-white/75">Donor</span>
+                    <span className="rounded-full border border-admin px-3 py-1 text-xs font-semibold text-admin-muted">Donor</span>
                   )}
                 </div>
-                <div className="mt-3 grid gap-2 text-xs text-white/70 md:grid-cols-3">
+                <div className="mt-3 grid gap-2 text-xs text-admin-muted md:grid-cols-3">
                   <p>Phone: {user.phone || "Not set"}</p>
                   <p>
                     Address:{" "}
@@ -1675,13 +1503,13 @@ export function AdminWorkspace({
               </article>
             ))}
             {(peopleSubtab === "customers" ? filteredCustomerUsers : filteredStaffUsers).length === 0 ? (
-              <p className="text-sm text-white/65">No users match the current filters.</p>
+              <p className="text-sm text-admin-soft">No users match the current filters.</p>
             ) : null}
           </div>
 
-          <section className="mt-6 rounded-2xl border border-white/10 bg-black/35 p-4">
+          <section className="mt-6 rounded-2xl border border-admin bg-admin-panel p-4">
             <p className="text-sm font-semibold">{peopleSubtab === "customers" ? "Donors And Billing" : "Team And Network"}</p>
-            <p className="mt-2 text-sm text-white/70">
+            <p className="mt-2 text-sm text-admin-muted">
               {peopleSubtab === "customers"
                 ? "Use this view for donor contact details and service area placement. Use Billing for cancellations, renewals, payment status, and Stripe-backed subscription actions."
                 : "Use this view for DonateCrate and organization team roles. Use Network for service area ownership and organization account management."}
@@ -1705,25 +1533,25 @@ export function AdminWorkspace({
           </article>
 
           <div className="grid gap-4 lg:grid-cols-4">
-            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <article className="dc-stat-admin">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Active Subscribers</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => subscription.status === "active").length}
               </p>
             </article>
-            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <article className="dc-stat-admin">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Ending This Period</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => subscription.cancelAtPeriodEnd).length}
               </p>
             </article>
-            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <article className="dc-stat-admin">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Needs Attention</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => ["past_due", "canceled"].includes(subscription.status)).length}
               </p>
             </article>
-            <article className="rounded-3xl border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <article className="dc-stat-admin">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--admin-soft-text)" }}>Saved Card on File</p>
               <p className="mt-3 text-3xl font-bold">
                 {data.subscriptions.filter((subscription) => subscription.paymentMethod?.type === "card").length}
@@ -1731,7 +1559,7 @@ export function AdminWorkspace({
             </article>
           </div>
 
-          <article className="rounded-3xl border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+          <article className="dc-stat-admin !p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm font-semibold">Subscriber billing roster</p>
@@ -1744,8 +1572,7 @@ export function AdminWorkspace({
                   value={subscriptionSearch}
                   onChange={(event) => setSubscriptionSearch(event.target.value)}
                   placeholder="Search billing records"
-                  className="h-11 min-w-0 rounded-xl border px-3 text-sm"
-                  style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
+                  className="dc-input-admin min-w-0"
                 />
                 <select
                   value={subscriptionStatusFilter}
@@ -1754,8 +1581,7 @@ export function AdminWorkspace({
                       event.target.value as "all" | "active" | "past_due" | "paused" | "canceled",
                     )
                   }
-                  className="h-11 rounded-xl border px-3 text-sm"
-                  style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
+                  className="dc-input-admin"
                 >
                   <option value="all">All statuses</option>
                   <option value="active">Active</option>
@@ -1851,29 +1677,29 @@ export function AdminWorkspace({
                           <article className="rounded-[28px] border p-5" style={{ borderColor: "var(--admin-border)", background: "linear-gradient(135deg,#ff6a00 0%, #d45a07 38%, #f4ede7 100%)", color: "#ffffff" }}>
                             <div className="flex items-start justify-between">
                               <div>
-                                <p className="text-xs uppercase tracking-[0.25em] text-white/70">Payment method preview</p>
+                                <p className="text-xs uppercase tracking-[0.25em] text-admin-muted">Payment method preview</p>
                                 <p className="mt-2 text-2xl font-bold capitalize">
                                   {subscription.paymentMethod?.brand || subscription.paymentMethod?.type || "Unavailable"}
                                 </p>
                               </div>
-                              <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white/85">
+                              <span className="rounded-full border border-admin-strong bg-admin-surface-strong px-3 py-1 text-xs font-semibold text-admin-muted">
                                 {subscription.paymentMethod?.funding || "stored"}
                               </span>
                             </div>
-                            <p className="mt-12 font-mono text-2xl tracking-[0.28em] text-white/95">
+                            <p className="mt-12 font-mono text-2xl tracking-[0.28em] text-admin">
                               •••• •••• •••• {subscription.paymentMethod?.last4 || "----"}
                             </p>
                             <div className="mt-6 grid gap-3 sm:grid-cols-3 text-sm">
                               <div>
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Card expires</p>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-admin-soft">Card expires</p>
                                 <p className="mt-1 font-semibold">{formatCardExpiry(subscription.paymentMethod?.expMonth ?? null, subscription.paymentMethod?.expYear ?? null)}</p>
                               </div>
                               <div>
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Country</p>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-admin-soft">Country</p>
                                 <p className="mt-1 font-semibold">{subscription.paymentMethod?.country || "Unknown"}</p>
                               </div>
                               <div>
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Charge amount</p>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-admin-soft">Charge amount</p>
                                 <p className="mt-1 font-semibold">{formatCurrency(subscription.plan.amountCents, subscription.plan.currency)}</p>
                               </div>
                             </div>
@@ -1892,7 +1718,7 @@ export function AdminWorkspace({
                                   href={subscription.latestInvoice.hostedInvoiceUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="rounded-full border px-3 py-2 text-xs font-semibold hover:bg-white/10"
+                                  className="rounded-full border px-3 py-2 text-xs font-semibold hover:bg-admin-surface-strong"
                                   style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-text)" }}
                                 >
                                   Open invoice
@@ -1940,34 +1766,34 @@ export function AdminWorkspace({
                                 type="button"
                                 onClick={() => runSubscriptionAction(subscription.id, "sync")}
                                 disabled={actionBusy}
-                                className="rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-admin-surface-strong disabled:cursor-not-allowed disabled:opacity-60"
                                 style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-panel)" }}
                               >
-                                {actionBusy && subscriptionActionState?.action === "sync" ? "Refreshing..." : "Refresh from Stripe"}
+                                {actionBusy && subscriptionActionState?.action === "sync" ? <><Spinner size="sm" color="current" /> Refreshing...</> : "Refresh from Stripe"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => runSubscriptionAction(subscription.id, "schedule_cancel")}
                                 disabled={actionBusy || !canScheduleCancel}
-                                className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 admin-badge-amber"
                               >
-                                {subscription.cancelAtPeriodEnd ? "Cancellation scheduled" : "End after current period"}
+                                {actionBusy && subscriptionActionState?.action === "schedule_cancel" ? <><Spinner size="sm" color="current" /> Scheduling...</> : subscription.cancelAtPeriodEnd ? "Cancellation scheduled" : "End after current period"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => runSubscriptionAction(subscription.id, "resume")}
                                 disabled={actionBusy || !canResume}
-                                className="rounded-xl border border-emerald-400/35 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 admin-badge-green"
                               >
-                                {isEnded ? "Restart subscription" : "Restore auto-renew"}
+                                {actionBusy && subscriptionActionState?.action === "resume" ? <><Spinner size="sm" color="current" /> Resuming...</> : isEnded ? "Restart subscription" : "Restore auto-renew"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => runSubscriptionAction(subscription.id, "cancel_now")}
                                 disabled={actionBusy || isEnded || !subscription.stripeSubscriptionId}
-                                className="rounded-xl border border-red-400/35 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100 hover:bg-red-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 admin-badge-red"
                               >
-                                {actionBusy && subscriptionActionState?.action === "cancel_now" ? "Canceling..." : "Cancel immediately"}
+                                {actionBusy && subscriptionActionState?.action === "cancel_now" ? <><Spinner size="sm" color="current" /> Canceling...</> : "Cancel immediately"}
                               </button>
                             </div>
                             <div className="mt-4 grid gap-3 text-xs" style={{ color: "var(--admin-soft-text)" }}>
@@ -1988,8 +1814,8 @@ export function AdminWorkspace({
             })}
             {filteredSubscriptions.length === 0 ? (
               <article
-                className="rounded-3xl border border-dashed p-8 text-sm"
-                style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-soft-text)" }}
+                className="dc-stat-admin border-dashed !p-8 text-sm"
+                style={{ color: "var(--admin-soft-text)" }}
               >
                 No billing records match the current search or status filters.
               </article>
@@ -2001,16 +1827,16 @@ export function AdminWorkspace({
       {section === "network" ? (
         <section className="grid gap-4 xl:grid-cols-[300px_1fr]">
           <aside className="space-y-4">
-            <div className="rounded-3xl border border-white/15 bg-white/5 p-4">
+            <div className="rounded-3xl border border-admin bg-admin-surface p-4">
               <p className="text-sm font-semibold">Network Workspace</p>
-              <p className="mt-1 text-xs text-white/65">Separate service area operations from nonprofit account management.</p>
+              <p className="mt-1 text-xs text-admin-soft">Separate service area operations from nonprofit account management.</p>
               <div className="mt-3 space-y-2">
                 <a
                   href="/admin?tab=network&sub=zones"
                   className={`block rounded-xl border px-3 py-2 text-sm font-semibold ${
                     networkSubtab === "zones"
                       ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
-                      : "border-white/20 bg-black/30 hover:bg-white/10"
+                      : "border-admin-strong bg-admin-panel hover:bg-admin-surface-strong"
                   }`}
                 >
                   Zones
@@ -2020,7 +1846,7 @@ export function AdminWorkspace({
                   className={`block rounded-xl border px-3 py-2 text-sm font-semibold ${
                     networkSubtab === "partners"
                       ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
-                      : "border-white/20 bg-black/30 hover:bg-white/10"
+                      : "border-admin-strong bg-admin-panel hover:bg-admin-surface-strong"
                   }`}
                 >
                   Partners
@@ -2029,11 +1855,11 @@ export function AdminWorkspace({
             </div>
 
             {networkSubtab === "zones" ? (
-              <div className="rounded-3xl border border-white/15 bg-white/5 p-4">
+              <div className="rounded-3xl border border-admin bg-admin-surface p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold">Service Areas</p>
-                    <p className="mt-1 text-xs text-white/65">Select a service area to review settings, coverage, and scheduling.</p>
+                    <p className="mt-1 text-xs text-admin-soft">Select a service area to review settings, coverage, and scheduling.</p>
                   </div>
                   <button
                     type="button"
@@ -2061,19 +1887,19 @@ export function AdminWorkspace({
                       className={`w-full rounded-xl border px-3 py-2 text-left text-sm ${
                         selectedZoneId === zone.id
                           ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
-                          : "border-white/20 bg-black/30 hover:bg-white/10"
+                          : "border-admin-strong bg-admin-panel hover:bg-admin-surface-strong"
                       }`}
                     >
                       <p className="font-semibold">{zone.name}</p>
-                      <p className="text-xs text-white/65">ZIP {zone.anchor_postal_code} | {formatZoneStatusLabel(zone.status)}</p>
+                      <p className="text-xs text-admin-soft">ZIP {zone.anchor_postal_code} | {formatZoneStatusLabel(zone.status)}</p>
                     </button>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="rounded-3xl border border-white/15 bg-white/5 p-4">
+              <div className="rounded-3xl border border-admin bg-admin-surface p-4">
                 <p className="text-sm font-semibold">Organizations</p>
-                <p className="mt-1 text-xs text-white/65">Select an organization to manage branding, contact details, and team access.</p>
+                <p className="mt-1 text-xs text-admin-soft">Select an organization to manage branding, contact details, and team access.</p>
                 <div className="mt-3 space-y-2">
                   {partnerOptions.map((partner) => (
                     <button
@@ -2083,11 +1909,11 @@ export function AdminWorkspace({
                       className={`w-full rounded-xl border px-3 py-2 text-left text-sm ${
                         selectedPartnerId === partner.id
                           ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/15"
-                          : "border-white/20 bg-black/30 hover:bg-white/10"
+                          : "border-admin-strong bg-admin-panel hover:bg-admin-surface-strong"
                       }`}
                     >
                       <p className="font-semibold">{partner.name}</p>
-                      <p className="text-xs text-white/65">{partner.code} | {partner.active ? "Active" : "Inactive"}</p>
+                      <p className="text-xs text-admin-soft">{partner.code} | {partner.active ? "Active" : "Inactive"}</p>
                     </button>
                   ))}
                 </div>
@@ -2122,15 +1948,15 @@ export function AdminWorkspace({
                       partnerNotes: String(form.get("partnerNotes") || ""),
                     });
                   }}
-                  className="rounded-3xl border border-white/15 bg-white/5 p-6"
+                  className="rounded-3xl border border-admin bg-admin-surface p-6"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 className="text-xl font-bold">{selectedZone!.name}</h3>
-                      <p className="text-xs text-white/65">{selectedZone!.code} | ZIP {selectedZone!.anchor_postal_code}</p>
+                      <p className="text-xs text-admin-soft">{selectedZone!.code} | ZIP {selectedZone!.anchor_postal_code}</p>
                     </div>
                     {isDemoOnlyZone(selectedZone!) ? (
-                      <div className="rounded-full border border-amber-300/50 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100">
+                      <div className="rounded-full border px-3 py-1 text-xs font-semibold admin-badge-amber">
                         Demo only
                       </div>
                     ) : null}
@@ -2155,7 +1981,7 @@ export function AdminWorkspace({
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <label className="text-xs text-white/70">
+                    <label className="text-xs text-admin-muted">
                       Service Radius (miles)
                       <input
                         name="radiusMiles"
@@ -2163,22 +1989,22 @@ export function AdminWorkspace({
                         min={0.5}
                         step={0.5}
                         defaultValue={selectedZone!.radius_miles}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                     </label>
-                    <label className="text-xs text-white/70">
+                    <label className="text-xs text-admin-muted">
                       Active households
                       <input
                         name="minActiveSubscribers"
                         type="number"
                         min={1}
                         defaultValue={selectedZone!.min_active_subscribers}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                     </label>
-                    <label className="text-xs text-white/70">
+                    <label className="text-xs text-admin-muted">
                       Service area status
-                      <select name="status" defaultValue={selectedZone!.status} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                      <select name="status" defaultValue={selectedZone!.status} className="dc-input-admin mt-1 w-full">
                         <option value="pending">Planning</option>
                         <option value="launching">Opening Soon</option>
                         <option value="active">Active</option>
@@ -2188,31 +2014,31 @@ export function AdminWorkspace({
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <label className="text-xs text-white/70">
+                    <label className="text-xs text-admin-muted">
                       Service lead
-                      <select name="operationModel" defaultValue={selectedZone!.operation_model} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                      <select name="operationModel" defaultValue={selectedZone!.operation_model} className="dc-input-admin mt-1 w-full">
                         <option value="donatecrate_operated">DonateCrate managed</option>
                         <option value="partner_operated">Organization managed</option>
                       </select>
                     </label>
-                    <label className="text-xs text-white/70">
+                    <label className="text-xs text-admin-muted">
                       Organization
-                      <select name="partnerId" defaultValue={selectedZone!.partner_id ?? ""} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                      <select name="partnerId" defaultValue={selectedZone!.partner_id ?? ""} className="dc-input-admin mt-1 w-full">
                         <option value="">No organization assigned</option>
                         {partnerOptions.map((partner) => (
                           <option key={partner.id} value={partner.id}>{partner.name}</option>
                         ))}
                       </select>
                     </label>
-                    <label className="inline-flex items-center gap-2 text-xs text-white/80 md:col-span-2">
+                    <label className="inline-flex items-center gap-2 text-xs text-admin-muted md:col-span-2">
                       <input name="partnerPickupDateOverrideAllowed" type="checkbox" defaultChecked={selectedZone!.partner_pickup_date_override_allowed} />
                       Let the organization manage pickup dates for this service area
                     </label>
-                    <label className="inline-flex items-center gap-2 text-xs text-white/80 md:col-span-2">
+                    <label className="inline-flex items-center gap-2 text-xs text-admin-muted md:col-span-2">
                       <input name="demoOnly" type="checkbox" defaultChecked={selectedZone!.demo_only} />
                       Demo only: keep this service area available for staff demos but block public signup
                     </label>
-                    <label className="text-xs text-white/70">
+                    <label className="text-xs text-admin-muted">
                       Recurring pickup day
                       <input
                         name="recurringPickupDay"
@@ -2220,61 +2046,49 @@ export function AdminWorkspace({
                         min={1}
                         max={31}
                         defaultValue={selectedZone!.recurring_pickup_day ?? ""}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                     </label>
-                    <label className="text-xs text-white/70">
-                      Booking cutoff
-                      <input
-                        name="defaultCutoffDaysBefore"
-                        type="number"
-                        min={0}
-                        max={30}
-                        defaultValue={selectedZone!.default_cutoff_days_before}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
-                      />
-                      <span className="mt-1 block text-[11px] text-white/55">How many days before pickup changes close.</span>
-                    </label>
-                    <label className="text-xs text-white/70 md:col-span-2">
+                    <label className="text-xs text-admin-muted md:col-span-2">
                       Pickup window
                       <input
                         name="defaultPickupWindowLabel"
                         type="text"
                         defaultValue={selectedZone!.default_pickup_window_label ?? ""}
-                        className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                        className="dc-input-admin mt-1 w-full"
                       />
                     </label>
-                    <label className="text-xs text-white/70 md:col-span-2">
+                    <label className="text-xs text-admin-muted md:col-span-2">
                       Team notes
                       <textarea
                         name="partnerNotes"
                         defaultValue={selectedZone!.partner_notes ?? ""}
                         rows={3}
-                        className="mt-1 w-full rounded-lg border border-white/30 bg-black px-3 py-2"
+                        className="mt-1 w-full rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2"
                         placeholder="Notes for staff handling this service area"
                       />
                     </label>
                   </div>
 
-                  <p className="mt-3 text-xs text-white/65">Area center: {selectedZone!.center_address || "Not set"}</p>
+                  <p className="mt-3 text-xs text-admin-soft">Area center: {selectedZone!.center_address || "Not set"}</p>
                   {selectedZone!.demo_only ? (
-                    <p className="mt-1 text-xs text-amber-200">Public signup is blocked for this demo service area, even if signup is turned on.</p>
+                    <p className="mt-1 text-xs text-amber-700">Public signup is blocked for this demo service area, even if signup is turned on.</p>
                   ) : null}
-                  <p className="mt-1 text-xs text-white/65">
+                  <p className="mt-1 text-xs text-admin-soft">
                     Service lead: {selectedZone!.operation_model === "partner_operated"
                       ? selectedZone!.partner?.name || "No organization assigned"
                       : "DonateCrate team"}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button type="submit" disabled={zoneSaving} className="rounded-lg border border-white/35 px-4 py-2 text-sm font-semibold disabled:opacity-60">
-                      {zoneSaving ? "Saving..." : "Save Zone Settings"}
+                    <button type="submit" disabled={zoneSaving} className="inline-flex items-center gap-2 rounded-lg border border-admin-strong px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60">
+                      {zoneSaving ? <><Spinner size="sm" color="current" /> Saving...</> : "Save Zone Settings"}
                     </button>
                   </div>
                 </form>
 
-                <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+                <section className="rounded-3xl border border-admin bg-admin-surface p-6">
                   <h4 className="text-lg font-bold">People In This Service Area</h4>
-                  <p className="mt-1 text-xs text-white/65">Donors and team members currently connected to this coverage area.</p>
+                  <p className="mt-1 text-xs text-admin-soft">Donors and team members currently connected to this coverage area.</p>
                   <div className="mt-3 grid gap-2 md:grid-cols-3">
                     <input
                       value={zoneMemberSearch}
@@ -2283,7 +2097,7 @@ export function AdminWorkspace({
                         setZoneMemberPage(1);
                       }}
                       placeholder="Search members"
-                      className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                      className="dc-input-admin"
                     />
                     <select
                       value={zoneMemberRole}
@@ -2291,7 +2105,7 @@ export function AdminWorkspace({
                         setZoneMemberRole(event.target.value as "all" | "customer" | "admin" | "driver" | "partner_admin" | "partner_coordinator" | "partner_driver");
                         setZoneMemberPage(1);
                       }}
-                      className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                      className="dc-input-admin"
                     >
                       <option value="all">All people</option>
                       <option value="customer">Donor</option>
@@ -2301,42 +2115,42 @@ export function AdminWorkspace({
                       <option value="partner_coordinator">Coordinator</option>
                       <option value="partner_driver">Driver</option>
                     </select>
-                    <p className="text-xs text-white/70 md:self-center">
+                    <p className="text-xs text-admin-muted md:self-center">
                       {zoneMemberPagination.total} total members
                     </p>
                   </div>
                   <div className="mt-3 space-y-2">
                     {zoneMembers.map((user) => (
-                      <div key={user.id} className="rounded-xl border border-white/10 bg-black/35 p-3">
+                      <div key={user.id} className="rounded-xl border border-admin bg-admin-panel p-3">
                         <p className="text-sm font-semibold">{user.full_name || user.email}</p>
-                        <p className="text-xs text-white/70">{user.email} | {formatRoleLabel(user.role)}</p>
-                        <p className="mt-1 text-xs text-white/65">{user.primary_address ? `${user.primary_address.address_line1}, ${user.primary_address.city}` : "Address not set"}</p>
+                        <p className="text-xs text-admin-muted">{user.email} | {formatRoleLabel(user.role)}</p>
+                        <p className="mt-1 text-xs text-admin-soft">{user.primary_address ? `${user.primary_address.address_line1}, ${user.primary_address.city}` : "Address not set"}</p>
                       </div>
                     ))}
-                    {zoneMembers.length === 0 ? <p className="text-sm text-white/65">No active members found for this zone.</p> : null}
+                    {zoneMembers.length === 0 ? <p className="text-sm text-admin-soft">No active members found for this zone.</p> : null}
                   </div>
                   <div className="mt-3 flex items-center gap-2 text-xs">
                     <button
                       type="button"
                       onClick={() => setZoneMemberPage((prev) => Math.max(1, prev - 1))}
                       disabled={zoneMemberPagination.page <= 1}
-                      className="rounded border border-white/25 px-2 py-1 disabled:opacity-40"
+                      className="rounded border border-admin-strong px-2 py-1 disabled:opacity-40"
                     >
                       Prev
                     </button>
-                    <span className="text-white/70">Page {zoneMemberPagination.page} of {zoneMemberPagination.totalPages}</span>
+                    <span className="text-admin-muted">Page {zoneMemberPagination.page} of {zoneMemberPagination.totalPages}</span>
                     <button
                       type="button"
                       onClick={() => setZoneMemberPage((prev) => Math.min(zoneMemberPagination.totalPages, prev + 1))}
                       disabled={zoneMemberPagination.page >= zoneMemberPagination.totalPages}
-                      className="rounded border border-white/25 px-2 py-1 disabled:opacity-40"
+                      className="rounded border border-admin-strong px-2 py-1 disabled:opacity-40"
                     >
                       Next
                     </button>
                   </div>
                 </section>
 
-                <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+                <section className="rounded-3xl border border-admin bg-admin-surface p-6">
                   <h4 className="text-lg font-bold">Update Service Area Center</h4>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <input
@@ -2347,12 +2161,12 @@ export function AdminWorkspace({
                         if (event.target.value.trim().length < 3) setEditCenterPredictions([]);
                       }}
                       placeholder="Search zone center address"
-                      className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm"
+                      className="dc-input-admin"
                     />
                     <button onClick={updateZoneCenterAddress} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">Save Center Address</button>
                   </div>
                   {editCenterPredictions.length > 0 ? (
-                    <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-white/20 bg-black/40 p-2">
+                    <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-admin-strong bg-admin-panel p-2">
                       {editCenterPredictions.map((prediction) => (
                         <button
                           key={prediction.placeId}
@@ -2363,25 +2177,25 @@ export function AdminWorkspace({
                             setEditCenterQuery(details.formattedAddress);
                             setEditCenterPredictions([]);
                           }}
-                          className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-white/10"
+                          className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-admin-surface-strong"
                         >
                           {prediction.mainText}
-                          <p className="text-xs text-white/70">{prediction.secondaryText || prediction.description}</p>
+                          <p className="text-xs text-admin-muted">{prediction.secondaryText || prediction.description}</p>
                         </button>
                       ))}
                     </div>
                   ) : null}
-                  {editCenterSelection ? <p className="mt-2 text-xs text-white/70">Selected: {editCenterSelection.formattedAddress}</p> : null}
+                  {editCenterSelection ? <p className="mt-2 text-xs text-admin-muted">Selected: {editCenterSelection.formattedAddress}</p> : null}
                 </section>
                   </>
                 ) : null}
 
                 {networkSubtab === "partners" ? (
-                <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+                <section className="rounded-3xl border border-admin bg-admin-surface p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h4 className="text-lg font-bold">Organizations</h4>
-                      <p className="mt-1 text-xs text-white/65">Create organization records, manage team access, and connect each organization to the right service areas.</p>
+                      <p className="mt-1 text-xs text-admin-soft">Create organization records, manage team access, and connect each organization to the right service areas.</p>
                     </div>
                     <div className="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
                       <button
@@ -2400,7 +2214,7 @@ export function AdminWorkspace({
                           setSelectedPartnerId(event.target.value);
                           setShowCreatePartnerForm(false);
                         }}
-                        className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto"
+                        className="h-10 w-full rounded-lg border border-admin-strong bg-admin-surface-strong px-3 text-sm sm:w-auto"
                       >
                         <option value="">Select organization</option>
                         {partnerOptions.map((partner) => (
@@ -2413,41 +2227,41 @@ export function AdminWorkspace({
                   {selectedPartner ? (
                     <div className="mt-4 space-y-4">
                       <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
-                        <article className="rounded-2xl border border-white/10 bg-black/35 p-4 text-sm text-white/80">
+                        <article className="rounded-2xl border border-admin bg-admin-panel p-4 text-sm text-admin-muted">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                              <p className="font-semibold text-white">{selectedPartner.name}</p>
-                              <p className="mt-1 text-xs text-white/65">{selectedPartner.code} | Receipts sent by DonateCrate on behalf of this nonprofit</p>
+                              <p className="font-semibold text-admin">{selectedPartner.name}</p>
+                              <p className="mt-1 text-xs text-admin-soft">{selectedPartner.code} | Receipts sent by DonateCrate on behalf of this nonprofit</p>
                             </div>
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedPartner.active ? "bg-emerald-500/15 text-emerald-100" : "bg-red-500/15 text-red-100"}`}>
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedPartner.active ? "admin-badge-green" : "admin-badge-red"}`}>
                               {selectedPartner.active ? "Active partner" : "Inactive partner"}
                               
                             </span>
                           </div>
-                          <p className="mt-3 text-xs text-white/70">
+                          <p className="mt-3 text-xs text-admin-muted">
                             Support: {selectedPartner.support_email || "No email"} {selectedPartner.support_phone ? `| ${selectedPartner.support_phone}` : ""}
                           </p>
-                          <p className="mt-2 text-xs text-white/70">
+                          <p className="mt-2 text-xs text-admin-muted">
                             Receipts send from giving@donatecrate.com and use this nonprofit&apos;s branding.
                           </p>
-                          <p className="mt-2 text-xs text-white/70">
+                          <p className="mt-2 text-xs text-admin-muted">
                             Service areas: {selectedPartner.zones.length > 0 ? selectedPartner.zones.map((zone) => zone.name).join(" | ") : "None yet"}
                           </p>
                         </article>
-                        <article className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                        <article className="rounded-2xl border border-admin bg-admin-panel p-4">
                           <p className="text-sm font-semibold">Add team member</p>
-                          <p className="mt-1 text-xs text-white/65">Use any email address. If the person is new to DonateCrate, we will create the account and send a branded setup email for this organization.</p>
+                          <p className="mt-1 text-xs text-admin-soft">Use any email address. If the person is new to DonateCrate, we will create the account and send a branded setup email for this organization.</p>
                           <div className="mt-3 grid gap-2">
                             <input
                               value={partnerMemberEmail}
                               onChange={(event) => setPartnerMemberEmail(event.target.value)}
                               placeholder="Work email address"
-                              className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                              className="dc-input-admin"
                             />
                             <select
                               value={partnerMemberRole}
                               onChange={(event) => setPartnerMemberRole(event.target.value as "partner_admin" | "partner_coordinator" | "partner_driver")}
-                              className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                              className="dc-input-admin"
                             >
                               <option value="partner_admin">Organization Admin</option>
                               <option value="partner_coordinator">Coordinator</option>
@@ -2462,13 +2276,13 @@ export function AdminWorkspace({
 
                       {selectedPartnerForm ? (
                         <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                          <article className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                          <article className="rounded-2xl border border-admin bg-admin-panel p-4">
                             <div className="flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-sm font-semibold text-white">Organization account</p>
-                                <p className="mt-1 text-xs text-white/65">Update the organization&apos;s contact details, profile information, and donor-facing branding here.</p>
+                                <p className="text-sm font-semibold text-admin">Organization account</p>
+                                <p className="mt-1 text-xs text-admin-soft">Update the organization&apos;s contact details, profile information, and donor-facing branding here.</p>
                               </div>
-                              <label className="inline-flex items-center gap-2 text-xs text-white/80">
+                              <label className="inline-flex items-center gap-2 text-xs text-admin-muted">
                                 <input
                                   type="checkbox"
                                   checked={selectedPartnerForm.active}
@@ -2478,79 +2292,79 @@ export function AdminWorkspace({
                               </label>
                             </div>
                             <div className="mt-4 grid gap-3 md:grid-cols-2">
-                              <input value={selectedPartnerForm.name} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, name: event.target.value } : prev))} placeholder="Organization name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartner.code} disabled className="h-10 rounded-lg border border-white/15 bg-black/50 px-3 text-sm opacity-70" />
-                              <input value={selectedPartnerForm.legalName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, legalName: event.target.value } : prev))} placeholder="Legal name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.supportEmail} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportEmail: event.target.value } : prev))} placeholder="Support email" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.supportPhone} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportPhone: event.target.value } : prev))} placeholder="Support phone" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.websiteUrl} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, websiteUrl: event.target.value } : prev))} placeholder="Website URL" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.addressLine1} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, addressLine1: event.target.value } : prev))} placeholder="Mailing address" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm md:col-span-2" />
-                              <input value={selectedPartnerForm.city} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, city: event.target.value } : prev))} placeholder="City" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                              <input value={selectedPartnerForm.name} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, name: event.target.value } : prev))} placeholder="Organization name" className="dc-input-admin" />
+                              <input value={selectedPartner.code} disabled className="dc-input-admin opacity-70" />
+                              <input value={selectedPartnerForm.legalName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, legalName: event.target.value } : prev))} placeholder="Legal name" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.supportEmail} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportEmail: event.target.value } : prev))} placeholder="Support email" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.supportPhone} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, supportPhone: event.target.value } : prev))} placeholder="Support phone" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.websiteUrl} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, websiteUrl: event.target.value } : prev))} placeholder="Website URL" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.addressLine1} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, addressLine1: event.target.value } : prev))} placeholder="Mailing address" className="dc-input-admin md:col-span-2" />
+                              <input value={selectedPartnerForm.city} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, city: event.target.value } : prev))} placeholder="City" className="dc-input-admin" />
                               <div className="grid gap-3 sm:grid-cols-2">
-                                <input value={selectedPartnerForm.state} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, state: event.target.value } : prev))} placeholder="State" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                                <input value={selectedPartnerForm.postalCode} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, postalCode: event.target.value } : prev))} placeholder="ZIP code" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
+                                <input value={selectedPartnerForm.state} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, state: event.target.value } : prev))} placeholder="State" className="dc-input-admin" />
+                                <input value={selectedPartnerForm.postalCode} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, postalCode: event.target.value } : prev))} placeholder="ZIP code" className="dc-input-admin" />
                               </div>
-                              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70 md:col-span-2">
+                              <div className="rounded-xl border border-admin bg-admin-panel px-3 py-3 text-xs text-admin-muted md:col-span-2">
                                 Receipt delivery is handled by DonateCrate on behalf of this nonprofit. Payout settings stay internal for now and are not edited here.
                               </div>
-                              <textarea value={selectedPartnerForm.aboutParagraph} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, aboutParagraph: event.target.value } : prev))} rows={4} placeholder="About paragraph" className="rounded-lg border border-white/25 bg-black px-3 py-2 text-sm md:col-span-2" />
-                              <textarea value={selectedPartnerForm.notes} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, notes: event.target.value } : prev))} rows={3} placeholder="Team notes" className="rounded-lg border border-white/25 bg-black px-3 py-2 text-sm md:col-span-2" />
+                              <textarea value={selectedPartnerForm.aboutParagraph} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, aboutParagraph: event.target.value } : prev))} rows={4} placeholder="About paragraph" className="rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-sm md:col-span-2" />
+                              <textarea value={selectedPartnerForm.notes} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, notes: event.target.value } : prev))} rows={3} placeholder="Team notes" className="rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-sm md:col-span-2" />
                             </div>
                           </article>
 
-                          <article className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                            <p className="text-sm font-semibold text-white">Receipt branding</p>
-                            <p className="mt-1 text-xs text-white/65">This branding is used in donation receipt emails while delivery still comes from `giving@donatecrate.com`.</p>
+                          <article className="rounded-2xl border border-admin bg-admin-panel p-4">
+                            <p className="text-sm font-semibold text-admin">Receipt branding</p>
+                            <p className="mt-1 text-xs text-admin-soft">This branding is used in donation receipt emails while delivery still comes from `giving@donatecrate.com`.</p>
                             <div className="mt-4 grid gap-3 md:grid-cols-2">
-                              <input value={selectedPartnerForm.displayName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, displayName: event.target.value } : prev))} placeholder="Receipt display name" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Logo preview</p>
-                                <div className="mt-3 flex h-24 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/5 p-3">
+                              <input value={selectedPartnerForm.displayName} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, displayName: event.target.value } : prev))} placeholder="Receipt display name" className="dc-input-admin" />
+                              <div className="rounded-xl border border-admin bg-admin-panel p-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-admin-soft">Logo preview</p>
+                                <div className="mt-3 flex h-24 items-center justify-center rounded-lg border border-dashed border-admin bg-admin-surface p-3">
                                   {selectedPartnerForm.logoUrl ? (
                                     <div
                                       className="h-full w-full bg-contain bg-center bg-no-repeat"
                                       style={{ backgroundImage: `url(${selectedPartnerForm.logoUrl})` }}
                                     />
                                   ) : (
-                                    <p className="text-xs text-white/50">No logo uploaded yet.</p>
+                                    <p className="text-xs text-admin-soft">No logo uploaded yet.</p>
                                   )}
                                 </div>
                               </div>
-                              <input value={selectedPartnerForm.primaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, primaryColor: event.target.value } : prev))} placeholder="Primary color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.secondaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, secondaryColor: event.target.value } : prev))} placeholder="Secondary color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <input value={selectedPartnerForm.accentColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, accentColor: event.target.value } : prev))} placeholder="Accent color (#hex)" className="h-10 rounded-lg border border-white/25 bg-black px-3 text-sm" />
-                              <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70">
+                              <input value={selectedPartnerForm.primaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, primaryColor: event.target.value } : prev))} placeholder="Primary color (#hex)" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.secondaryColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, secondaryColor: event.target.value } : prev))} placeholder="Secondary color (#hex)" className="dc-input-admin" />
+                              <input value={selectedPartnerForm.accentColor} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, accentColor: event.target.value } : prev))} placeholder="Accent color (#hex)" className="dc-input-admin" />
+                              <div className="rounded-xl border border-admin bg-admin-panel px-3 py-3 text-xs text-admin-muted">
                                 Sender: {selectedPartnerForm.displayName || selectedPartnerForm.name || selectedPartner.name} &lt;giving@donatecrate.com&gt;
                               </div>
-                              <textarea value={selectedPartnerForm.receiptFooter} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, receiptFooter: event.target.value } : prev))} rows={4} placeholder="Receipt footer" className="rounded-lg border border-white/25 bg-black px-3 py-2 text-sm md:col-span-2" />
+                              <textarea value={selectedPartnerForm.receiptFooter} onChange={(event) => setSelectedPartnerForm((prev) => (prev ? { ...prev, receiptFooter: event.target.value } : prev))} rows={4} placeholder="Receipt footer" className="rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-sm md:col-span-2" />
                             </div>
                             <div className="mt-4 flex flex-wrap items-center gap-3">
                               <button onClick={updatePartnerAccount} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">
                                 Save Partner Settings
                               </button>
-                              <p className="text-xs text-white/65">Receipt sending is fixed to DonateCrate on behalf of the nonprofit.</p>
+                              <p className="text-xs text-admin-soft">Receipt sending is fixed to DonateCrate on behalf of the nonprofit.</p>
                             </div>
                           </article>
                         </div>
                       ) : null}
 
-                      <article className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                      <article className="rounded-2xl border border-admin bg-admin-panel p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className="text-sm font-semibold text-white">Organization team</p>
-                            <p className="mt-1 text-xs text-white/65">Manage organization admins, coordinators, and drivers without leaving the DonateCrate admin panel.</p>
+                            <p className="text-sm font-semibold text-admin">Organization team</p>
+                            <p className="mt-1 text-xs text-admin-soft">Manage organization admins, coordinators, and drivers without leaving the DonateCrate admin panel.</p>
                           </div>
-                          <p className="text-xs text-white/65">{selectedPartner.members.length} members</p>
+                          <p className="text-xs text-admin-soft">{selectedPartner.members.length} members</p>
                         </div>
                         <div className="mt-3 space-y-2">
                           {selectedPartner.members.map((member) => (
-                            <div key={member.id} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                            <div key={member.id} className="rounded-xl border border-admin bg-admin-panel p-3">
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                  <p className="text-sm font-semibold text-white">{member.full_name || member.email}</p>
-                                  <p className="mt-1 text-xs text-white/70">{member.email}{member.phone ? ` | ${member.phone}` : ""}</p>
+                                  <p className="text-sm font-semibold text-admin">{member.full_name || member.email}</p>
+                                  <p className="mt-1 text-xs text-admin-muted">{member.email}{member.phone ? ` | ${member.phone}` : ""}</p>
                                 </div>
-                                <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${member.active ? "bg-emerald-500/15 text-emerald-100" : "bg-slate-500/15 text-slate-200"}`}>
+                                <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${member.active ? "admin-badge-green" : "admin-badge-slate"}`}>
                                   {member.active ? "Active" : "Inactive"}
                                 </span>
                               </div>
@@ -2558,7 +2372,7 @@ export function AdminWorkspace({
                                 <select
                                   value={member.role}
                                   onChange={(event) => updatePartnerMember(member.id, { role: event.target.value as "partner_admin" | "partner_coordinator" | "partner_driver" })}
-                                  className="h-9 rounded-lg border border-white/25 bg-black px-3 text-sm"
+                                  className="h-9 rounded-lg border border-admin-strong bg-admin-surface-strong px-3 text-sm"
                                 >
                                   <option value="partner_admin">Organization Admin</option>
                                   <option value="partner_coordinator">Coordinator</option>
@@ -2567,7 +2381,7 @@ export function AdminWorkspace({
                                 <button
                                   type="button"
                                   onClick={() => updatePartnerMember(member.id, { active: !member.active })}
-                                  className="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold"
+                                  className="rounded-lg border border-admin-strong px-3 py-2 text-xs font-semibold"
                                 >
                                   {member.active ? "Deactivate" : "Reactivate"}
                                 </button>
@@ -2578,11 +2392,11 @@ export function AdminWorkspace({
                                 >
                                   Delete
                                 </button>
-                                <p className="text-xs text-white/60">{formatPartnerTeamRole(member.role)}</p>
+                                <p className="text-xs text-admin-soft">{formatPartnerTeamRole(member.role)}</p>
                               </div>
                             </div>
                           ))}
-                          {selectedPartner.members.length === 0 ? <p className="text-sm text-white/65">No team members added yet.</p> : null}
+                          {selectedPartner.members.length === 0 ? <p className="text-sm text-admin-soft">No team members added yet.</p> : null}
                         </div>
                       </article>
                     </div>
@@ -2593,14 +2407,14 @@ export function AdminWorkspace({
             ) : null}
 
             {networkSubtab === "zones" ? showCreateZoneForm ? (
-              <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+              <section className="rounded-3xl border border-admin bg-admin-surface p-6">
                 <h4 className="text-lg font-bold">Add New Service Area</h4>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input value={zoneForm.name} onChange={(event) => setZoneForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Service area name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={zoneForm.code} onChange={(event) => setZoneForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Internal area code" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={zoneForm.anchorPostalCode} onChange={(event) => setZoneForm((prev) => ({ ...prev, anchorPostalCode: event.target.value }))} placeholder="Anchor ZIP" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input type="number" min={0.5} step={0.5} value={zoneForm.radiusMiles} onChange={(event) => setZoneForm((prev) => ({ ...prev, radiusMiles: Number(event.target.value) }))} placeholder="Service radius (miles)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input type="number" min={1} value={zoneForm.minActiveSubscribers} onChange={(event) => setZoneForm((prev) => ({ ...prev, minActiveSubscribers: Number(event.target.value) }))} placeholder="Active household goal" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
+                  <input value={zoneForm.name} onChange={(event) => setZoneForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Service area name" className="dc-input-admin" />
+                  <input value={zoneForm.code} onChange={(event) => setZoneForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Internal area code" className="dc-input-admin" />
+                  <input value={zoneForm.anchorPostalCode} onChange={(event) => setZoneForm((prev) => ({ ...prev, anchorPostalCode: event.target.value }))} placeholder="Anchor ZIP" className="dc-input-admin" />
+                  <input type="number" min={0.5} step={0.5} value={zoneForm.radiusMiles} onChange={(event) => setZoneForm((prev) => ({ ...prev, radiusMiles: Number(event.target.value) }))} placeholder="Service radius (miles)" className="dc-input-admin" />
+                  <input type="number" min={1} value={zoneForm.minActiveSubscribers} onChange={(event) => setZoneForm((prev) => ({ ...prev, minActiveSubscribers: Number(event.target.value) }))} placeholder="Active household goal" className="dc-input-admin" />
                   <input
                     value={createCenterQuery}
                     onChange={(event) => {
@@ -2609,11 +2423,11 @@ export function AdminWorkspace({
                       if (event.target.value.trim().length < 3) setCreateCenterPredictions([]);
                     }}
                     placeholder="Service area center address"
-                    className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm"
+                    className="dc-input-admin"
                   />
                 </div>
                 {createCenterPredictions.length > 0 ? (
-                  <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-white/20 bg-black/40 p-2">
+                  <div className="mt-3 max-h-56 overflow-auto rounded-lg border border-admin-strong bg-admin-panel p-2">
                     {createCenterPredictions.map((prediction) => (
                       <button
                         key={prediction.placeId}
@@ -2624,10 +2438,10 @@ export function AdminWorkspace({
                           setCreateCenterQuery(details.formattedAddress);
                           setCreateCenterPredictions([]);
                         }}
-                        className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-white/10"
+                        className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-admin-surface-strong"
                       >
                         {prediction.mainText}
-                        <p className="text-xs text-white/70">{prediction.secondaryText || prediction.description}</p>
+                        <p className="text-xs text-admin-muted">{prediction.secondaryText || prediction.description}</p>
                       </button>
                     ))}
                   </div>
@@ -2645,55 +2459,55 @@ export function AdminWorkspace({
                   <button
                     type="button"
                     onClick={() => setShowCreateZoneForm(false)}
-                    className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold"
+                    className="rounded-lg border border-admin-strong px-4 py-2 text-sm font-semibold"
                   >
                     Cancel
                   </button>
                 </div>
               </section>
             ) : null : showCreatePartnerForm ? (
-              <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+              <section className="rounded-3xl border border-admin bg-admin-surface p-6">
                 <h4 className="text-lg font-bold">Add Nonprofit Partner</h4>
-                <p className="mt-1 text-xs text-white/65">This creates the organization record and the nonprofit can brand receipts while delivery still comes from giving@donatecrate.com.</p>
+                <p className="mt-1 text-xs text-admin-soft">This creates the organization record and the nonprofit can brand receipts while delivery still comes from giving@donatecrate.com.</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input value={partnerForm.name} onChange={(event) => setPartnerForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Partner name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.code} onChange={(event) => setPartnerForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Partner code" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.legalName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, legalName: event.target.value }))} placeholder="Legal name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.supportEmail} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportEmail: event.target.value }))} placeholder="Support email" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.supportPhone} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportPhone: event.target.value }))} placeholder="Support phone" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.displayName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, displayName: event.target.value }))} placeholder="Receipt display name" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-xs text-white/70 md:col-span-2">
+                  <input value={partnerForm.name} onChange={(event) => setPartnerForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Partner name" className="dc-input-admin" />
+                  <input value={partnerForm.code} onChange={(event) => setPartnerForm((prev) => ({ ...prev, code: event.target.value }))} placeholder="Partner code" className="dc-input-admin" />
+                  <input value={partnerForm.legalName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, legalName: event.target.value }))} placeholder="Legal name" className="dc-input-admin" />
+                  <input value={partnerForm.supportEmail} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportEmail: event.target.value }))} placeholder="Support email" className="dc-input-admin" />
+                  <input value={partnerForm.supportPhone} onChange={(event) => setPartnerForm((prev) => ({ ...prev, supportPhone: event.target.value }))} placeholder="Support phone" className="dc-input-admin" />
+                  <input value={partnerForm.displayName} onChange={(event) => setPartnerForm((prev) => ({ ...prev, displayName: event.target.value }))} placeholder="Receipt display name" className="dc-input-admin" />
+                  <div className="rounded-xl border border-admin bg-admin-panel px-3 py-3 text-xs text-admin-muted md:col-span-2">
                     Receipt emails are always sent by DonateCrate on behalf of the nonprofit. Payout and revenue-share settings are handled internally and are not configured here yet.
                   </div>
-                  <input value={partnerForm.primaryColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, primaryColor: event.target.value }))} placeholder="Primary color (#hex)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <input value={partnerForm.accentColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, accentColor: event.target.value }))} placeholder="Accent color (#hex)" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm" />
-                  <div className="rounded-xl border border-white/10 bg-black/30 p-3 md:col-span-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">Logo preview</p>
-                    <div className="mt-3 flex h-24 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/5 p-3">
+                  <input value={partnerForm.primaryColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, primaryColor: event.target.value }))} placeholder="Primary color (#hex)" className="dc-input-admin" />
+                  <input value={partnerForm.accentColor} onChange={(event) => setPartnerForm((prev) => ({ ...prev, accentColor: event.target.value }))} placeholder="Accent color (#hex)" className="dc-input-admin" />
+                  <div className="rounded-xl border border-admin bg-admin-panel p-3 md:col-span-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-admin-soft">Logo preview</p>
+                    <div className="mt-3 flex h-24 items-center justify-center rounded-lg border border-dashed border-admin bg-admin-surface p-3">
                       {partnerForm.logoUrl ? (
                         <div
                           className="h-full w-full bg-contain bg-center bg-no-repeat"
                           style={{ backgroundImage: `url(${partnerForm.logoUrl})` }}
                         />
                       ) : (
-                        <p className="text-xs text-white/50">No logo added yet. Logos are managed after the partner is created.</p>
+                        <p className="text-xs text-admin-soft">No logo added yet. Logos are managed after the partner is created.</p>
                       )}
                     </div>
                   </div>
-                  <input value={partnerForm.websiteUrl} onChange={(event) => setPartnerForm((prev) => ({ ...prev, websiteUrl: event.target.value }))} placeholder="Website URL" className="h-10 rounded-lg border border-white/30 bg-black px-3 text-sm md:col-span-2" />
-                  <textarea value={partnerForm.notes} onChange={(event) => setPartnerForm((prev) => ({ ...prev, notes: event.target.value }))} rows={3} placeholder="Internal notes" className="rounded-lg border border-white/30 bg-black px-3 py-2 text-sm md:col-span-2" />
-                  <textarea value={partnerForm.receiptFooter} onChange={(event) => setPartnerForm((prev) => ({ ...prev, receiptFooter: event.target.value }))} rows={3} placeholder="Receipt footer" className="rounded-lg border border-white/30 bg-black px-3 py-2 text-sm md:col-span-2" />
+                  <input value={partnerForm.websiteUrl} onChange={(event) => setPartnerForm((prev) => ({ ...prev, websiteUrl: event.target.value }))} placeholder="Website URL" className="h-10 rounded-lg border border-admin-strong bg-admin-surface-strong px-3 text-sm md:col-span-2" />
+                  <textarea value={partnerForm.notes} onChange={(event) => setPartnerForm((prev) => ({ ...prev, notes: event.target.value }))} rows={3} placeholder="Internal notes" className="rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-sm md:col-span-2" />
+                  <textarea value={partnerForm.receiptFooter} onChange={(event) => setPartnerForm((prev) => ({ ...prev, receiptFooter: event.target.value }))} rows={3} placeholder="Receipt footer" className="rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-sm md:col-span-2" />
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <button onClick={createPartner} className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">Create Partner</button>
                   <button
                     type="button"
                     onClick={() => setShowCreatePartnerForm(false)}
-                    className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold"
+                    className="rounded-lg border border-admin-strong px-4 py-2 text-sm font-semibold"
                   >
                     Cancel
                   </button>
-                  <p className="text-xs text-white/65">DonateCrate will send receipts on behalf of this nonprofit using the branding set here.</p>
+                  <p className="text-xs text-admin-soft">DonateCrate will send receipts on behalf of this nonprofit using the branding set here.</p>
                 </div>
               </section>
             ) : null}
@@ -2703,9 +2517,9 @@ export function AdminWorkspace({
 
       {section === "pickups" ? (
         <>
-          <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+          <section className="rounded-3xl border border-admin bg-admin-surface p-6">
             <h3 className="text-xl font-bold">Pickup Calendar Builder</h3>
-            <p className="mt-1 text-sm text-white/70">
+            <p className="mt-1 text-sm text-admin-muted">
               A pickup cycle is the actual service day for one zone. Build one cycle at a time, or generate the monthly calendar in advance.
             </p>
 
@@ -2713,158 +2527,130 @@ export function AdminWorkspace({
               <button
                 type="button"
                 onClick={() => setPickupMode("single")}
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${pickupMode === "single" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20" : "border-white/25"}`}
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${pickupMode === "single" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20" : "border-admin-strong"}`}
               >
                 One-time cycle
               </button>
               <button
                 type="button"
                 onClick={() => setPickupMode("recurring")}
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${pickupMode === "recurring" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20" : "border-white/25"}`}
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold ${pickupMode === "recurring" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20" : "border-admin-strong"}`}
               >
                 Recurring monthly
               </button>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <label className="text-xs text-white/70">
+            {/* Zone selector */}
+            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_1fr]">
+              <label className="text-xs text-admin-muted">
                 Zone
                 <select
                   value={scheduleForm.zoneCode}
                   onChange={(event) => setScheduleForm((prev) => ({ ...prev, zoneCode: event.target.value }))}
-                  className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
+                  className="dc-input-admin mt-1 w-full"
                 >
                   {data.zones.map((zone) => (
                     <option key={zone.id} value={zone.code}>{zone.name}</option>
                   ))}
                 </select>
               </label>
-              <label className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/25 bg-black/30 px-3 text-xs text-white/85 md:mt-6">
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 self-end rounded-lg border border-admin-strong bg-admin-panel px-3 text-xs text-admin-muted">
                 <input
                   type="checkbox"
                   checked={applyToAllActiveZones}
                   onChange={(event) => setApplyToAllActiveZones(event.target.checked)}
                 />
-                Apply to all active zones
+                All active zones
               </label>
-              <p className="text-xs text-white/65 md:mt-6">
+              <p className="self-end pb-2 text-xs text-admin-soft">
                 {applyToAllActiveZones
-                  ? "Scheduler will generate cycles for every active zone."
-                  : "Scheduler applies to the selected zone only."}
+                  ? "Every active zone will get a cycle."
+                  : "Selected zone only."}
               </p>
+            </div>
 
-              {pickupMode === "single" ? (
-                <>
-                  <label className="text-xs text-white/70">
-                    Cycle month
-                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                      <input
-                        ref={singleCycleMonthRef}
-                        type="date"
-                        value={scheduleForm.cycleMonth}
-                        onChange={(event) => setScheduleForm((prev) => ({ ...prev, cycleMonth: event.target.value }))}
-                        className="h-10 min-w-0 flex-1 rounded-lg border border-white/30 bg-black px-3"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => singleCycleMonthRef.current?.showPicker?.()}
-                        className="rounded-lg border border-white/30 px-3 py-2 text-xs font-semibold sm:py-0"
-                      >
-                        Calendar
-                      </button>
-                    </div>
-                  </label>
-                  <label className="text-xs text-white/70">
-                    Pickup date
-                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                      <input
-                        ref={singlePickupDateRef}
-                        type="date"
-                        value={scheduleForm.pickupDate}
-                        onChange={(event) => setScheduleForm((prev) => ({ ...prev, pickupDate: event.target.value }))}
-                        className="h-10 min-w-0 flex-1 rounded-lg border border-white/30 bg-black px-3"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => singlePickupDateRef.current?.showPicker?.()}
-                        className="rounded-lg border border-white/30 px-3 py-2 text-xs font-semibold sm:py-0"
-                      >
-                        Calendar
-                      </button>
-                    </div>
-                  </label>
-                  <label className="text-xs text-white/70 md:col-span-2">
-                    Request cutoff (date/time)
-                    <input type="datetime-local" value={scheduleForm.requestCutoffAt} onChange={(event) => setScheduleForm((prev) => ({ ...prev, requestCutoffAt: event.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3" />
-                  </label>
-                </>
-              ) : (
-                <>
-                  <div className="md:col-span-3">
-                    <p className="text-xs text-white/70">Scheduling horizon</p>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setScheduleForm((prev) => ({ ...prev, horizonMode: "months" }))}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${scheduleForm.horizonMode === "months" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20" : "border-white/25"}`}
-                      >
-                        Number of months
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setScheduleForm((prev) => ({ ...prev, horizonMode: "forever" }))}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${scheduleForm.horizonMode === "forever" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20" : "border-white/25"}`}
-                      >
-                        Forever (rolling)
-                      </button>
-                    </div>
-                    <p className="mt-1 text-[11px] text-white/60">
-                      Forever creates a long-range rolling schedule (currently 60 months) so ops can run without constant manual setup.
-                    </p>
+            {/* Mode-specific fields */}
+            {pickupMode === "single" ? (
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <label className="text-xs text-admin-muted">
+                  Pickup date
+                  <input
+                    type="date"
+                    value={scheduleForm.pickupDate}
+                    onChange={(event) => setScheduleForm((prev) => ({ ...prev, pickupDate: event.target.value }))}
+                    className="dc-input-admin mt-1 w-full"
+                  />
+                  <span className="mt-1 block text-[11px] text-admin-soft">
+                    Cycle month is derived automatically ({scheduleForm.pickupDate ? new Date(scheduleForm.pickupDate + "T12:00:00").toLocaleString("en-US", { month: "long", year: "numeric" }) : "—"}).
+                  </span>
+                </label>
+                <PickupWindowPicker
+                  label="Pickup window (optional)"
+                  value={scheduleForm.pickupWindowLabel}
+                  onChange={(val) => setScheduleForm((prev) => ({ ...prev, pickupWindowLabel: val }))}
+                  hint="Shown to customers in their portal, emails, and SMS reminders."
+                  variant="admin"
+                />
+              </div>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-xs text-admin-muted">Scheduling horizon</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setScheduleForm((prev) => ({ ...prev, horizonMode: "months" }))}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${scheduleForm.horizonMode === "months" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20 text-admin" : "border-admin-strong text-admin-muted"}`}
+                    >
+                      Fixed window
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleForm((prev) => ({ ...prev, horizonMode: "forever" }))}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${scheduleForm.horizonMode === "forever" ? "border-[var(--dc-orange)] bg-[var(--dc-orange)]/20 text-admin" : "border-admin-strong text-admin-muted"}`}
+                    >
+                      Rolling (60 months)
+                    </button>
                   </div>
-                  <label className="text-xs text-white/70">
-                    Next pickup date
-                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                      <input
-                        ref={recurringStartPickupDateRef}
-                        type="date"
-                        value={scheduleForm.startPickupDate}
-                        onChange={(event) => setScheduleForm((prev) => ({ ...prev, startPickupDate: event.target.value }))}
-                        className="h-10 min-w-0 flex-1 rounded-lg border border-white/30 bg-black px-3"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => recurringStartPickupDateRef.current?.showPicker?.()}
-                        className="rounded-lg border border-white/30 px-3 py-2 text-xs font-semibold sm:py-0"
-                      >
-                        Calendar
-                      </button>
-                    </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="text-xs text-admin-muted">
+                    First pickup date
+                    <input
+                      type="date"
+                      value={scheduleForm.startPickupDate}
+                      onChange={(event) => setScheduleForm((prev) => ({ ...prev, startPickupDate: event.target.value }))}
+                      className="dc-input-admin mt-1 w-full"
+                    />
+                    <span className="mt-1 block text-[11px] text-admin-soft">Day-of-month repeats each cycle.</span>
                   </label>
                   {scheduleForm.horizonMode === "months" ? (
-                    <label className="text-xs text-white/70">
-                      Number of months
-                      <input type="number" min={1} max={60} value={scheduleForm.months} onChange={(event) => setScheduleForm((prev) => ({ ...prev, months: Number(event.target.value) }))} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3" />
+                    <label className="text-xs text-admin-muted">
+                      Months ahead
+                      <input type="number" min={1} max={60} value={scheduleForm.months} onChange={(event) => setScheduleForm((prev) => ({ ...prev, months: Number(event.target.value) }))} className="dc-input-admin mt-1 w-full" />
                     </label>
                   ) : (
-                    <div className="rounded-lg border border-white/20 bg-black/30 p-3 text-xs text-white/70 md:self-end">
-                      Horizon: rolling (60 months generated)
+                    <div className="rounded-lg border border-admin-strong bg-admin-panel p-3 text-xs text-admin-soft">
+                      Generates 60 months ahead. Re-run anytime to extend or update.
                     </div>
                   )}
-                  <label className="text-xs text-white/70">
+                  <label className="text-xs text-admin-muted">
                     Weekend behavior
-                    <select value={scheduleForm.weekendPolicy} onChange={(event) => setScheduleForm((prev) => ({ ...prev, weekendPolicy: event.target.value as "none" | "next_business_day" }))} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3">
+                    <select value={scheduleForm.weekendPolicy} onChange={(event) => setScheduleForm((prev) => ({ ...prev, weekendPolicy: event.target.value as "none" | "next_business_day" }))} className="dc-input-admin mt-1 w-full">
                       <option value="none">Keep exact date</option>
                       <option value="next_business_day">Move to next business day</option>
                     </select>
                   </label>
-                  <label className="text-xs text-white/70">
-                    Cutoff days before pickup
-                    <input type="number" min={0} max={30} value={scheduleForm.cutoffDaysBefore} onChange={(event) => setScheduleForm((prev) => ({ ...prev, cutoffDaysBefore: Number(event.target.value) }))} className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3" />
-                  </label>
-                </>
-              )}
-            </div>
+                </div>
+                <PickupWindowPicker
+                  label="Pickup window (optional)"
+                  value={scheduleForm.pickupWindowLabel}
+                  onChange={(val) => setScheduleForm((prev) => ({ ...prev, pickupWindowLabel: val }))}
+                  hint="Shown to customers in their portal, emails, and SMS. Applied to every cycle in this series."
+                  variant="admin"
+                />
+              </div>
+            )}
 
             <button onClick={createPickupCycle} className="mt-4 rounded-xl bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold">
               {pickupMode === "single" ? "Save Pickup Cycle" : "Generate Recurring Cycles"}
@@ -2876,7 +2662,7 @@ export function AdminWorkspace({
                 <select
                   value={timelineZoneFilter}
                   onChange={(event) => setTimelineZoneFilter(event.target.value)}
-                  className="h-9 rounded-lg border border-white/25 bg-black px-3 text-xs"
+                  className="h-9 rounded-lg border border-admin-strong bg-admin-surface-strong px-3 text-xs"
                 >
                   <option value="all">All zones</option>
                   {data.zones.map((zone) => (
@@ -2886,42 +2672,98 @@ export function AdminWorkspace({
               </div>
               <div className="space-y-3">
                 {timelineByMonth.map((group) => (
-                  <article key={group.month} className="rounded-2xl border border-white/10 bg-black/30 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/70">{group.month}</p>
+                  <article key={group.month} className="rounded-2xl border border-admin bg-admin-panel p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-admin-muted">{group.month}</p>
                     <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                       {group.cycles.map((cycle) => {
                         const zoneMeta = Array.isArray(cycle.service_zones) ? cycle.service_zones[0] : cycle.service_zones;
+                        const isEditing = editingCycleId === cycle.id;
+                        if (isEditing && cycleEditForm) {
+                          return (
+                            <div key={cycle.id} className="rounded-xl border border-[var(--dc-orange)]/50 bg-admin-surface p-3 text-xs ring-2 ring-[var(--dc-orange)]/20">
+                              <p className="mb-2 font-semibold text-admin">{zoneMeta?.name || cycle.zone_id}</p>
+                              <label className="block text-admin-soft">
+                                Pickup date
+                                <input
+                                  type="date"
+                                  value={cycleEditForm.pickupDate}
+                                  onChange={(e) => setCycleEditForm((prev) => prev ? { ...prev, pickupDate: e.target.value } : prev)}
+                                  className="dc-input-admin mt-1 w-full"
+                                />
+                              </label>
+                              <div className="mt-2">
+                                <PickupWindowPicker
+                                  label="Pickup window"
+                                  value={cycleEditForm.pickupWindowLabel}
+                                  onChange={(val) => setCycleEditForm((prev) => prev ? { ...prev, pickupWindowLabel: val } : prev)}
+                                  variant="admin"
+                                />
+                              </div>
+                              <div className="mt-3 flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={saveCycleEdit}
+                                  disabled={cycleEditSaving}
+                                  className="flex items-center gap-1.5 rounded-lg bg-[var(--dc-orange)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 cursor-pointer"
+                                >
+                                  {cycleEditSaving ? "Saving…" : "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setEditingCycleId(null); setCycleEditForm(null); }}
+                                  className="rounded-lg border border-admin-strong px-3 py-1.5 text-xs font-semibold text-admin-muted cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
                         return (
-                          <div key={cycle.id} className="rounded-lg border border-white/10 bg-black/40 p-3 text-xs">
+                          <button
+                            key={cycle.id}
+                            type="button"
+                            onClick={() => {
+                              setEditingCycleId(cycle.id);
+                              setCycleEditForm({
+                                pickupDate: cycle.pickup_date,
+                                pickupWindowLabel: (cycle as Record<string, unknown>).pickup_window_label as string ?? "",
+                              });
+                            }}
+                            className="rounded-lg border border-admin bg-admin-panel p-3 text-left text-xs cursor-pointer hover:border-[var(--dc-orange)]/40 hover:bg-admin-surface transition-colors"
+                          >
                             <p className="font-semibold">{zoneMeta?.name || cycle.zone_id}</p>
-                            <p className="mt-1">Pickup: {formatDate(cycle.pickup_date)}</p>
-                            <p className="text-white/70">Cutoff: {new Date(cycle.request_cutoff_at).toLocaleString()}</p>
-                          </div>
+                            <p className="mt-1 text-admin-muted">{formatDate(cycle.pickup_date)}</p>
+                            {(cycle as Record<string, unknown>).pickup_window_label
+                              ? <p className="mt-0.5 text-admin-soft">{String((cycle as Record<string, unknown>).pickup_window_label)}</p>
+                              : <p className="mt-0.5 text-admin-soft/50 italic">No window set — click to edit</p>
+                            }
+                          </button>
                         );
                       })}
                     </div>
                   </article>
                 ))}
-                {timelineByMonth.length === 0 ? <p className="text-xs text-white/65">No pickup cycles found for this filter.</p> : null}
+                {timelineByMonth.length === 0 ? <p className="text-xs text-admin-soft">No pickup cycles found for this filter.</p> : null}
               </div>
             </div>
           </section>
 
-          <section className="rounded-3xl border border-white/15 bg-white/5 p-6">
+          <section className="rounded-3xl border border-admin bg-admin-surface p-6">
             <h3 className="text-xl font-bold">Member Responses</h3>
-            <p className="mt-1 text-sm text-white/70">
+            <p className="mt-1 text-sm text-admin-muted">
               Review the most recent household responses for published cycles and correct any exception state before dispatch is built.
             </p>
             <div className="mt-3 space-y-2">
                 {data.pickupRequests.slice(0, 20).map((item) => (
-                <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-black/35 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-admin bg-admin-panel p-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm break-all">
                     {(item.users?.full_name || item.users?.email) ?? "Unknown member"} ({item.pickup_cycles?.pickup_date})
                   </p>
                   <select
                     value={item.status}
                     onChange={(event) => updatePickupStatus(item.id, event.target.value)}
-                    className="h-9 w-full rounded-lg border border-white/30 bg-black px-2 text-xs sm:w-auto"
+                    className="h-9 w-full rounded-lg border border-admin-strong bg-admin-surface-strong px-2 text-xs sm:w-auto"
                   >
                     <option value="requested">requested</option>
                     <option value="skipped">skipped</option>
@@ -2939,137 +2781,130 @@ export function AdminWorkspace({
 
       {section === "logistics" ? (
         <section className="space-y-4">
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <h3 className="text-xl font-bold">Dispatch Workflow</h3>
-            <p className="mt-1 text-sm text-white/70">
-              A pickup cycle is the service day for one zone. A route is the ordered stop list for that cycle. Build or
-              refresh the route first, then assign the driver once the stop order looks right.
-            </p>
-            <div className="mt-4 grid gap-3 lg:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">Step 1</p>
-                <p className="mt-2 text-lg font-bold">Select Cycle</p>
-                <p className="mt-1 text-sm text-white/70">Choose the zone and pickup day you are dispatching.</p>
+          <article className="rounded-3xl border border-admin bg-admin-surface p-6">
+            <h3 className="text-xl font-bold">Dispatch</h3>
+            {/* Step 1 — Zone + Cycle selection */}
+            <div className="mt-4 flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-admin-soft mb-1">Zone</label>
+                <select
+                  value={selectedZoneCode}
+                  onChange={(e) => { setSelectedZoneCode(e.target.value); setSelectedCycleId(""); }}
+                  className="h-10 rounded-lg border border-admin-strong bg-admin-surface-strong px-3 text-sm cursor-pointer"
+                >
+                  <option value="">All zones</option>
+                  {data.zones.map((zone) => (
+                    <option key={zone.id} value={zone.code}>{zone.name}</option>
+                  ))}
+                </select>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">Step 2</p>
-                <p className="mt-2 text-lg font-bold">Build Route</p>
-                <p className="mt-1 text-sm text-white/70">This creates or refreshes the one route for that zone and cycle.</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">Step 3</p>
-                <p className="mt-2 text-lg font-bold">Assign Driver</p>
-                <p className="mt-1 text-sm text-white/70">Assign after the stop list exists so the driver gets a real route.</p>
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <select value={selectedZoneCode} onChange={(event) => setSelectedZoneCode(event.target.value)} className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto">
-                <option value="">Select pickup area</option>
-                {data.zones.map((zone) => (
-                  <option key={zone.id} value={zone.code}>{zone.name} ({zone.code})</option>
-                ))}
-              </select>
-              <select value={selectedCycleId} onChange={(event) => setSelectedCycleId(event.target.value)} className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto">
-                <option value="">Select cycle</option>
-                {logisticsCycles.map((cycle) => (
-                  <option key={cycle.id} value={cycle.id}>
-                    {getCycleDisplayLabel(cycle)}
-                  </option>
-                ))}
-              </select>
-              <button onClick={generateRoute} className="w-full rounded-lg bg-[var(--dc-orange)] px-3 py-2 text-sm font-semibold sm:w-auto">
-                Build or Refresh Route
-              </button>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Ready Households</p>
-                <p className="mt-2 text-2xl font-bold">{selectedCycleRequestSummary.requested}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Skipped</p>
-                <p className="mt-2 text-2xl font-bold">{selectedCycleRequestSummary.skipped}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Exceptions</p>
-                <p className="mt-2 text-2xl font-bold">{selectedCycleRequestSummary.exceptions}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Existing Route</p>
-                <p className="mt-2 text-2xl font-bold">{selectedCycleRoutes.length > 0 ? "Yes" : "No"}</p>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-admin-soft mb-1">Pickup cycle</label>
+                <select
+                  value={selectedCycleId}
+                  onChange={(e) => setSelectedCycleId(e.target.value)}
+                  className="h-10 rounded-lg border border-admin-strong bg-admin-surface-strong px-3 text-sm cursor-pointer"
+                >
+                  <option value="">{logisticsCycles.length === 0 ? "No cycles scheduled" : "Select a cycle"}</option>
+                  {logisticsCycles.map((cycle) => (
+                    <option key={cycle.id} value={cycle.id}>{getCycleDisplayLabel(cycle)}</option>
+                  ))}
+                </select>
               </div>
             </div>
-            {selectedCycleMeta ? (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/75">
-                <p className="font-semibold text-white">Selected cycle</p>
-                <p className="mt-1">
-                  Pickup date: {formatDate(selectedCycleMeta.pickup_date)} | Response cutoff:{" "}
-                  {new Date(selectedCycleMeta.request_cutoff_at).toLocaleString()}
-                </p>
-                <p className="mt-1">
-                  Total request records: {selectedCycleRequestSummary.total}. The recommended flow is to build the route after
-                  the cutoff or once ops is comfortable locking the stop list for dispatch.
-                </p>
-                <p className="mt-1">
-                  Current route status: {selectedLogisticsRoute ? formatRouteStatusLabel(selectedLogisticsRoute.status) : "No route built yet"}.
-                </p>
+
+            {/* Empty state */}
+            {logisticsCycles.length === 0 && (
+              <div className="mt-4 rounded-2xl border border-dashed border-admin bg-admin-panel px-5 py-6 text-center">
+                <p className="font-semibold text-admin-muted">No pickup cycles scheduled yet</p>
+                <p className="mt-1 text-sm text-admin-soft">Go to the <a href="/admin?section=pickups" className="underline text-orange-300">Pickups tab</a> to schedule a cycle first.</p>
               </div>
-            ) : null}
-            <div className="mt-4 grid gap-3 lg:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Dispatch checklist</p>
-                <p className="mt-2 text-sm text-white/80">
-                  Confirm that skipped and exception households are intentional before you rebuild the route.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">One route rule</p>
-                <p className="mt-2 text-sm text-white/80">
-                  Each zone and cycle should have one live route. Rebuild refreshes that route instead of creating duplicates.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Driver timing</p>
-                <p className="mt-2 text-sm text-white/80">
-                  Assign the driver only after stops exist so the driver console opens with a real ordered run sheet.
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <div className="min-w-[280px] rounded-lg border border-white/20 bg-black/30 px-4 py-2 text-sm text-white/75">
-                {selectedLogisticsRoute
-                  ? `Current cycle route: ${getRouteDisplayLabel(selectedLogisticsRoute)} | ${formatRouteStatusLabel(selectedLogisticsRoute.status)} | ${selectedLogisticsRoute.stopCount ?? 0} stops`
-                  : "Current cycle route: not built yet"}
-              </div>
-              <select value={selectedDriverId} onChange={(event) => setSelectedDriverId(event.target.value)} className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm sm:w-auto">
-                <option value="">Select driver</option>
-                {driverOptions.map((driver) => (
-                  <option key={driver.id} value={driver.id}>{driver.employee_id} ({driver.users?.email})</option>
-                ))}
-              </select>
-              <button
-                onClick={assignDriver}
-                disabled={!selectedLogisticsRoute}
-                className="w-full rounded-lg bg-[var(--dc-orange)] px-3 py-2 text-sm font-semibold disabled:opacity-60 sm:w-auto"
-              >
-                Assign Driver
-              </button>
-            </div>
-            {logisticsMessage ? (
-              <div className="mt-3 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80">
+            )}
+
+            {/* Cycle selected — stats + build */}
+            {selectedCycleMeta && (
+              <>
+                <div className="mt-4 grid gap-3 grid-cols-2 md:grid-cols-4">
+                  <div className="rounded-2xl border border-admin bg-admin-panel p-4">
+                    <p className="text-xs uppercase tracking-wide text-admin-soft">Ready</p>
+                    <p className="mt-1 text-2xl font-bold">{selectedCycleRequestSummary.requested}</p>
+                    <p className="text-xs text-admin-soft mt-0.5">households</p>
+                  </div>
+                  <div className="rounded-2xl border border-admin bg-admin-panel p-4">
+                    <p className="text-xs uppercase tracking-wide text-admin-soft">Skipped</p>
+                    <p className="mt-1 text-2xl font-bold">{selectedCycleRequestSummary.skipped}</p>
+                    <p className="text-xs text-admin-soft mt-0.5">this cycle</p>
+                  </div>
+                  <div className="rounded-2xl border border-admin bg-admin-panel p-4">
+                    <p className="text-xs uppercase tracking-wide text-admin-soft">Pickup date</p>
+                    <p className="mt-1 text-lg font-bold leading-tight">{formatDate(selectedCycleMeta.pickup_date)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-admin bg-admin-panel p-4">
+                    <p className="text-xs uppercase tracking-wide text-admin-soft">Route</p>
+                    <p className="mt-1 text-lg font-bold leading-tight">
+                      {selectedLogisticsRoute ? formatRouteStatusLabel(selectedLogisticsRoute.status) : "Not built"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Build route */}
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={generateRoute}
+                    className="cursor-pointer rounded-xl bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(255,106,0,0.25)] hover:shadow-[0_6px_20px_rgba(255,106,0,0.35)] transition-all"
+                  >
+                    {selectedLogisticsRoute ? "Rebuild Route" : "Build Route"}
+                  </button>
+                  {selectedLogisticsRoute && (
+                    <span className="text-xs text-admin-soft">
+                      {selectedLogisticsRoute.stopCount ?? 0} stops · {getRouteDisplayLabel(selectedLogisticsRoute)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Assign driver — only show once route exists */}
+                {selectedLogisticsRoute && (
+                  <div className="mt-4 border-t border-admin pt-4 flex flex-wrap items-end gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-admin-soft mb-1">Assign Driver</label>
+                      <select
+                        value={selectedDriverId}
+                        onChange={(e) => setSelectedDriverId(e.target.value)}
+                        className="h-10 rounded-lg border border-admin-strong bg-admin-surface-strong px-3 text-sm cursor-pointer"
+                      >
+                        <option value="">{driverOptions.length === 0 ? "No drivers set up" : "Select driver"}</option>
+                        {driverOptions.map((driver) => (
+                          <option key={driver.id} value={driver.id}>{driver.employee_id} ({driver.users?.email})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={assignDriver}
+                      disabled={!selectedDriverId}
+                      className="cursor-pointer h-10 rounded-xl bg-[var(--dc-orange)] px-5 text-sm font-semibold text-white disabled:opacity-40"
+                    >
+                      Assign Driver
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {logisticsMessage && (
+              <div className="mt-3 rounded-xl border border-admin bg-admin-panel px-4 py-3 text-sm text-admin-muted">
                 {logisticsMessage}
               </div>
-            ) : null}
+            )}
           </article>
 
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+          <article className="rounded-3xl border border-admin bg-admin-surface p-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="text-lg font-bold">Route Preview</h4>
               {logisticsRoutePreview?.googleMapsUrl ? (
                 <a
                   href={logisticsRoutePreview.googleMapsUrl}
                   target="_blank"
-                  className="rounded border border-white/25 px-3 py-1 text-xs"
+                  className="rounded border border-admin-strong px-3 py-1 text-xs"
                   rel="noreferrer"
                 >
                   Open in Google Maps
@@ -3081,23 +2916,23 @@ export function AdminWorkspace({
               <img
                 src={`/api/admin/logistics/static-map?routeId=${selectedLogisticsRoute.id}`}
                 alt="Pickup route map"
-                className="mt-3 w-full rounded-xl border border-white/10 bg-black/40"
+                className="mt-3 w-full rounded-xl border border-admin bg-admin-panel"
                 onError={() => setMapLoadError(true)}
                 onLoad={() => setMapLoadError(false)}
               />
             ) : (
-              <p className="mt-2 text-sm text-white/65">Select a cycle and build the route to preview stops and map output.</p>
+              <p className="mt-2 text-sm text-admin-soft">Select a cycle and build the route to preview stops and map output.</p>
             )}
             {mapLoadError ? (
-              <p className="mt-3 text-sm text-amber-200">
+              <p className="mt-3 text-sm text-amber-700">
                 The in-panel map preview could not load, but the ordered stop list below and the Google Maps handoff are still available.
               </p>
             ) : null}
 
             <div className="mt-4 space-y-2">
               {selectedLogisticsRoute ? (
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-white/75">
-                  <p className="font-semibold text-white">
+                <div className="rounded-xl border border-admin bg-admin-panel p-3 text-sm text-admin-muted">
+                  <p className="font-semibold text-admin">
                     {getRouteDisplayLabel(selectedLogisticsRoute)} | {formatRouteStatusLabel(selectedLogisticsRoute.status)} | {selectedLogisticsRoute.stopCount ?? 0} stops
                   </p>
                   <p className="mt-1">
@@ -3115,22 +2950,22 @@ export function AdminWorkspace({
                 </div>
               ) : null}
               {(logisticsRoutePreview?.stops ?? []).map((stop) => (
-                <div key={stop.id} className="rounded-xl border border-white/10 bg-black/35 p-3 text-sm">
+                <div key={stop.id} className="rounded-xl border border-admin bg-admin-panel p-3 text-sm">
                   <p className="font-semibold">Stop {stop.stopOrder}: {stop.fullName || stop.email || "Unknown subscriber"}</p>
-                  <p className="text-xs text-white/70">
+                  <p className="text-xs text-admin-muted">
                     {stop.address
                       ? `${stop.address.addressLine1}, ${stop.address.city}, ${stop.address.state} ${stop.address.postalCode}`
                       : "Address unavailable"}
                   </p>
-                  <p className="mt-1 text-xs text-white/70">
+                  <p className="mt-1 text-xs text-admin-muted">
                     Request: {formatPickupRequestLabel(stop.requestStatus ?? "unknown")} | Stop status:{" "}
                     {formatRouteStatusLabel(stop.stopStatus)}
                   </p>
-                  {stop.requestNote ? <p className="mt-1 text-xs text-amber-200">Ops note: {stop.requestNote}</p> : null}
+                  {stop.requestNote ? <p className="mt-1 text-xs text-amber-700">Ops note: {stop.requestNote}</p> : null}
                 </div>
               ))}
               {selectedLogisticsRoute?.id && (logisticsRoutePreview?.stops ?? []).length === 0 ? (
-                <p className="text-sm text-white/65">No stops found for this route.</p>
+                <p className="text-sm text-admin-soft">No stops found for this route.</p>
               ) : null}
             </div>
           </article>
@@ -3139,21 +2974,72 @@ export function AdminWorkspace({
 
       {section === "growth" ? (
         <section className="grid gap-6 xl:grid-cols-2">
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <h3 className="text-xl font-bold">Waitlist Pipeline</h3>
-            <div className="mt-3 space-y-2">
-              {data.waitlist.slice(0, 30).map((entry) => (
-                <div key={entry.id} className="rounded-lg border border-white/10 bg-black/35 p-3 text-sm">
-                  {entry.full_name} ({entry.postal_code}) - {entry.status}
-                </div>
-              ))}
+          <article className="rounded-3xl border border-admin bg-admin-surface p-6 xl:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-xl font-bold">Waitlist</h3>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-admin bg-admin-panel px-3 py-1">
+                  {data.waitlist.length} total
+                </span>
+                <span className="rounded-full border border-admin bg-admin-panel px-3 py-1">
+                  {data.waitlist.filter((e) => (e as Record<string,unknown>).has_account).length} with accounts
+                </span>
+                <span className="rounded-full border border-admin bg-admin-panel px-3 py-1">
+                  {data.waitlist.filter((e) => e.status === "pending").length} pending
+                </span>
+                <span className="rounded-full border border-admin bg-admin-panel px-3 py-1">
+                  {data.waitlist.filter((e) => e.status === "converted").length} converted
+                </span>
+              </div>
+            </div>
+
+            {/* Map — client-side Leaflet via CDN */}
+            {data.waitlist.length > 0 && (
+              <WaitlistMap entries={data.waitlist} />
+            )}
+            {data.waitlist.length === 0 && (
+              <div className="mt-4 rounded-2xl border border-dashed border-admin bg-admin-panel px-5 py-8 text-center text-admin-soft text-sm">
+                No waitlist entries yet
+              </div>
+            )}
+
+            {/* Entry table */}
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-admin text-left text-xs uppercase tracking-wide text-admin-soft">
+                    <th className="pb-2 pr-4">Name</th>
+                    <th className="pb-2 pr-4">Email</th>
+                    <th className="pb-2 pr-4">Location</th>
+                    <th className="pb-2 pr-4">Status</th>
+                    <th className="pb-2">Account</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-admin">
+                  {data.waitlist.slice(0, 50).map((entry) => (
+                    <tr key={entry.id} className="hover:bg-admin-panel/50">
+                      <td className="py-2 pr-4 font-medium">{entry.full_name}</td>
+                      <td className="py-2 pr-4 text-admin-muted">{entry.email}</td>
+                      <td className="py-2 pr-4 text-admin-muted">{entry.city ? `${entry.city}, ` : ""}{entry.state} {entry.postal_code}</td>
+                      <td className="py-2 pr-4">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${entry.status === "converted" ? "bg-emerald-900/30 text-emerald-300" : "bg-amber-900/30 text-amber-300"}`}>
+                          {entry.status}
+                        </span>
+                      </td>
+                      <td className="py-2 text-admin-soft text-xs">
+                        {(entry as Record<string,unknown>).has_account ? "✓" : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </article>
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
+          <article className="rounded-3xl border border-admin bg-admin-surface p-6">
             <h3 className="text-xl font-bold">Affiliate Referrals</h3>
             <div className="mt-3 space-y-2">
               {data.referrals.slice(0, 30).map((referral) => (
-                <div key={referral.id} className="rounded-lg border border-white/10 bg-black/35 p-3 text-sm">
+                <div key={referral.id} className="rounded-lg border border-admin bg-admin-panel p-3 text-sm">
                   {referral.referrer_email ?? "Unknown"} {"->"} {referral.referred_email ?? "Pending user"} ({referral.referral_code}) - {referral.status}
                 </div>
               ))}
@@ -3164,322 +3050,738 @@ export function AdminWorkspace({
 
       {section === "communication" ? (
         <section className="space-y-6">
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--dc-orange)]">Messaging Control</p>
-            <h3 className="mt-2 text-2xl font-bold">Keep reminders, billing alerts, and delivery issues in one place</h3>
-            <p className="mt-2 max-w-3xl text-sm text-white/70">
-              Customers should get simple, dependable updates. Use this tab to confirm both delivery channels are healthy, queue pickup reminders, and separate retryable failures from events that need account cleanup first.
-            </p>
-            <div className="mt-4 grid gap-3 md:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Queued</p>
-                <p className="mt-2 text-2xl font-bold">{queuedNotificationEvents.length}</p>
+          {/* Channel health strip */}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className={`flex items-center gap-4 rounded-2xl border p-4 ${getNotificationStateTone(communicationHealth.sms?.ready ? "healthy" : communicationHealth.sms?.configured ? "attention" : "blocked")}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: "var(--admin-icon-inactive)" }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5" aria-hidden><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z" strokeWidth="2" /></svg>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Retryable failures</p>
-                <p className="mt-2 text-2xl font-bold">
-                  {failedNotificationEvents.filter((event) => getNotificationRetryState(event).canRetry).length}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Blocked failures</p>
-                <p className="mt-2 text-2xl font-bold">{blockedNotificationEvents.length}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Selected for retry</p>
-                <p className="mt-2 text-2xl font-bold">{notificationSelection.length}</p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              <div className={`rounded-2xl border p-4 ${getNotificationStateTone(communicationHealth.sms?.ready ? "healthy" : communicationHealth.sms?.configured ? "attention" : "blocked")}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/65">Text delivery</p>
-                    <h4 className="mt-2 text-lg font-semibold text-white">Twilio</h4>
-                  </div>
-                  <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
-                    {communicationHealth.sms?.ready ? "Verified" : communicationHealth.sms?.configured ? "Needs attention" : "Setup needed"}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">Twilio SMS</p>
+                  <span className="rounded-full border border-admin px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-admin-muted">
+                    {communicationHealth.sms?.ready ? "Ready" : "Setup needed"}
                   </span>
                 </div>
-                <p className="mt-3 text-sm text-white/80">
-                  {communicationHealth.sms?.detail || "SMS channel status will appear here once loaded."}
-                </p>
-                <p className="mt-3 text-xs text-white/60">
-                  Sender: {communicationHealth.sms?.fromNumber || communicationHealth.sms?.messagingServiceSid || "Not configured"}
-                </p>
-                <p className="mt-2 text-xs text-white/60">{smsNotificationEvents.length} text events logged recently.</p>
-              </div>
-              <div className={`rounded-2xl border p-4 ${getNotificationStateTone(communicationHealth.email?.ready ? "healthy" : communicationHealth.email?.configured ? "attention" : "blocked")}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/65">Email delivery</p>
-                    <h4 className="mt-2 text-lg font-semibold text-white">Resend</h4>
-                  </div>
-                  <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
-                    {communicationHealth.email?.ready ? "Verified" : communicationHealth.email?.configured ? "Needs attention" : "Setup needed"}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm text-white/80">
-                  {communicationHealth.email?.detail || "Email channel status will appear here once loaded."}
-                </p>
-                <p className="mt-3 text-xs text-white/60">
-                  From: {communicationHealth.email?.fromEmail || "Not configured"}
-                </p>
-                <p className="mt-2 text-xs text-white/60">
-                  Provider: {communicationHealth.email?.host || "Not configured"} • {emailNotificationEvents.length} email events logged recently.
+                <p className="mt-0.5 text-xs text-admin-muted truncate">
+                  {communicationHealth.sms?.fromNumber || communicationHealth.sms?.messagingServiceSid || "Not configured"} · {smsNotificationEvents.length} events
                 </p>
               </div>
             </div>
-          </article>
+            <div className={`flex items-center gap-4 rounded-2xl border p-4 ${getNotificationStateTone(communicationHealth.email?.ready ? "healthy" : communicationHealth.email?.configured ? "attention" : "blocked")}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: "var(--admin-icon-inactive)" }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5" aria-hidden><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Z" strokeWidth="2" /><path d="m22 6-10 7L2 6" strokeWidth="2" /></svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">Resend Email</p>
+                  <span className="rounded-full border border-admin px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-admin-muted">
+                    {communicationHealth.email?.ready ? "Ready" : "Setup needed"}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-admin-muted truncate">
+                  {communicationHealth.email?.fromEmail || "Not configured"} · {emailNotificationEvents.length} events
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <h3 className="text-xl font-bold">SMS Campaigns</h3>
-            <p className="mt-1 text-sm text-white/70">
-              Send one-off SMS updates to individual users, active users in a zone, or your full audience.
-            </p>
-            {smsConfigError ? (
-              <div className="mt-4 rounded-xl border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                SMS is not ready in this environment: {smsConfigError}.
+          {/* Auto-reminders info strip + template editor */}
+          <div className="rounded-2xl border border-admin bg-admin-panel">
+            <div className="flex flex-wrap items-center gap-3 p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4" aria-hidden><path d="M12 8v4l3 3" strokeWidth="2" strokeLinecap="round" /><circle cx="12" cy="12" r="9" strokeWidth="2" /></svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Automatic pickup reminders</p>
+                <p className="text-xs text-admin-muted">72-hour and 24-hour email + SMS reminders are sent automatically via cron. Partner zones get co-branded emails.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-admin px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-admin-muted">Queued: {queuedNotificationEvents.length}</span>
+                <span className="rounded-full border border-admin px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-admin-muted">Failed: {failedNotificationEvents.length}</span>
+                <button
+                  type="button"
+                  onClick={() => setReminderTemplatesOpen((prev) => !prev)}
+                  className="cursor-pointer rounded-lg border border-admin-strong px-3 py-1 text-xs font-semibold text-admin-muted transition-colors hover:bg-admin-surface-strong"
+                >
+                  {reminderTemplatesOpen ? "Close Editor" : "Edit Templates"}
+                </button>
+              </div>
+            </div>
+
+            {/* Template editor (expandable) */}
+            {reminderTemplatesOpen ? (
+              <div className="border-t border-admin px-4 pb-4 pt-4">
+                {reminderTemplatesLoading ? (
+                  <p className="text-sm text-admin-soft">Loading templates...</p>
+                ) : reminderTemplates ? (
+                  <div className="space-y-6">
+                    <p className="text-xs text-admin-muted">
+                      Use <code className="rounded bg-admin-surface-strong px-1 py-0.5 text-[11px] font-mono">{"{{pickup_date}}"}</code> as a placeholder for the pickup date. Changes apply to the next cron cycle.
+                    </p>
+
+                    {/* SMS templates */}
+                    <div>
+                      <h4 className="text-sm font-semibold">SMS Templates</h4>
+                      <div className="mt-3 grid gap-4 lg:grid-cols-3">
+                        {(
+                          [
+                            { key: "sms_72h", enabledKey: "enabled_sms_72h", label: "72 hours before" },
+                            { key: "sms_24h", enabledKey: "enabled_sms_24h", label: "24 hours before" },
+                            { key: "sms_day_of", enabledKey: "enabled_sms_day_of", label: "Day of pickup" },
+                          ] as const
+                        ).map((item) => {
+                          const isEnabled = reminderTemplates[item.enabledKey] !== false && reminderTemplates[item.enabledKey] !== "false";
+                          return (
+                            <div key={item.key} className={`rounded-xl border p-3 transition-opacity ${isEnabled ? "border-admin bg-admin-surface" : "border-admin bg-admin-panel opacity-50"}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[11px] font-semibold uppercase tracking-wide text-admin-soft">{item.label}</label>
+                                <button
+                                  type="button"
+                                  onClick={() => setReminderTemplates((prev) => prev ? { ...prev, [item.enabledKey]: !isEnabled } : prev)}
+                                  className={`relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors ${isEnabled ? "bg-emerald-500" : "bg-gray-500"}`}
+                                  role="switch"
+                                  aria-checked={isEnabled}
+                                  aria-label={`${isEnabled ? "Disable" : "Enable"} ${item.label} SMS`}
+                                >
+                                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${isEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+                                </button>
+                              </div>
+                              <textarea
+                                value={String(reminderTemplates[item.key] ?? "")}
+                                onChange={(e) => setReminderTemplates((prev) => prev ? { ...prev, [item.key]: e.target.value } : prev)}
+                                rows={4}
+                                maxLength={600}
+                                disabled={!isEnabled}
+                                className="mt-2 w-full rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                              />
+                              <p className="mt-0.5 text-[10px] text-admin-soft">{String(reminderTemplates[item.key] ?? "").length}/600</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Email templates */}
+                    <div>
+                      <h4 className="text-sm font-semibold">Email Templates</h4>
+                      <div className="mt-3 space-y-4">
+                        {(
+                          [
+                            { cadence: "72h", enabledKey: "enabled_email_72h", label: "72 hours before" },
+                            { cadence: "24h", enabledKey: "enabled_email_24h", label: "24 hours before" },
+                            { cadence: "day_of", enabledKey: "enabled_email_day_of", label: "Day of pickup" },
+                          ] as const
+                        ).map((item) => {
+                          const isEnabled = reminderTemplates[item.enabledKey] !== false && reminderTemplates[item.enabledKey] !== "false";
+                          return (
+                            <div key={item.cadence} className={`rounded-xl border p-4 transition-opacity ${isEnabled ? "border-admin bg-admin-surface" : "border-admin bg-admin-panel opacity-50"}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-admin-soft">{item.label}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setReminderTemplates((prev) => prev ? { ...prev, [item.enabledKey]: !isEnabled } : prev)}
+                                  className={`relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors ${isEnabled ? "bg-emerald-500" : "bg-gray-500"}`}
+                                  role="switch"
+                                  aria-checked={isEnabled}
+                                  aria-label={`${isEnabled ? "Disable" : "Enable"} ${item.label} email`}
+                                >
+                                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${isEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+                                </button>
+                              </div>
+                              <div className={`mt-2 grid gap-3 lg:grid-cols-3 ${!isEnabled ? "pointer-events-none opacity-40" : ""}`}>
+                                <div>
+                                  <label className="text-[10px] font-semibold uppercase tracking-wide text-admin-soft">Subject line</label>
+                                  <input
+                                    value={String(reminderTemplates[`email_subject_${item.cadence}`] ?? "")}
+                                    onChange={(e) => setReminderTemplates((prev) => prev ? { ...prev, [`email_subject_${item.cadence}`]: e.target.value } : prev)}
+                                    maxLength={200}
+                                    disabled={!isEnabled}
+                                    className="mt-1 w-full rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-xs disabled:cursor-not-allowed"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-semibold uppercase tracking-wide text-admin-soft">Intro line</label>
+                                  <input
+                                    value={String(reminderTemplates[`email_intro_${item.cadence}`] ?? "")}
+                                    onChange={(e) => setReminderTemplates((prev) => prev ? { ...prev, [`email_intro_${item.cadence}`]: e.target.value } : prev)}
+                                    maxLength={300}
+                                    disabled={!isEnabled}
+                                    className="mt-1 w-full rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-xs disabled:cursor-not-allowed"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-semibold uppercase tracking-wide text-admin-soft">Body paragraph</label>
+                                  <textarea
+                                    value={String(reminderTemplates[`email_body_${item.cadence}`] ?? "")}
+                                    onChange={(e) => setReminderTemplates((prev) => prev ? { ...prev, [`email_body_${item.cadence}`]: e.target.value } : prev)}
+                                    rows={2}
+                                    maxLength={500}
+                                    disabled={!isEnabled}
+                                  className="mt-1 w-full rounded-lg border border-admin-strong bg-admin-surface-strong px-3 py-2 text-xs disabled:cursor-not-allowed"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={saveReminderTemplates}
+                        disabled={reminderTemplatesSaving}
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(255,106,0,0.25)] transition-all hover:shadow-[0_6px_20px_rgba(255,106,0,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {reminderTemplatesSaving ? <><Spinner size="sm" color="white" /> Saving...</> : "Save Templates"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setReminderTemplates(null); setReminderTemplatesOpen(false); }}
+                        className="cursor-pointer rounded-xl border border-admin-strong px-5 py-2 text-sm font-semibold text-admin-muted transition-colors hover:bg-admin-surface-strong"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-admin-soft">Could not load templates.</p>
+                )}
               </div>
             ) : null}
+          </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <label className="text-xs text-white/70">
-                Target Type
-                <select
-                  value={smsTarget}
-                  onChange={(event) => setSmsTarget(event.target.value as "individual" | "zone" | "all")}
-                  className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
-                >
-                  <option value="individual">Individual users</option>
-                  <option value="zone">Single zone group</option>
-                  <option value="all">All audience</option>
-                </select>
-              </label>
-              {smsTarget === "zone" ? (
-                <label className="text-xs text-white/70">
-                  Zone
-                  <select
-                    value={smsZoneId}
-                    onChange={(event) => setSmsZoneId(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-lg border border-white/30 bg-black px-3"
-                  >
-                    <option value="">Select zone</option>
-                    {data.zones.map((zone) => (
-                      <option key={zone.id} value={zone.id}>
-                        {zone.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+          {/* Subtab switcher */}
+          <div className="flex gap-1 rounded-xl border border-admin bg-admin-panel p-1">
+            {(
+              [
+                { id: "scheduled" as const, label: "Schedule Reminder" },
+                { id: "send-now" as const, label: "Send Now" },
+                { id: "history" as const, label: "Event Log" },
+                { id: "test-email" as const, label: "Send Test Emails" },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setCommSubtab(tab.id)}
+                className={`flex-1 cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                  commSubtab === tab.id
+                    ? "bg-[var(--dc-orange)] text-white shadow-[0_2px_8px_rgba(255,106,0,0.25)]"
+                    : "text-admin-muted hover:bg-admin-surface-strong"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── SCHEDULE REMINDER ── */}
+          {commSubtab === "scheduled" ? (
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
+              <h3 className="text-xl font-bold">Schedule a Text Reminder</h3>
+              <p className="mt-1 text-sm text-admin-muted">
+                Write your message, choose an audience, and pick when it goes out. The system sends it automatically at the scheduled time.
+              </p>
+              {smsConfigError ? (
+                <div className="mt-4 rounded-xl border admin-badge-amber px-4 py-3 text-sm text-admin-muted">
+                  SMS is not ready: {smsConfigError}
+                </div>
               ) : null}
-              {smsTarget === "all" ? (
-                <label className="inline-flex items-center gap-2 text-xs text-white/80 md:mt-6">
-                  <input
-                    type="checkbox"
-                    checked={smsIncludeStaff}
-                    onChange={(event) => setSmsIncludeStaff(event.target.checked)}
+
+              <div className="mt-5 space-y-4">
+                {/* Message */}
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-admin-soft">Message</label>
+                  <textarea
+                    value={scheduleReminderForm.message}
+                    onChange={(e) => setScheduleReminderForm((prev) => ({ ...prev, message: e.target.value }))}
+                    rows={4}
+                    maxLength={600}
+                    placeholder="e.g. Reminder: your DonateCrate pickup is this Saturday. Have your bag ready by 9am!"
+                    className="mt-1.5 w-full rounded-xl border border-admin-strong bg-admin-surface-strong px-4 py-3 text-sm"
                   />
-                  Include admin + driver accounts
-                </label>
-              ) : null}
-              <div className="rounded-lg border border-white/15 bg-black/35 px-3 py-2 text-xs text-white/80 md:mt-6">
-                Eligible recipients: {smsRecipientEstimate}
-              </div>
-            </div>
+                  <p className="mt-1 text-xs text-admin-soft">{scheduleReminderForm.message.length}/600</p>
+                </div>
 
-            {smsTarget === "individual" ? (
-              <div className="mt-4 space-y-3">
-                <input
-                  value={smsSearch}
-                  onChange={(event) => setSmsSearch(event.target.value)}
-                  placeholder="Search users by name, email, or phone"
-                  className="h-10 w-full rounded-lg border border-white/30 bg-black px-3 text-sm"
-                />
-                <div className="max-h-56 overflow-auto rounded-xl border border-white/15 bg-black/35 p-2">
-                  {smsUsersWithPhones.slice(0, 120).map((user) => (
-                    <label
-                      key={user.id}
-                      className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-white/10"
+                {/* Audience + time row */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-admin-soft">Audience</label>
+                    <select
+                      value={scheduleReminderForm.targetType}
+                      onChange={(e) => setScheduleReminderForm((prev) => ({ ...prev, targetType: e.target.value as "zone" | "all" }))}
+                      className="dc-input-admin mt-1.5 w-full"
                     >
-                      <span className="pr-2">
-                        {user.full_name || user.email}
-                        <span className="ml-2 text-xs text-white/70">{user.phone}</span>
-                      </span>
+                      <option value="all">All active subscribers</option>
+                      <option value="zone">Single zone</option>
+                    </select>
+                  </div>
+                  {scheduleReminderForm.targetType === "zone" ? (
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wide text-admin-soft">Zone</label>
+                      <select
+                        value={scheduleReminderForm.zoneId}
+                        onChange={(e) => setScheduleReminderForm((prev) => ({ ...prev, zoneId: e.target.value }))}
+                        className="dc-input-admin mt-1.5 w-full"
+                      >
+                        <option value="">Select zone</option>
+                        {data.zones.map((zone) => (
+                          <option key={zone.id} value={zone.id}>{zone.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-admin-soft">Send at</label>
+                    <input
+                      type="datetime-local"
+                      value={scheduleReminderForm.scheduledFor}
+                      onChange={(e) => setScheduleReminderForm((prev) => ({ ...prev, scheduledFor: e.target.value }))}
+                      className="dc-input-admin mt-1.5 w-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4">
+                  {scheduleReminderForm.targetType === "all" ? (
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-admin-muted">
                       <input
                         type="checkbox"
-                        checked={smsUserIds.includes(user.id)}
-                        onChange={(event) => {
-                          setSmsUserIds((prev) =>
-                            event.target.checked ? [...prev, user.id] : prev.filter((id) => id !== user.id),
-                          );
-                        }}
+                        checked={scheduleReminderForm.includeStaff}
+                        onChange={(e) => setScheduleReminderForm((prev) => ({ ...prev, includeStaff: e.target.checked }))}
                       />
+                      Also include admin and driver accounts
                     </label>
-                  ))}
-                  {smsUsersWithPhones.length === 0 ? (
-                    <p className="px-2 py-3 text-sm text-white/65">No users with phone numbers match this search.</p>
                   ) : null}
+                  <button
+                    type="button"
+                    onClick={createScheduledReminder}
+                    disabled={scheduleSaving || !!smsConfigError}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--dc-orange)] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(255,106,0,0.25)] transition-all hover:shadow-[0_6px_20px_rgba(255,106,0,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {scheduleSaving ? <><Spinner size="sm" color="white" /> Scheduling...</> : "Schedule Reminder"}
+                  </button>
                 </div>
-              </div>
-            ) : null}
 
-            {smsTarget === "zone" ? (
-              <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Active eligible users in zone</p>
-                <div className="mt-2 max-h-56 overflow-auto rounded-xl border border-white/15 bg-black/35 p-2">
-                  {smsZonePreviewLoading ? (
-                    <p className="px-2 py-3 text-sm text-white/65">Loading zone recipients...</p>
-                  ) : smsZoneEligibleUsers.length === 0 ? (
-                    <p className="px-2 py-3 text-sm text-white/65">No active subscribed + SMS opted-in users found.</p>
-                  ) : (
-                    smsZoneEligibleUsers.map((user) => (
-                      <div key={user.id} className="rounded-lg px-2 py-2 text-sm hover:bg-white/10">
-                        <span>{user.fullName || user.email}</span>
-                        <span className="ml-2 text-xs text-white/70">{user.phone}</span>
+                {/* ── Live previews ── */}
+                {scheduleReminderForm.message.trim().length > 0 ? (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {/* SMS preview */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-admin-soft">SMS Preview</p>
+                      <div className="rounded-2xl border border-admin bg-admin-panel p-4">
+                        <div className="mx-auto max-w-[280px]">
+                          {/* Phone frame */}
+                          <div className="rounded-2xl border border-admin-strong bg-[#1a1a2e] p-3" style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+                            <div className="mb-2 flex items-center justify-center gap-1.5">
+                              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                              <p className="text-[10px] font-semibold text-gray-400">DonateCrate</p>
+                            </div>
+                            <div className="rounded-xl bg-[#2a2a40] px-3 py-2.5">
+                              <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-200">
+                                {scheduleReminderForm.message}
+                              </p>
+                            </div>
+                            <p className="mt-1.5 text-right text-[10px] text-gray-500">
+                              {scheduleReminderForm.scheduledFor
+                                ? new Date(scheduleReminderForm.scheduledFor).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+                                : "Not scheduled yet"}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-3 text-center text-[10px] text-admin-soft">
+                          {scheduleReminderForm.message.length} characters · {Math.ceil(scheduleReminderForm.message.length / 160)} SMS segment{Math.ceil(scheduleReminderForm.message.length / 160) !== 1 ? "s" : ""}
+                        </p>
                       </div>
-                    ))
-                  )}
+                    </div>
+
+                    {/* Email preview */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-admin-soft">Auto Email Preview (72h reminder)</p>
+                      <div className="rounded-2xl border border-admin bg-admin-panel p-4">
+                        <div className="overflow-hidden rounded-xl border border-admin-strong bg-[#f3efe8]">
+                          {/* Email header */}
+                          <div className="border-b border-gray-200 bg-gradient-to-b from-[#fffaf5] to-white px-4 py-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="rounded-lg bg-[#182033] px-2.5 py-1.5">
+                                  <p className="text-[10px] font-bold text-white">DonateCrate</p>
+                                </div>
+                              </div>
+                              <span className="rounded-full bg-[#fff1e6] px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest text-[#b14b00]">Pickup Reminder</span>
+                            </div>
+                            <p className="mt-2 text-sm font-bold text-[#121926]">Your DonateCrate pickup is coming up</p>
+                            <p className="mt-1 text-[11px] text-[#4f5a68]">Your next monthly pickup is getting close.</p>
+                          </div>
+                          {/* Email body */}
+                          <div className="px-4 py-3">
+                            <div className="mb-2 rounded-lg bg-[#fff7f1] border border-[#f3ded0] px-3 py-2">
+                              <p className="text-[8px] font-bold uppercase tracking-widest text-[#9a7657]">Scheduled Pickup</p>
+                              <p className="text-[11px] font-bold text-[#181f30]">
+                                {scheduleReminderForm.scheduledFor
+                                  ? new Date(scheduleReminderForm.scheduledFor).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+                                  : "Date TBD"}
+                              </p>
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-[#4a5565]">
+                              Hi there, we are scheduled to stop by soon. Keep your orange bag ready and place it out before route time.
+                            </p>
+                            <div className="mt-2">
+                              <span className="inline-block rounded-full bg-[#ff6a00] px-3 py-1 text-[10px] font-bold text-white">Open my account</span>
+                            </div>
+                            <p className="mt-2 text-[9px] text-[#677381]">You are receiving this because reminder email is enabled on your DonateCrate account.</p>
+                          </div>
+                        </div>
+                        <p className="mt-3 text-center text-[10px] text-admin-soft">
+                          Emails send automatically 72h + 24h before each pickup cycle
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Upcoming / recent scheduled reminders */}
+              <div className="mt-8">
+                <h4 className="text-sm font-semibold uppercase tracking-wide text-admin-soft">Scheduled Reminders</h4>
+                {scheduledRemindersLoading ? (
+                  <p className="mt-3 text-sm text-admin-soft">Loading...</p>
+                ) : scheduledReminders.length === 0 ? (
+                  <p className="mt-3 text-sm text-admin-soft">No scheduled reminders yet. Create one above.</p>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {scheduledReminders.map((reminder) => {
+                      const meta = reminder.metadata as Record<string, unknown>;
+                      const scheduledAt = typeof meta.scheduled_for === "string" ? new Date(meta.scheduled_for) : null;
+                      const msg = typeof meta.message === "string" ? meta.message : "";
+                      const target = typeof meta.targetType === "string" ? meta.targetType : "all";
+                      const isPending = reminder.status === "scheduled";
+                      const isSent = reminder.status === "sent";
+                      const isCanceled = reminder.status === "canceled";
+                      const sentCount = typeof meta.sent_count === "number" ? meta.sent_count : null;
+                      const failedCount = typeof meta.failed_count === "number" ? meta.failed_count : null;
+
+                      return (
+                        <div
+                          key={reminder.id}
+                          className={`flex items-start gap-4 rounded-xl border p-4 ${
+                            isPending
+                              ? "border-[var(--dc-orange)]/30 bg-[var(--dc-orange)]/5"
+                              : isCanceled
+                                ? "border-admin bg-admin-panel opacity-50"
+                                : "border-admin bg-admin-panel"
+                          }`}
+                        >
+                          {/* Status indicator */}
+                          <div className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${
+                            isPending ? "bg-[var(--dc-orange)] animate-pulse" : isSent ? "bg-emerald-400" : "bg-gray-400"
+                          }`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium leading-snug">{msg.length > 120 ? `${msg.slice(0, 120)}...` : msg}</p>
+                            <div className="mt-1.5 flex flex-wrap gap-2 text-xs text-admin-muted">
+                              {scheduledAt ? (
+                                <span>{isPending ? "Sends" : "Sent"} {scheduledAt.toLocaleString()}</span>
+                              ) : null}
+                              <span>· {target === "zone" ? "Zone" : "All subscribers"}</span>
+                              {isSent && sentCount !== null ? (
+                                <span>· {sentCount} sent{failedCount ? `, ${failedCount} failed` : ""}</span>
+                              ) : null}
+                              {isCanceled ? <span className="font-semibold text-admin-soft">Canceled</span> : null}
+                            </div>
+                          </div>
+                          {isPending ? (
+                            <button
+                              type="button"
+                              onClick={() => cancelScheduledReminder(reminder.id)}
+                              className="cursor-pointer shrink-0 rounded-lg border border-admin-strong px-3 py-1.5 text-xs font-semibold text-admin-muted transition-colors hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400"
+                            >
+                              Cancel
+                            </button>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </article>
+          ) : null}
+
+          {/* ── SEND NOW ── */}
+          {commSubtab === "send-now" ? (
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
+              <h3 className="text-xl font-bold">Send SMS Now</h3>
+              <p className="mt-1 text-sm text-admin-muted">
+                Instantly send a text to individual users, a zone, or all subscribers.
+              </p>
+              {smsConfigError ? (
+                <div className="mt-4 rounded-xl border admin-badge-amber px-4 py-3 text-sm text-admin-muted">
+                  SMS is not ready: {smsConfigError}
+                </div>
+              ) : null}
+
+              <div className="mt-5 space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-admin-soft">Audience</label>
+                    <select
+                      value={smsTarget}
+                      onChange={(e) => setSmsTarget(e.target.value as "individual" | "zone" | "all")}
+                      className="dc-input-admin mt-1.5 w-full"
+                    >
+                      <option value="individual">Individual users</option>
+                      <option value="zone">Single zone</option>
+                      <option value="all">All subscribers</option>
+                    </select>
+                  </div>
+                  {smsTarget === "zone" ? (
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wide text-admin-soft">Zone</label>
+                      <select
+                        value={smsZoneId}
+                        onChange={(e) => setSmsZoneId(e.target.value)}
+                        className="dc-input-admin mt-1.5 w-full"
+                      >
+                        <option value="">Select zone</option>
+                        {data.zones.map((zone) => (
+                          <option key={zone.id} value={zone.id}>{zone.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+                  {smsTarget === "all" ? (
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-admin-muted md:mt-6">
+                      <input type="checkbox" checked={smsIncludeStaff} onChange={(e) => setSmsIncludeStaff(e.target.checked)} />
+                      Include admin + drivers
+                    </label>
+                  ) : null}
+                  <div className="flex items-end">
+                    <div className="rounded-lg border border-admin bg-admin-panel px-3 py-2 text-xs text-admin-muted">
+                      {smsRecipientEstimate} eligible recipients
+                    </div>
+                  </div>
+                </div>
+
+                {smsTarget === "individual" ? (
+                  <div className="space-y-2">
+                    <input
+                      value={smsSearch}
+                      onChange={(e) => setSmsSearch(e.target.value)}
+                      placeholder="Search by name, email, or phone"
+                      className="h-10 w-full rounded-lg border border-admin-strong bg-admin-surface-strong px-3 text-sm"
+                    />
+                    <div className="max-h-48 overflow-auto rounded-xl border border-admin bg-admin-panel p-2">
+                      {smsUsersWithPhones.slice(0, 80).map((user) => (
+                        <label key={user.id} className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-admin-surface-strong">
+                          <span className="pr-2 truncate">
+                            {user.full_name || user.email}
+                            <span className="ml-2 text-xs text-admin-muted">{user.phone}</span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={smsUserIds.includes(user.id)}
+                            onChange={(e) => setSmsUserIds((prev) => e.target.checked ? [...prev, user.id] : prev.filter((id) => id !== user.id))}
+                          />
+                        </label>
+                      ))}
+                      {smsUsersWithPhones.length === 0 ? <p className="px-2 py-3 text-sm text-admin-soft">No matches.</p> : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {smsTarget === "zone" && smsZoneId ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-admin-soft">Recipients</p>
+                    <div className="mt-1.5 max-h-40 overflow-auto rounded-xl border border-admin bg-admin-panel p-2">
+                      {smsZonePreviewLoading ? (
+                        <p className="px-2 py-3 text-sm text-admin-soft">Loading...</p>
+                      ) : smsZoneEligibleUsers.length === 0 ? (
+                        <p className="px-2 py-3 text-sm text-admin-soft">No eligible users.</p>
+                      ) : (
+                        smsZoneEligibleUsers.map((user) => (
+                          <div key={user.id} className="rounded-lg px-2 py-1.5 text-sm">
+                            {user.fullName || user.email} <span className="text-xs text-admin-muted">{user.phone}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-admin-soft">Message</label>
+                  <textarea
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(e.target.value)}
+                    rows={4}
+                    maxLength={600}
+                    placeholder="Write your message..."
+                    className="mt-1.5 w-full rounded-xl border border-admin-strong bg-admin-surface-strong px-4 py-3 text-sm"
+                  />
+                  <p className="mt-1 text-xs text-admin-soft">{smsMessage.length}/600</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={sendSmsCampaign}
+                  disabled={smsSending || !!smsConfigError}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--dc-orange)] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(255,106,0,0.25)] transition-all hover:shadow-[0_6px_20px_rgba(255,106,0,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {smsSending ? <><Spinner size="sm" color="white" /> Sending...</> : "Send Now"}
+                </button>
+              </div>
+            </article>
+          ) : null}
+
+          {/* ── EVENT LOG ── */}
+          {commSubtab === "history" ? (
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold">Event Log</h3>
+                  <p className="mt-1 text-sm text-admin-muted">Recent notification events across all channels.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={processQueuedNotifications}
+                    disabled={notificationActionLoading}
+                    className="cursor-pointer rounded-lg border border-admin-strong px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-admin-surface-strong disabled:opacity-50"
+                  >
+                    Process Queue
+                  </button>
+                  <button
+                    type="button"
+                    onClick={retrySelectedNotifications}
+                    disabled={notificationActionLoading || notificationSelection.length === 0}
+                    className="cursor-pointer rounded-lg border border-admin-strong px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-admin-surface-strong disabled:opacity-50"
+                  >
+                    Retry Selected ({notificationSelection.length})
+                  </button>
                 </div>
               </div>
-            ) : null}
 
-            <div className="mt-4">
-              <label className="text-xs text-white/70">
-                SMS Message
-                <textarea
-                  value={smsMessage}
-                  onChange={(event) => setSmsMessage(event.target.value)}
-                  rows={5}
-                  maxLength={600}
-                  placeholder="Write your operational update or reminder"
-                  className="mt-1 w-full rounded-xl border border-white/30 bg-black px-3 py-3 text-sm"
-                />
-              </label>
-              <p className="mt-1 text-xs text-white/60">{smsMessage.length}/600 characters</p>
-            </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-admin bg-admin-panel p-3 text-center">
+                  <p className="text-xs uppercase tracking-wide text-admin-soft">Queued</p>
+                  <p className="mt-1 text-xl font-bold">{queuedNotificationEvents.length}</p>
+                </div>
+                <div className="rounded-2xl border border-admin bg-admin-panel p-3 text-center">
+                  <p className="text-xs uppercase tracking-wide text-admin-soft">Retryable</p>
+                  <p className="mt-1 text-xl font-bold">{failedNotificationEvents.filter((e) => getNotificationRetryState(e).canRetry).length}</p>
+                </div>
+                <div className="rounded-2xl border border-admin bg-admin-panel p-3 text-center">
+                  <p className="text-xs uppercase tracking-wide text-admin-soft">Blocked</p>
+                  <p className="mt-1 text-xl font-bold">{blockedNotificationEvents.length}</p>
+                </div>
+              </div>
 
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={sendSmsCampaign}
-                disabled={smsSending || !!smsConfigError}
-                className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {smsSending ? "Sending..." : "Send SMS Campaign"}
-              </button>
-            </div>
-          </article>
-
-          <article className="rounded-3xl border border-white/15 bg-white/5 p-6">
-            <h3 className="text-xl font-bold">Reminder Queue</h3>
-            <p className="mt-1 text-sm text-white/70">
-              Queue cycle reminders for opted-in households. If email is connected, pickup reminders will queue for both text and email.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => queueCycleReminders("72h")}
-                disabled={notificationActionLoading}
-                className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                Queue 72h Reminder
-              </button>
-              <button
-                type="button"
-                onClick={() => queueCycleReminders("24h")}
-                disabled={notificationActionLoading}
-                className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                Queue 24h Reminder
-              </button>
-              <button
-                type="button"
-                onClick={() => queueCycleReminders("day_of")}
-                disabled={notificationActionLoading}
-                className="rounded-lg bg-[var(--dc-orange)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                Queue Day-of Reminder
-              </button>
-              <button
-                type="button"
-                onClick={processQueuedNotifications}
-                disabled={notificationActionLoading}
-                className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold disabled:opacity-60"
-              >
-                Process Queued Events
-              </button>
-              <button
-                type="button"
-                onClick={retrySelectedNotifications}
-                disabled={notificationActionLoading || notificationSelection.length === 0}
-                className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold disabled:opacity-60"
-              >
-                Retry Selected Failures
-              </button>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Queued</p>
-                <p className="mt-2 text-2xl font-bold">{queuedNotificationEvents.length}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Retryable Failures</p>
-                <p className="mt-2 text-2xl font-bold">
-                  {failedNotificationEvents.filter((event) => getNotificationRetryState(event).canRetry).length}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/60">Needs Manual Fix</p>
-                <p className="mt-2 text-2xl font-bold">{blockedNotificationEvents.length}</p>
-              </div>
-            </div>
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/75">
-              Failures with too many attempts are blocked from retry until the underlying problem is fixed, such as a missing phone number or provider configuration issue.
-            </div>
-            <div className="mt-4 space-y-2">
-              {notificationEvents.slice(0, 40).map((event) => (
-                <label key={event.id} className="flex cursor-pointer gap-3 rounded-xl border border-white/10 bg-black/35 p-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={notificationSelection.includes(event.id)}
-                    disabled={!getNotificationRetryState(event).canRetry || event.status === "sent" || event.status === "delivered"}
-                    onChange={(inputEvent) => {
-                      setNotificationSelection((prev) =>
-                        inputEvent.target.checked ? [...prev, event.id] : prev.filter((id) => id !== event.id),
-                      );
-                    }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold">
-                        {formatNotificationEventType(event.event_type)} | {formatNotificationChannel(event.channel)} | {formatNotificationStatus(event.status)}
+              <div className="mt-4 space-y-2">
+                {notificationEvents.slice(0, 40).map((event) => (
+                  <label key={event.id} className="flex cursor-pointer gap-3 rounded-xl border border-admin bg-admin-panel p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={notificationSelection.includes(event.id)}
+                      disabled={!getNotificationRetryState(event).canRetry || event.status === "sent" || event.status === "delivered"}
+                      onChange={(e) => {
+                        setNotificationSelection((prev) =>
+                          e.target.checked ? [...prev, event.id] : prev.filter((id) => id !== event.id),
+                        );
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">
+                          {formatNotificationEventType(event.event_type)} · {formatNotificationChannel(event.channel)} · {formatNotificationStatus(event.status)}
+                        </p>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getNotificationStateTone(getNotificationRetryState(event).severity)}`}>
+                          {getNotificationRetryState(event).label}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-admin-muted">
+                        Attempts: {event.attempt_count ?? 0} · {event.last_attempt_at ? new Date(event.last_attempt_at).toLocaleString() : "Not attempted"} · {new Date(event.created_at).toLocaleString()}
                       </p>
-                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getNotificationStateTone(getNotificationRetryState(event).severity)}`}>
-                        {getNotificationRetryState(event).label}
-                      </span>
+                      {event.last_error ? <p className="mt-1 text-xs text-amber-600">{event.last_error}</p> : null}
                     </div>
-                    <p className="mt-1 text-xs text-white/70">
-                      Attempts: {event.attempt_count ?? 0} | Last attempt:{" "}
-                      {event.last_attempt_at ? new Date(event.last_attempt_at).toLocaleString() : "Not attempted"}
+                  </label>
+                ))}
+                {notificationEvents.length === 0 ? (
+                  <p className="text-sm text-admin-soft">No notification events logged yet.</p>
+                ) : null}
+              </div>
+            </article>
+          ) : null}
+
+          {/* ── TEST EMAILS ── */}
+          {commSubtab === "test-email" ? (
+            <article className="rounded-3xl border border-admin bg-admin-surface p-6">
+              <h3 className="text-xl font-bold">Send Test Emails</h3>
+              <p className="mt-1 text-sm text-admin-muted">
+                Send one of every transactional email to a recipient address to preview how they look in an inbox.
+              </p>
+              <div className="mt-5 space-y-4">
+                <div className="flex gap-3">
+                  <input
+                    type="email"
+                    value={testEmailAddress}
+                    onChange={(e) => setTestEmailAddress(e.target.value)}
+                    placeholder="jake@example.com"
+                    className="h-10 flex-1 rounded-xl border border-admin-strong bg-admin-surface-strong px-4 text-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={testEmailSending || !testEmailAddress.includes("@")}
+                    onClick={async () => {
+                      setTestEmailSending(true);
+                      setTestEmailResult(null);
+                      try {
+                        const res = await fetch("/api/admin/communications/email-samples", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ email: testEmailAddress, fullName: "Test Recipient" }),
+                        });
+                        const json = await res.json().catch(() => ({}));
+                        setTestEmailResult(json);
+                      } catch {
+                        setTestEmailResult(null);
+                      } finally {
+                        setTestEmailSending(false);
+                      }
+                    }}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(255,106,0,0.25)] transition-all hover:shadow-[0_6px_20px_rgba(255,106,0,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {testEmailSending ? <><Spinner size="sm" color="white" /> Sending...</> : "Send All Samples"}
+                  </button>
+                </div>
+                <p className="text-xs text-admin-soft">
+                  Sends 11 emails: welcome (active zone), welcome (waitlisted), magic link, password reset, plan active, payment failed, subscription canceled, pickup reminder 72h/24h/day-of, and missed pickup.
+                </p>
+                {testEmailResult ? (
+                  <div className="rounded-2xl border border-admin bg-admin-panel p-4">
+                    <p className="text-sm font-semibold">
+                      {testEmailResult.sent} sent · {testEmailResult.failed} failed
                     </p>
-                    <p className="mt-1 text-xs text-white/60">
-                      Correlation: {event.correlation_id ?? "n/a"} | Logged {new Date(event.created_at).toLocaleString()}
-                    </p>
-                    <p className="mt-1 text-xs text-white/70">{getNotificationRetryState(event).detail}</p>
-                    {event.last_error ? <p className="mt-1 text-xs text-amber-200">Error: {event.last_error}</p> : null}
+                    <div className="mt-3 space-y-1.5">
+                      {testEmailResult.results?.map((r, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${r.status === "sent" ? "bg-emerald-400" : "bg-red-400"}`} />
+                          <span className="font-mono text-admin-soft">{r.eventType}</span>
+                          {r.error ? <span className="text-red-400">{r.error}</span> : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </label>
-              ))}
-              {notificationEvents.length === 0 ? (
-                <p className="text-sm text-white/65">No notification events logged yet.</p>
-              ) : null}
-            </div>
-          </article>
+                ) : null}
+              </div>
+            </article>
+          ) : null}
         </section>
       ) : null}
 
-      {message ? <p className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85">{message}</p> : null}
+      {message ? <p className="rounded-lg border border-admin bg-admin-surface px-4 py-3 text-sm text-admin-muted">{message}</p> : null}
     </div>
   );
 }

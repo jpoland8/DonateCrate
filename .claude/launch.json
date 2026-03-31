@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Web App (Next.js)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/web", "--", "--port", "3001"],
+      "port": 3001
+    },
+    {
+      "name": "Marketing Site (Astro)",
+      "runtimeExecutable": "apps/site/node_modules/.bin/astro",
+      "runtimeArgs": ["dev", "--root", "apps/site", "--port", "4321"],
+      "port": 4321
+    }
+  ]
+}

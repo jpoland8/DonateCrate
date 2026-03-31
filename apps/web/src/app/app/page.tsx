@@ -4,10 +4,11 @@ import { getDefaultHomePath, hasOperationsConsoleAccess } from "@/lib/access";
 import { getCurrentPartnerRole } from "@/lib/partner-access";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { formatCycleStatus, getCustomerNextStep, getCycleUrgency, getNextReminderLabel } from "@/lib/customer-cycle";
+import { getCustomerNextStep, getCycleUrgency, getNextReminderLabel } from "@/lib/customer-cycle";
 import { ensureDefaultPickupRequestForUser } from "@/lib/pickup-defaults";
 import { CustomerActions } from "./customer-actions";
 import { CustomerPortalTools } from "./customer-portal-tools";
+import { ReferralSnippet } from "./referral-snippet";
 import { PaymentWall } from "./payment-wall";
 import { SubscribedTracker } from "./subscribed-tracker";
 
@@ -15,14 +16,11 @@ type CustomerPageProps = {
   searchParams?: Promise<{ tab?: string; checkout?: string; onboarding?: string; session_id?: string }>;
 };
 
-type CustomerTab = "home" | "pickup" | "rewards" | "account";
+type CustomerTab = "home" | "account";
 
 function getCustomerTab(tab: string | undefined): CustomerTab {
-  if (tab === "overview") return "home";
-  if (tab === "pickups") return "pickup";
-  if (tab === "referrals") return "rewards";
-  if (tab === "settings") return "account";
-  return ["home", "pickup", "rewards", "account"].includes(tab || "") ? (tab as CustomerTab) : "home";
+  if (tab === "settings" || tab === "account") return "account";
+  return "home";
 }
 
 async function syncCheckoutSuccessIfNeeded(params: { profileId: string; sessionId?: string; checkoutStatus?: "success" | "canceled" | null }) {
@@ -122,6 +120,24 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
     checkoutStatus,
   });
 
+  // Check zone eligibility for waitlisted state
+  const { data: addressRow } = await supabase
+    .from("addresses")
+    .select("postal_code")
+    .eq("user_id", profile.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let isWaitlisted = false;
+  if (addressRow?.postal_code) {
+    try {
+      const { checkEligibility } = await import("@/lib/eligibility");
+      const eligibility = await checkEligibility({ postalCode: addressRow.postal_code });
+      isWaitlisted = eligibility.status !== "active";
+    } catch { /* non-fatal */ }
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   const [{ data: subscription }, { count: creditedReferrals }, { data: latestCycle }] = await Promise.all([
     supabase
@@ -136,7 +152,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       .eq("status", "credited"),
     supabase
       .from("pickup_cycles")
-      .select("id,pickup_date,request_cutoff_at")
+      .select("id,pickup_date")
       .gte("pickup_date", today)
       .order("pickup_date", { ascending: true })
       .limit(1)
@@ -183,12 +199,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       address?.postal_code?.trim(),
   );
   const nextReminderLabel = getNextReminderLabel(latestCycle?.pickup_date, notificationPrefs, new Date());
-  const cycleUrgency = getCycleUrgency(latestCycle?.pickup_date, latestCycle?.request_cutoff_at, new Date());
-  const safeCutoffDetail = (() => {
-    if (!latestCycle?.request_cutoff_at) return "No pickup deadline published yet";
-    const parsed = new Date(latestCycle.request_cutoff_at);
-    return Number.isNaN(parsed.getTime()) ? "No pickup deadline published yet" : `Reply by ${parsed.toLocaleString()}`;
-  })();
+  const cycleUrgency = getCycleUrgency(latestCycle?.pickup_date, new Date());
   const safePickupBadge = (() => {
     if (!latestCycle?.pickup_date) return "Pickup date pending";
     const parsed = new Date(latestCycle.pickup_date);
@@ -197,33 +208,119 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   const nextStep = getCustomerNextStep({
     profileComplete,
     pickupDate: latestCycle?.pickup_date,
-    requestCutoffAt: latestCycle?.request_cutoff_at,
     status: currentCycleRequest?.status,
   });
 
-  const customerCards = [
-    {
-      title: "This Month",
-      value: formatCycleStatus(currentCycleRequest?.status ?? null),
-      detail: safeCutoffDetail,
-    },
-    {
-      title: "Next Pickup",
-      value: latestCycle?.pickup_date ?? "TBD",
-      detail: cycleUrgency.label,
-    },
-    {
-      title: "Reminders",
-      value: notificationPrefs?.sms_enabled || notificationPrefs?.email_enabled ? "On" : "Off",
-      detail: nextReminderLabel,
-    },
-  ];
   const hasActiveBilling =
     subscription?.status === "active" ||
     subscription?.status === "paused";
   const portalUnlocked = hasActiveBilling;
 
   if (!portalUnlocked) {
+    // Waitlisted — zone not active yet, no billing needed
+    if (isWaitlisted) {
+      return (
+        <main className="mx-auto w-full max-w-3xl space-y-5">
+          {/* Hero */}
+          <header className="relative overflow-hidden rounded-3xl shadow-xl">
+            <div className="bg-[linear-gradient(135deg,#111827_0%,#1f2937_60%,#7c2d12_100%)] p-7 text-white sm:p-10">
+              {/* Decorative background glow */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full opacity-20"
+                style={{ background: "radial-gradient(circle, #ea580c 0%, transparent 70%)" }}
+              />
+              <div className="relative">
+                <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl shadow-inner ring-1 ring-white/20">
+                  📬
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">Waitlist</p>
+                <h1 className="mt-1 text-3xl font-extrabold leading-tight sm:text-4xl">
+                  You&apos;re on the list,<br />
+                  <span className="text-orange-300">{profile.full_name?.split(" ")[0]}</span>!
+                </h1>
+                <p className="mt-3 max-w-md text-sm leading-relaxed text-white/75">
+                  DonateCrate hasn&apos;t launched in your area yet — but you&apos;re first in line. We&apos;ll send you an email the moment service opens near you.
+                </p>
+              </div>
+            </div>
+          </header>
+
+          {/* What happens next */}
+          <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--dc-gray-400)]">What happens next</h2>
+            <ol className="mt-4 space-y-4">
+              <li className="flex items-start gap-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--dc-orange)]/10 text-xs font-bold text-[var(--dc-orange)]">1</div>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--dc-gray-900)]">We watch for zone activation</p>
+                  <p className="mt-0.5 text-xs text-[var(--dc-gray-500)]">Our team monitors demand in your neighborhood and activates new zones as interest grows.</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--dc-orange)]/10 text-xs font-bold text-[var(--dc-orange)]">2</div>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--dc-gray-900)]">You get an email the moment it opens</p>
+                  <p className="mt-0.5 text-xs text-[var(--dc-gray-500)]">You&apos;ll be among the first to know — no need to check back manually.</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--dc-orange)]/10 text-xs font-bold text-[var(--dc-orange)]">3</div>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--dc-gray-900)]">Complete billing and get your first pickup</p>
+                  <p className="mt-0.5 text-xs text-[var(--dc-gray-500)]">One quick step to activate your plan, then we handle the rest.</p>
+                </div>
+              </li>
+            </ol>
+          </section>
+
+          {/* Action cards */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <a
+              href="/app/settings"
+              className="group flex items-start gap-4 rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--dc-orange)]/10 text-[var(--dc-orange)] transition-colors group-hover:bg-[var(--dc-orange)]/20">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 1 1 9.9 9.9A7 7 0 0 1 5.05 4.05zm1.414 8.486A5 5 0 1 0 13.536 5.464 5 5 0 0 0 6.464 12.536z" clipRule="evenodd"/>
+                  <path d="M10 7a1 1 0 0 1 1 1v2h2a1 1 0 1 1 0 2h-2v2a1 1 0 1 1-2 0v-2H7a1 1 0 1 1 0-2h2V8a1 1 0 0 1 1-1z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[var(--dc-gray-900)]">Update your address</p>
+                <p className="mt-0.5 text-xs text-[var(--dc-gray-500)]">Keep your address current so we can alert you the moment your zone activates.</p>
+                <span className="mt-2 inline-block text-xs font-semibold text-[var(--dc-orange)]">Go to settings →</span>
+              </div>
+            </a>
+            <a
+              href="/refer"
+              className="group flex items-start gap-4 rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 transition-colors group-hover:bg-emerald-100">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path d="M9 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 0 0-1.5-4.33A5 5 0 0 1 19 16v1h-6.07zM6 11a5 5 0 0 1 5 5v1H1v-1a5 5 0 0 1 5-5z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[var(--dc-gray-900)]">Refer a neighbor</p>
+                <p className="mt-0.5 text-xs text-[var(--dc-gray-500)]">More neighbors on the list means your zone activates sooner. Share your link.</p>
+                <span className="mt-2 inline-block text-xs font-semibold text-emerald-700">Get referral link →</span>
+              </div>
+            </a>
+          </div>
+
+          {/* Footer note */}
+          <p className="text-center text-xs text-[var(--dc-gray-400)]">
+            Moved recently?{" "}
+            <a href="/app/settings" className="font-semibold text-[var(--dc-orange)] hover:underline">
+              Update your address
+            </a>
+            {" "}and we&apos;ll check if service is available in your new area.
+          </p>
+        </main>
+      );
+    }
+
     return (
       <main className="mx-auto w-full max-w-5xl space-y-6">
         <header className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm">
@@ -239,155 +336,111 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-8">
+    <main className="mx-auto w-full max-w-5xl space-y-6">
       <SubscribedTracker enabled={checkoutStatus === "success"} />
-      <header className="overflow-hidden rounded-[2rem] border border-white/70 bg-[rgba(255,255,255,0.78)] shadow-[0_22px_60px_rgba(17,24,39,0.08)] backdrop-blur">
-        <div className="bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#ff6a00_180%)] p-5 text-white sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Customer Dashboard</p>
-              <h1 className="text-3xl font-bold sm:text-4xl">Your Monthly Pickup Home Base</h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/80">
-                Review this month’s status, keep your profile current, and stay ahead of reminders without hunting through messages.
-              </p>
-            </div>
-            <a href={nextStep.href} className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black">
-              {nextStep.cta}
-            </a>
-          </div>
-          <div className="mt-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-            <article className="rounded-[1.75rem] border border-white/15 bg-white/10 p-5 backdrop-blur">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/65">Next Step</p>
-              <h2 className="mt-2 text-2xl font-bold">{nextStep.title}</h2>
-              <p className="mt-2 text-sm text-white/80">{nextStep.detail}</p>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/70">
-                <span className="rounded-full border border-white/20 px-3 py-1">
+
+      {/* Checkout feedback banners */}
+      {checkoutStatus === "success" ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          Billing is active. Your plan is ready — manage this month&apos;s pickup below.
+        </div>
+      ) : null}
+      {checkoutStatus === "canceled" ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Stripe checkout was canceled. Restart billing when you&apos;re ready.
+        </div>
+      ) : null}
+
+      {activeTab === "home" ? (
+        <>
+          {/* Hero card */}
+          <header className="overflow-hidden rounded-[var(--radius-xl)] shadow-xl">
+            <div className="relative bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_50%,#431407_100%)] p-5 text-white sm:p-7">
+              {/* Depth overlay — radial glow top-right */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full opacity-25"
+                style={{ background: "radial-gradient(circle, #ea580c 0%, transparent 65%)" }}
+              />
+              {/* Brand anchor dot */}
+              <div className="relative mb-5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--dc-orange)] shadow-lg ring-2 ring-white/20">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-white">
+                  <path d="M3 3a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H3zM3 9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3zM2 15a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2z"/>
+                </svg>
+              </div>
+              <div className="relative flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">This Month</p>
+                  <h1 className="mt-1 text-2xl font-extrabold leading-tight sm:text-3xl">{nextStep.title}</h1>
+                  <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/75">{nextStep.detail}</p>
+                </div>
+                <a
+                  href={nextStep.href}
+                  className="shrink-0 rounded-full bg-[var(--dc-orange)] px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-opacity hover:opacity-90"
+                >
+                  {nextStep.cta}
+                </a>
+              </div>
+              {/* Badges row */}
+              <div className="relative mt-5 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-[var(--dc-orange)] px-3 py-1 font-semibold text-white shadow">
                   {safePickupBadge}
                 </span>
-                <span className="rounded-full border border-white/20 px-3 py-1">{nextReminderLabel}</span>
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/80">
+                  {nextReminderLabel}
+                </span>
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/80">
+                  {profileComplete ? "Profile complete ✓" : "Profile needs updates"}
+                </span>
               </div>
-            </article>
-            <article className="rounded-[1.75rem] border border-white/15 bg-black/20 p-5 backdrop-blur">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/65">Quick Facts</p>
-              <div className="mt-3 space-y-2 text-sm text-white/80">
-                <p>Profile: {profileComplete ? "Ready" : "Needs updates"}</p>
-                <p>Plan: {subscription?.status ?? "not_started"}</p>
-                <p>Referral credits: {creditedReferrals ?? 0}</p>
-              </div>
-            </article>
-          </div>
-        </div>
-        <div className="border-t border-black/5 p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-black">{cycleUrgency.label}</p>
-              <p className="mt-1 max-w-3xl text-sm text-[var(--dc-gray-700)]">{cycleUrgency.detail}</p>
             </div>
-            <a href="#cycle-actions" className="rounded-full bg-[var(--dc-orange)] px-5 py-2 text-sm font-semibold text-white">
-              Review pickup
-            </a>
-          </div>
-        </div>
-        {checkoutStatus === "success" ? (
-          <div className="mx-5 mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 sm:mx-6 sm:mb-6">
-            Billing is active. Your plan is ready, and you can now manage this month&apos;s pickup below.
-          </div>
-        ) : null}
-        {checkoutStatus === "canceled" ? (
-          <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:mx-6 sm:mb-6">
-            Stripe checkout was canceled before activation. Restart billing when you&apos;re ready.
-          </div>
-        ) : null}
-      </header>
+            {/* Cycle urgency bar — tinted background */}
+            <div className="border-t border-black/5 bg-[var(--dc-gray-50)] p-4 sm:p-5">
+              <p className="text-sm font-semibold text-black">{cycleUrgency.label}</p>
+              <p className="mt-1 text-sm text-[var(--dc-gray-600)]">{cycleUrgency.detail}</p>
+            </div>
+          </header>
 
-      {activeTab === "home" || activeTab === "pickup" ? (
-        <>
+          {/* Profile incomplete warning */}
           {!profileComplete ? (
-            <section className="rounded-[1.75rem] border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_100%)] p-4 shadow-sm sm:p-5">
-              <h2 className="text-xl font-bold text-amber-950">Finish Your Pickup Profile</h2>
-              <p className="mt-2 text-sm text-amber-900">
-                Add your phone number and full address so route planning and pickup reminders stay accurate.
+            <section className="rounded-2xl border border-amber-200 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_100%)] p-4 shadow-sm sm:p-5">
+              <h2 className="text-lg font-bold text-amber-950">Finish Your Pickup Profile</h2>
+              <p className="mt-1 text-sm text-amber-900">
+                Add your phone number and full address so route planning and reminders stay accurate.
               </p>
-              <a
-                href="/app/profile"
-                className="mt-3 inline-block rounded-full bg-amber-900 px-4 py-2 text-sm font-semibold text-white"
-              >
+              <a href="/app/settings" className="mt-3 inline-block rounded-full bg-amber-900 px-4 py-2 text-sm font-semibold text-white">
                 Complete Profile
               </a>
             </section>
           ) : null}
 
-          <section className="grid gap-4 md:grid-cols-3">
-            {customerCards.map((card) => (
-              <article
-                key={card.title}
-                className="rounded-[1.6rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-4 shadow-[0_16px_35px_rgba(17,24,39,0.05)] backdrop-blur sm:p-5"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-gray-700)]">{card.title}</p>
-                <p className="mt-3 text-2xl font-bold text-[var(--dc-gray-900)]">{card.value}</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--dc-gray-700)]">{card.detail}</p>
-              </article>
-            ))}
+          {/* Pickup actions — the core of the customer experience */}
+          <section id="cycle-actions">
+            <CustomerActions
+              nextPickupDate={latestCycle?.pickup_date ?? null}
+              currentStatus={currentCycleRequest?.status ?? null}
+              lastUpdatedAt={currentCycleRequest?.updated_at ?? null}
+              profileComplete={profileComplete}
+            />
+          </section>
+
+          {/* Referral card — interactive with copy link */}
+          <ReferralSnippet creditedReferrals={creditedReferrals ?? 0} />
+
+          {/* Settings link */}
+          <section className="rounded-2xl border border-black/5 bg-white/60 p-4 text-center">
+            <p className="text-sm text-[var(--dc-gray-500)]">
+              <a href="/app/settings" className="font-semibold text-[var(--dc-orange)] hover:underline">Account Settings</a>
+              {" "}· Change address, billing, notifications{" "}·{" "}
+              <a href="mailto:support@donatecrate.com" className="font-semibold text-[var(--dc-orange)] hover:underline">
+                Contact support
+              </a>
+            </p>
           </section>
         </>
       ) : null}
 
-      {activeTab === "home" ? (
-        <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <article className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6">
-            <h2 className="text-2xl font-bold">What to Do</h2>
-            <div className="mt-4 space-y-3">
-              <div className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
-                <p className="text-sm font-semibold text-black">1. Confirm whether your bag is ready</p>
-                <p className="mt-1 text-sm text-[var(--dc-gray-700)]">If you want a pickup this month, keep your stop active before the cutoff.</p>
-              </div>
-              <div className="rounded-[1.4rem] bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
-                <p className="text-sm font-semibold text-black">2. Make sure your address and phone are current</p>
-                <p className="mt-1 text-sm text-[var(--dc-gray-700)]">That keeps routing and reminder messages accurate.</p>
-              </div>
-            </div>
-          </article>
-          <article className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6">
-            <h2 className="text-2xl font-bold">Need to change something?</h2>
-            <div className="mt-4 space-y-3 text-sm text-[var(--dc-gray-700)]">
-              <p><span className="font-semibold text-black">Profile:</span> {profileComplete ? "Ready for routing" : "Needs updates"}</p>
-              <p><span className="font-semibold text-black">Reminders:</span> {notificationPrefs?.sms_enabled || notificationPrefs?.email_enabled ? "On" : "Off"}</p>
-              <p><span className="font-semibold text-black">Billing:</span> {subscription?.status ?? "not_started"}</p>
-            </div>
-            <a href="/app/profile" className="mt-4 inline-block rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-black">
-              Review profile
-            </a>
-          </article>
-        </section>
-      ) : null}
-
-      {activeTab === "pickup" ? (
-        <section
-          id="cycle-actions"
-          className="rounded-[1.9rem] border border-white/70 bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(17,24,39,0.06)] backdrop-blur sm:p-6"
-        >
-          <div className="mb-5 rounded-[1.4rem] border border-black/10 bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--dc-orange)]">Pickup</p>
-            <h2 className="mt-2 text-2xl font-bold text-[var(--dc-gray-900)]">Handle this month&apos;s pickup in one place</h2>
-            <p className="mt-2 text-sm text-[var(--dc-gray-700)]">
-              Confirm whether your bag is ready, check the deadline, and make changes without leaving this screen.
-            </p>
-          </div>
-          <h2 className="text-2xl font-bold">Cycle Actions</h2>
-          <div className="mt-4">
-            <CustomerActions
-              nextPickupDate={latestCycle?.pickup_date ?? null}
-              currentStatus={currentCycleRequest?.status ?? null}
-              requestCutoffAt={latestCycle?.request_cutoff_at ?? null}
-              lastUpdatedAt={currentCycleRequest?.updated_at ?? null}
-              profileComplete={profileComplete}
-            />
-          </div>
-        </section>
-      ) : null}
-
-      {activeTab === "rewards" ? <CustomerPortalTools section="referrals" /> : null}
-      {activeTab === "account" ? <CustomerPortalTools section="settings" /> : null}
+      {activeTab === "account" ? <CustomerPortalTools section="all" /> : null}
     </main>
   );
 }

@@ -1,31 +1,37 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { adminLimiter } from "@/lib/rate-limit";
 
 const singleSchema = z.object({
   mode: z.literal("single").default("single"),
-  zoneCode: z.string().default("knoxville-37922"),
+  zoneCode: z.string().min(1),
   applyToAllActiveZones: z.boolean().default(false),
   cycleMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   pickupDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  requestCutoffAt: z.string(),
+  pickupWindowLabel: z.string().max(120).optional(),
 });
 
 const recurringSchema = z.object({
   mode: z.literal("recurring"),
-  zoneCode: z.string().default("knoxville-37922"),
+  zoneCode: z.string().min(1),
   applyToAllActiveZones: z.boolean().default(false),
   startPickupDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   horizonMode: z.enum(["months", "forever"]).default("months"),
   months: z.number().int().min(1).max(60).optional(),
   weekendPolicy: z.enum(["none", "next_business_day"]).default("none"),
-  cutoffDaysBefore: z.number().int().min(0).max(30).default(7),
+  pickupWindowLabel: z.string().max(120).optional(),
 });
 
 const bodySchema = z.union([singleSchema, recurringSchema]);
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
+}
+
+// Cutoff is set to midnight of the pickup day — responses are accepted until the day before.
+function cutoffForPickup(pickupDate: string) {
+  return `${pickupDate}T00:00:00.000Z`;
 }
 
 function getPickupDateForMonth(year: number, monthIndex: number, dayOfMonth: number, weekendPolicy: "none" | "next_business_day") {
@@ -42,6 +48,9 @@ function getPickupDateForMonth(year: number, monthIndex: number, dayOfMonth: num
 }
 
 export async function POST(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -69,42 +78,41 @@ export async function POST(request: Request) {
   const cycleInputs =
     input.mode === "recurring"
       ? (() => {
-        const horizonMonths = input.horizonMode === "forever" ? 60 : (input.months ?? 6);
+          const horizonMonths = input.horizonMode === "forever" ? 60 : (input.months ?? 6);
           const startPickup = new Date(`${input.startPickupDate}T00:00:00.000Z`);
           const anchorDay = startPickup.getUTCDate();
           return zones.flatMap((zone) =>
             Array.from({ length: horizonMonths }).map((_, index) => {
-            const monthDate = new Date(Date.UTC(startPickup.getUTCFullYear(), startPickup.getUTCMonth() + index, 1));
-            const pickup = getPickupDateForMonth(
-              monthDate.getUTCFullYear(),
-              monthDate.getUTCMonth(),
-              anchorDay,
-              input.weekendPolicy,
-            );
-            const cutoff = new Date(pickup);
-            cutoff.setUTCDate(cutoff.getUTCDate() - input.cutoffDaysBefore);
+              const monthDate = new Date(Date.UTC(startPickup.getUTCFullYear(), startPickup.getUTCMonth() + index, 1));
+              const pickup = getPickupDateForMonth(
+                monthDate.getUTCFullYear(),
+                monthDate.getUTCMonth(),
+                anchorDay,
+                input.weekendPolicy,
+              );
+              const pickupDateStr = isoDate(pickup);
               return {
                 zone_id: zone.id,
                 cycle_month: isoDate(monthDate),
-                pickup_date: isoDate(pickup),
-                request_cutoff_at: cutoff.toISOString(),
+                pickup_date: pickupDateStr,
+                request_cutoff_at: cutoffForPickup(pickupDateStr),
+                pickup_window_label: input.pickupWindowLabel?.trim() || null,
               };
             }),
           );
         })()
-      : [
-          ...zones.map((zone) => ({
-            zone_id: zone.id,
-            cycle_month: input.cycleMonth,
-            pickup_date: input.pickupDate,
-            request_cutoff_at: input.requestCutoffAt,
-          })),
-        ];
+      : zones.map((zone) => ({
+          zone_id: zone.id,
+          cycle_month: input.cycleMonth,
+          pickup_date: input.pickupDate,
+          request_cutoff_at: cutoffForPickup(input.pickupDate),
+          pickup_window_label: input.pickupWindowLabel?.trim() || null,
+        }));
 
   const { data, error } = await supabase
     .from("pickup_cycles")
     .upsert(cycleInputs, { onConflict: "zone_id,cycle_month" })
-    .select("id,zone_id,cycle_month,pickup_date,request_cutoff_at");
+    .select("id,zone_id,cycle_month,pickup_date,pickup_window_label");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const zoneIds = zones.map((zone) => zone.id);
@@ -170,14 +178,17 @@ export async function POST(request: Request) {
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { data, error } = await ctx.supabase
     .from("pickup_cycles")
-    .select("id,zone_id,cycle_month,pickup_date,request_cutoff_at,service_zones(code,name)")
+    .select("id,zone_id,cycle_month,pickup_date,pickup_window_label,service_zones(code,name)")
     .order("pickup_date", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

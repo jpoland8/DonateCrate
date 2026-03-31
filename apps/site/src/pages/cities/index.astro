@@ -1,0 +1,178 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { cities } from "../../data/cities";
+
+const activeCities = cities.filter((city) => city.active);
+const plannedCities = cities.filter((city) => !city.active);
+---
+
+<SiteLayout
+  title="DonateCrate Service Areas — Monthly Donation Pickup Near You"
+  description="Find DonateCrate monthly donation pickup in your city. Active service in Knoxville, TN with more cities coming soon."
+>
+  <main class="simple-page">
+    <a class="back-link" href="/">Back to home</a>
+    <span class="eyebrow">Service Areas</span>
+    <h1>Find monthly donation pickup near you.</h1>
+    <p class="simple-page__lede">
+      DonateCrate launches city by city to keep pickup routes dense and service reliable.
+      Check below to see if your area is active or join the waitlist to help us expand.
+    </p>
+
+    {activeCities.length > 0 && (
+      <section class="city-section">
+        <h2 class="city-section__heading">
+          <span class="city-section__dot city-section__dot--active"></span>
+          Active service areas
+        </h2>
+        <div class="city-grid">
+          {activeCities.map((city) => (
+            <a href={`/cities/${city.slug}`} class="city-card city-card--active">
+              <div class="city-card__header">
+                <h3>{city.name}, {city.state}</h3>
+                <span class="city-card__badge city-card__badge--active">Active</span>
+              </div>
+              <p class="city-card__tagline">{city.tagline}</p>
+              <div class="city-card__meta">
+                <span>{city.neighborhoods.length} neighborhoods</span>
+                <span>{city.zipCodes.length} zip codes</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {plannedCities.length > 0 && (
+      <section class="city-section">
+        <h2 class="city-section__heading">
+          <span class="city-section__dot city-section__dot--planned"></span>
+          Coming soon
+        </h2>
+        <div class="city-grid">
+          {plannedCities.map((city) => (
+            <a href={`/cities/${city.slug}`} class="city-card city-card--planned">
+              <div class="city-card__header">
+                <h3>{city.name}, {city.state}</h3>
+                <span class="city-card__badge city-card__badge--planned">Planned</span>
+              </div>
+              <p class="city-card__tagline">{city.tagline}</p>
+              <div class="city-card__meta">
+                <span>{city.zipCodes.length} zip codes targeted</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <section class="feature-band">
+      <article>
+        <span class="eyebrow">Not seeing your city?</span>
+        <h2>The waitlist drives expansion.</h2>
+        <p>Every waitlist signup tells us where demand is strongest. Join for free and we will email you when your neighborhood goes live.</p>
+        <a class="button" href="/waitlist" style="margin-top: 1rem;">Join the waitlist</a>
+      </article>
+      <article>
+        <span class="eyebrow">Nonprofit partners</span>
+        <h2>We partner with local organizations in every city.</h2>
+        <p>Donations stay in your community. Our nonprofit partners receive, sort, and distribute everything we collect.</p>
+      </article>
+    </section>
+  </main>
+</SiteLayout>
+
+<style>
+  .city-section {
+    margin-top: 2.5rem;
+  }
+  .city-section__heading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+  }
+  .city-section__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .city-section__dot--active {
+    background: #10b981;
+  }
+  .city-section__dot--planned {
+    background: #f59e0b;
+  }
+
+  .city-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .city-card {
+    display: block;
+    padding: 1.25rem 1.5rem;
+    border-radius: 1.25rem;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .city-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+  .city-card--active {
+    border: 1px solid #a7f3d0;
+    background: #f0fdf4;
+  }
+  .city-card--planned {
+    border: 1px solid #fde68a;
+    background: #fffbeb;
+  }
+
+  .city-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .city-card__header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  .city-card__badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+  }
+  .city-card__badge--active {
+    color: #065f46;
+    background: #d1fae5;
+  }
+  .city-card__badge--planned {
+    color: #92400e;
+    background: #fef3c7;
+  }
+
+  .city-card__tagline {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--clr-text-muted, #6b7280);
+    line-height: 1.4;
+  }
+
+  .city-card__meta {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--clr-text-muted, #9ca3af);
+  }
+</style>

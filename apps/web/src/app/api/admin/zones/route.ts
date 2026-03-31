@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { adminLimiter } from "@/lib/rate-limit";
 
 async function resolvePlaceCenter(placeId: string) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
@@ -71,7 +72,10 @@ const updateZoneSchema = z.object({
   partnerNotes: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -109,6 +113,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -152,6 +159,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const limited = adminLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -165,7 +175,18 @@ export async function PATCH(request: Request) {
   const input = parsed.data;
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (typeof input.radiusMiles === "number") patch.radius_miles = input.radiusMiles;
-  if (typeof input.status === "string") patch.status = input.status;
+  if (typeof input.status === "string") {
+    patch.status = input.status;
+    // Activating a zone should open signups automatically unless the caller
+    // explicitly passes signupEnabled: false in the same request.
+    if (input.status === "active" && typeof input.signupEnabled !== "boolean") {
+      patch.signup_enabled = true;
+    }
+    // Pausing a zone should close signups automatically unless explicitly overridden.
+    if (input.status === "paused" && typeof input.signupEnabled !== "boolean") {
+      patch.signup_enabled = false;
+    }
+  }
   if (typeof input.minActiveSubscribers === "number") patch.min_active_subscribers = input.minActiveSubscribers;
   if (typeof input.signupEnabled === "boolean") patch.signup_enabled = input.signupEnabled;
   if (typeof input.demoOnly === "boolean") patch.demo_only = input.demoOnly;

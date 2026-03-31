@@ -33,7 +33,7 @@ export async function GET() {
       .maybeSingle(),
     supabase
       .from("pickup_cycles")
-      .select("id,pickup_date,request_cutoff_at")
+      .select("id,pickup_date,request_cutoff_at,pickup_window_label")
       .gte("pickup_date", today)
       .order("pickup_date", { ascending: true })
       .limit(1)

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { apiLimiter } from "@/lib/rate-limit";
 import { resolvePartnerLogoUrl } from "@/lib/partner-logo-storage";
 import { userCanAccessPartner } from "@/lib/partner-access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -38,6 +39,9 @@ function normalizeNullableText(value: string | undefined) {
 }
 
 export async function PATCH(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (ctx.partnerRole !== "partner_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });

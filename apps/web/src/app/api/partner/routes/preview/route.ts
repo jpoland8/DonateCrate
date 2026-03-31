@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
 import { userCanAccessPartner } from "@/lib/partner-access";
+import { apiLimiter } from "@/lib/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const querySchema = z.object({
@@ -24,6 +25,9 @@ function buildGoogleMapsUrl(points: Array<{ lat: number; lng: number }>) {
 }
 
 export async function GET(request: Request) {
+  const limited = apiLimiter.check(request);
+  if (limited) return limited;
+
   const ctx = await getAuthenticatedContext();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!ctx.partnerRole) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

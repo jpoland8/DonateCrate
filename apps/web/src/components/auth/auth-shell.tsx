@@ -16,74 +16,122 @@ export function AuthShell({
   eyebrow,
   title,
   description,
-  panelTitle,
-  panelBody,
   panelPoints,
   children,
 }: AuthShellProps) {
   const siteUrl = getSiteUrl();
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f8efe4_0%,#f6f3ee_55%,#f1ece6_100%)] px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 pb-4">
-        <a href={siteUrl} className="inline-flex items-center">
-          <Image
-            src="/images/logo-provided-520.webp"
-            alt="DonateCrate"
-            width={190}
-            height={48}
-            className="h-10 w-auto"
-          />
-        </a>
-        <div className="hidden items-center gap-2 text-sm font-semibold text-[var(--dc-gray-700)] sm:flex">
-          <a href={siteUrl} className="rounded-full px-3 py-2 transition hover:bg-white/70 hover:text-black">Home</a>
-          <Link href="/login?next=/app" className="rounded-full bg-black px-4 py-2 text-white transition hover:bg-[var(--dc-orange)]">
-            Account Access
-          </Link>
+    <div className="flex h-screen overflow-hidden">
+      {/* ── Left: Full-bleed brand panel ─────────────────────────── */}
+      <div className="relative hidden lg:block lg:w-[52%] xl:w-[56%]">
+        {/* Background photo */}
+        <Image
+          src="/images/hero-doorstep-1200.jpg"
+          alt="DonateCrate donation bag on a doorstep"
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        {/* Depth overlays */}
+        <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(12,7,2,0.74)_0%,rgba(18,10,3,0.50)_45%,rgba(8,4,1,0.82)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_45%_at_top_right,rgba(255,106,0,0.22),transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_30%_at_bottom_left,rgba(255,140,40,0.08),transparent)]" />
+
+        {/* Content */}
+        <div className="absolute inset-0 flex flex-col justify-between p-10 xl:p-14">
+          {/* Logo */}
+          <a href={siteUrl} className="inline-block">
+            <Image
+              src="/images/logo-provided-520.webp"
+              alt="DonateCrate"
+              width={160}
+              height={40}
+              className="h-8 w-auto brightness-0 invert"
+            />
+          </a>
+
+          {/* Main statement */}
+          <div className="max-w-lg">
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-400/10 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.26em] text-orange-300/90">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--dc-orange)]" />
+              {eyebrow}
+            </div>
+            <h1 className="mt-5 text-[2.8rem] font-bold leading-[1.05] tracking-tight text-white xl:text-[3.3rem]">
+              {title}
+            </h1>
+            <p className="mt-5 max-w-[400px] text-[0.95rem] leading-[1.75] text-white/58">
+              {description}
+            </p>
+          </div>
+
+          {/* Feature list */}
+          <div className="space-y-3.5 border-t border-white/[0.11] pt-7">
+            {panelPoints.map((point) => (
+              <div key={point} className="flex items-start gap-3 text-sm text-white/65">
+                <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--dc-orange)]/20 ring-1 ring-[var(--dc-orange)]/30">
+                  <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3 text-[var(--dc-orange)]">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                {point}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="relative overflow-hidden rounded-[2rem] border border-black/10 bg-[linear-gradient(160deg,#171311_0%,#0d0b0a_100%)] p-8 text-white shadow-[0_30px_80px_rgba(20,14,8,0.18)] sm:p-10">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,106,0,0.28),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.08),transparent_24%)]" />
-          <div className="relative max-w-xl">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-orange-300">{eyebrow}</p>
-            <h1 className="mt-4 text-4xl leading-[1.02] font-bold sm:text-5xl">{title}</h1>
-            <p className="mt-4 max-w-lg text-base leading-7 text-white/76 sm:text-lg">{description}</p>
+      {/* ── Right: Form panel ────────────────────────────────────── */}
+      <div className="flex flex-1 flex-col overflow-y-auto bg-[#f7f3ef]">
+        {/* Mobile nav */}
+        <div className="flex items-center justify-between px-6 pt-6 lg:hidden">
+          <a href={siteUrl}>
+            <Image
+              src="/images/logo-provided-520.webp"
+              alt="DonateCrate"
+              width={180}
+              height={46}
+              className="h-10 w-auto"
+            />
+          </a>
+          <Link
+            href="/login?next=/app"
+            className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[var(--dc-gray-700)] shadow-sm hover:border-[var(--dc-orange)] hover:text-[var(--dc-orange)] transition"
+          >
+            Sign in
+          </Link>
+        </div>
 
-            <div className="mt-8 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/6">
-              <Image
-                src="/images/hero-doorstep-1200.jpg"
-                alt="DonateCrate donation bag waiting on a doorstep"
-                width={1200}
-                height={900}
-                sizes="(max-width: 1024px) 100vw, 560px"
-                className="h-64 w-full object-cover"
-              />
-            </div>
+        {/* Desktop logo (right panel — left panel is visible on lg+) */}
+        <div className="hidden items-center justify-between px-10 pt-8 lg:flex">
+          <a href={siteUrl}>
+            <Image
+              src="/images/logo-provided-520.webp"
+              alt="DonateCrate"
+              width={180}
+              height={46}
+              className="h-10 w-auto"
+            />
+          </a>
+        </div>
 
-            <div className="mt-8 rounded-[1.75rem] border border-white/10 bg-white/6 p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-300">What to expect</p>
-              <h2 className="mt-2 text-2xl font-bold">{panelTitle}</h2>
-              <p className="mt-3 text-sm leading-6 text-white/74">{panelBody}</p>
-              <ul className="mt-5 space-y-3 text-sm text-white/84">
-                {panelPoints.map((point) => (
-                  <li key={point} className="flex items-start gap-3">
-                    <span className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--dc-orange)] text-xs font-bold text-white">
-                      +
-                    </span>
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        {/* Centered form area */}
+        <div className="flex flex-1 items-center justify-center px-6 py-10 sm:px-10">
+          <div className="w-full max-w-[400px]">
+            {children}
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-[2rem] border border-black/10 bg-white/92 p-6 shadow-[0_24px_60px_rgba(20,14,8,0.08)] backdrop-blur sm:p-8">
-          {children}
-        </section>
-      </main>
+        {/* Footer */}
+        <div className="border-t border-black/[0.06] px-6 py-4 text-center">
+          <a
+            href={siteUrl}
+            className="text-xs text-[var(--dc-gray-400)] transition hover:text-[var(--dc-gray-700)]"
+          >
+            ← Back to DonateCrate.com
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

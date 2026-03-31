@@ -1,0 +1,88 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+const lastUpdated = "March 30, 2026";
+---
+
+<SiteLayout
+  title="Privacy Policy — DonateCrate"
+  description="How DonateCrate collects, uses, and protects your personal information."
+>
+  <main class="simple-page">
+    <a class="back-link" href="/">Back to home</a>
+    <span class="eyebrow">Privacy Policy</span>
+    <h1>How we handle your information.</h1>
+    <p class="simple-page__lede">
+      DonateCrate is a monthly donation pickup service. This policy explains what personal information we collect, how we use it, and your rights. Last updated {lastUpdated}.
+    </p>
+
+    <div class="faq-list">
+
+      <article>
+        <h2>Information we collect</h2>
+        <p>We collect information you provide directly when you create an account or use our service:</p>
+        <ul>
+          <li><strong>Identity:</strong> Full name and email address.</li>
+          <li><strong>Contact:</strong> Phone number and home address (used for route planning and pickup scheduling).</li>
+          <li><strong>Account credentials:</strong> Password (stored as a secure hash we cannot read) or Google OAuth tokens if you sign in with Google.</li>
+          <li><strong>Billing:</strong> Payment card details are collected and stored by Stripe. We never see or store your full card number.</li>
+          <li><strong>Usage data:</strong> Pickup history, skip/unskip actions, and account activity logs.</li>
+        </ul>
+      </article>
+
+      <article>
+        <h2>How we use your information</h2>
+        <ul>
+          <li>To schedule and complete your monthly donation pickup.</li>
+          <li>To process your subscription payment through Stripe.</li>
+          <li>To send pickup reminders, confirmations, and service updates by email and SMS.</li>
+          <li>To plan efficient routes for our drivers (your address is shared with route planning tools).</li>
+          <li>To respond to support requests and improve the service.</li>
+        </ul>
+        <p>We do not sell your personal information to third parties.</p>
+      </article>
+
+      <article>
+        <h2>Third-party services</h2>
+        <p>We use the following services to operate DonateCrate. Each has its own privacy policy.</p>
+        <ul>
+          <li><strong>Supabase</strong> — database and authentication infrastructure.</li>
+          <li><strong>Stripe</strong> — payment processing and subscription management.</li>
+          <li><strong>Resend</strong> — transactional email delivery.</li>
+          <li><strong>Google</strong> — optional sign-in via OAuth and address autocomplete.</li>
+          <li><strong>Cloudflare</strong> — hosting and edge delivery.</li>
+        </ul>
+      </article>
+
+      <article>
+        <h2>Cookies and tracking</h2>
+        <p>We use session cookies to keep you signed in. We do not use third-party advertising cookies. We may use a first-party analytics tool to understand how pages are used in aggregate — no individual tracking profiles are built or sold.</p>
+      </article>
+
+      <article>
+        <h2>Data retention</h2>
+        <p>We retain your account data for as long as your account is active. If you cancel and request deletion, we will remove your personal information within 30 days, except where we are required to retain records for tax or legal compliance purposes.</p>
+      </article>
+
+      <article>
+        <h2>Your rights</h2>
+        <p>You may request access to, correction of, or deletion of your personal data at any time by emailing <a href="mailto:support@donatecrate.com">support@donatecrate.com</a>. If you are a resident of California or the EU, additional rights may apply under CCPA or GDPR respectively — contact us and we will respond within 30 days.</p>
+      </article>
+
+      <article>
+        <h2>Children</h2>
+        <p>DonateCrate is not directed at children under 13. We do not knowingly collect personal information from anyone under 13.</p>
+      </article>
+
+      <article>
+        <h2>Changes to this policy</h2>
+        <p>We may update this policy as the service evolves. Material changes will be communicated by email to active subscribers. Continued use of the service after changes take effect constitutes acceptance of the updated policy.</p>
+      </article>
+
+      <article>
+        <h2>Contact</h2>
+        <p>Questions about this policy? Email us at <a href="mailto:support@donatecrate.com">support@donatecrate.com</a>.</p>
+      </article>
+
+    </div>
+  </main>
+</SiteLayout>

@@ -30,13 +30,15 @@ export async function POST(request: Request) {
     fullName: parsed.data.fullName ?? ctx.profile.full_name ?? "DonateCrate Member",
   };
 
-  const sampleDate = new Date();
-  sampleDate.setDate(sampleDate.getDate() + 5);
-  const pickupDate = sampleDate.toISOString();
+  const _sampleDateObj = new Date();
+  _sampleDateObj.setDate(_sampleDateObj.getDate() + 5);
+  const pickupDate = _sampleDateObj.toISOString();
   const resetLink = `${getAppUrl()}/reset-password`;
   const magicLink = `${getAppUrl()}/auth/callback?next=${encodeURIComponent("/app")}`;
+  const pickupWindowLabel = "9:00 am – 1:00 pm";
   const sampleEvents = [
-    { eventType: "account_welcome", metadata: { next_step: "Finish billing to unlock your first pickup request." } },
+    { eventType: "account_welcome", metadata: { next_step: "Complete billing to activate your monthly pickup plan." } },
+    { eventType: "account_welcome", metadata: { waitlisted: "true" } },
     { eventType: "auth_magic_link", metadata: { magic_link: magicLink } },
     { eventType: "auth_password_reset", metadata: { reset_link: resetLink } },
     {
@@ -50,7 +52,7 @@ export async function POST(request: Request) {
     {
       eventType: "billing_payment_failed",
       metadata: {
-        invoice_url: `${getAppUrl()}/app/billing`,
+        invoice_url: `${getAppUrl()}/app/settings`,
         plan_name: "DonateCrate monthly pickup plan",
       },
     },
@@ -61,9 +63,10 @@ export async function POST(request: Request) {
         status_label: "Canceled",
       },
     },
-    { eventType: "pickup_reminder_72h", metadata: { cadence: "72h", pickup_date: pickupDate } },
-    { eventType: "pickup_reminder_24h", metadata: { cadence: "24h", pickup_date: pickupDate } },
-    { eventType: "pickup_reminder_day_of", metadata: { cadence: "day_of", pickup_date: pickupDate } },
+    { eventType: "pickup_reminder_72h", metadata: { cadence: "72h", pickup_date: pickupDate, pickup_window_label: pickupWindowLabel } },
+    { eventType: "pickup_reminder_24h", metadata: { cadence: "24h", pickup_date: pickupDate, pickup_window_label: pickupWindowLabel } },
+    { eventType: "pickup_reminder_day_of", metadata: { cadence: "day_of", pickup_date: pickupDate, pickup_window_label: pickupWindowLabel } },
+    { eventType: "pickup_missed", metadata: { pickup_date: pickupDate } },
   ] as const;
 
   const results = [];
