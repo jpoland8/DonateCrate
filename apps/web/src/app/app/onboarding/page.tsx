@@ -64,9 +64,9 @@ export default async function OnboardingPage() {
             </article>
             <article className="rounded-2xl bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--dc-orange)] text-sm font-bold text-white">2</span>
-              <p className="mt-3 text-sm font-semibold text-black">Set out your orange bag</p>
+              <p className="mt-3 text-sm font-semibold text-black">Set out your donations</p>
               <p className="mt-1 text-xs text-[var(--dc-gray-600)]">
-                On pickup day, leave your bag of donations at your front door by 9 AM.
+                Your first pickup: use any garbage bag with a note that says &ldquo;DonateCrate.&rdquo; After that, we&apos;ll leave you a reusable DonateCrate bag and swap it every pickup.
               </p>
             </article>
             <article className="rounded-2xl bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">

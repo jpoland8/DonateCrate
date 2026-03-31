@@ -417,7 +417,7 @@ export function buildNotificationEmailContent(params: NotificationEmailParams): 
       `Hi ${greetingName},`,
       "Your DonateCrate account is ready and your address is verified for service.",
       nextStep || "Complete your billing setup to unlock monthly pickup requests, pre-pickup reminders, and referral credits.",
-      "Once billing is active, you're on the route by default every month. Just keep a bag of donations ready — we handle the rest.",
+      "Once billing is active, you're on the route by default every month. For your first pickup, set out any garbage bag with a note that says \"DonateCrate.\" After that, we'll leave you a reusable DonateCrate bag at your door and swap it out every pickup — no extra steps needed.",
     ];
     return {
       subject: "Welcome to DonateCrate",
