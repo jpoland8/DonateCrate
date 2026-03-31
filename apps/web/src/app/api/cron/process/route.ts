@@ -6,7 +6,9 @@ import { sendTwilioSms, normalizeToE164US } from "@/lib/twilio";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const token = url.searchParams.get("token");
+  const token =
+    url.searchParams.get("token") ||
+    request.headers.get("authorization")?.replace("Bearer ", "");
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret || token !== cronSecret) {
