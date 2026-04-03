@@ -36,11 +36,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const geocoded = await geocodeAddress(parsed.data);
+  const geocoded =
+    parsed.data.lat != null && parsed.data.lng != null
+      ? { lat: parsed.data.lat, lng: parsed.data.lng }
+      : await geocodeAddress(parsed.data);
   const eligibility = await checkEligibility({
     postalCode: parsed.data.postalCode,
-    lat: geocoded?.lat ?? parsed.data.lat,
-    lng: geocoded?.lng ?? parsed.data.lng,
+    lat: geocoded?.lat,
+    lng: geocoded?.lng,
   });
   const isWaitlisted = eligibility.status !== "active";
 
@@ -124,6 +127,8 @@ export async function POST(request: Request) {
           city: parsed.data.city,
           state: normalizedState,
           postal_code: normalizedPostalCode,
+          lat: geocoded?.lat ?? null,
+          lng: geocoded?.lng ?? null,
         })
         .eq("id", existingAddress.id);
 
@@ -138,6 +143,8 @@ export async function POST(request: Request) {
         city: parsed.data.city,
         state: normalizedState,
         postal_code: normalizedPostalCode,
+        lat: geocoded?.lat ?? null,
+        lng: geocoded?.lng ?? null,
       });
       if (addressInsertError) {
         return NextResponse.json({ error: addressInsertError.message }, { status: 500 });

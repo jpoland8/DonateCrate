@@ -6,6 +6,7 @@ import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCustomerNextStep, getCycleUrgency, getNextReminderLabel } from "@/lib/customer-cycle";
 import { ensureDefaultPickupRequestForUser } from "@/lib/pickup-defaults";
+import { checkSavedAddressEligibility } from "@/lib/address-eligibility";
 import { CustomerActions } from "./customer-actions";
 import { CustomerPortalTools } from "./customer-portal-tools";
 import { ReferralSnippet } from "./referral-snippet";
@@ -120,21 +121,20 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
     checkoutStatus,
   });
 
-  // Check zone eligibility for waitlisted state
+  // Check zone eligibility for waitlisted state using saved coordinates when available.
   const { data: addressRow } = await supabase
     .from("addresses")
-    .select("postal_code")
+    .select("id,address_line1,city,state,postal_code,lat,lng")
     .eq("user_id", profile.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   let isWaitlisted = false;
-  if (addressRow?.postal_code) {
+  if (addressRow) {
     try {
-      const { checkEligibility } = await import("@/lib/eligibility");
-      const eligibility = await checkEligibility({ postalCode: addressRow.postal_code });
-      isWaitlisted = eligibility.status !== "active";
+      const eligibility = await checkSavedAddressEligibility(addressRow);
+      isWaitlisted = eligibility?.status !== "active";
     } catch { /* non-fatal */ }
   }
 

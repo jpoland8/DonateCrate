@@ -23,12 +23,7 @@ export function milesBetween(a: Coordinates, b: Coordinates) {
 }
 
 const postalCodeFallbacks: Record<string, Coordinates> = {
-  // Knoxville west / Farragut service zone (center: 35.8736, -84.1764)
   "37922": { lat: 35.8736, lng: -84.1764 },
-  "37934": { lat: 35.8726, lng: -84.2259 },
-  "37919": { lat: 35.9142, lng: -84.0271 },
-  "37932": { lat: 35.9120, lng: -84.1865 },
-  "37931": { lat: 35.9330, lng: -84.1550 },
 };
 
 export function fallbackCoordsForPostalCode(postalCode: string): Coordinates | null {

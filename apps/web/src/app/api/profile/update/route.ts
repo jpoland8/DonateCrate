@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeToE164US } from "@/lib/twilio";
 
 const bodySchema = z.object({
   fullName: z.string().min(2),
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     .from("users")
     .update({
       full_name: parsed.data.fullName,
-      phone: parsed.data.phone ?? null,
+      phone: parsed.data.phone ? (normalizeToE164US(parsed.data.phone) ?? parsed.data.phone) : null,
       updated_at: new Date().toISOString(),
     })
     .eq("auth_user_id", user.id);

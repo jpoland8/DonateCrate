@@ -53,6 +53,25 @@ async function resolveRecipientCandidates(
       .in("id", userIds);
     if (error) return { error: error.message, recipients: [] as Recipient[] };
     candidateUsers = data ?? [];
+
+    const deduped = new Map<string, Recipient>();
+    for (const user of candidateUsers) {
+      const phoneE164 = normalizeToE164US(user.phone);
+      if (!phoneE164) continue;
+
+      if (!deduped.has(phoneE164)) {
+        deduped.set(phoneE164, {
+          userId: user.id,
+          email: user.email ?? "",
+          fullName: user.full_name ?? "",
+          role: user.role,
+          phoneRaw: user.phone ?? "",
+          phoneE164,
+        });
+      }
+    }
+
+    return { error: null, recipients: Array.from(deduped.values()) };
   } else if (input.targetType === "zone") {
     const zoneId = input.zoneId;
     if (!zoneId) return { error: "Select a zone", recipients: [] as Recipient[] };
@@ -87,19 +106,13 @@ async function resolveRecipientCandidates(
   const candidateIds = candidateUsers.map((u) => u.id);
   if (candidateIds.length === 0) return { error: null, recipients: [] as Recipient[] };
 
-  const [{ data: activeSubscriptions, error: subError }, { data: preferences, error: prefsError }] = await Promise.all([
-    ctx.supabase
-      .from("subscriptions")
-      .select("user_id,status")
-      .in("user_id", candidateIds)
-      .in("status", ["active"]),
-    ctx.supabase.from("notification_preferences").select("user_id,sms_enabled").in("user_id", candidateIds),
-  ]);
+  const { data: preferences, error: prefsError } = await ctx.supabase
+    .from("notification_preferences")
+    .select("user_id,sms_enabled")
+    .in("user_id", candidateIds);
 
-  if (subError) return { error: subError.message, recipients: [] as Recipient[] };
   if (prefsError) return { error: prefsError.message, recipients: [] as Recipient[] };
 
-  const activeSubscriberSet = new Set((activeSubscriptions ?? []).map((s) => s.user_id));
   const smsPreference = new Map((preferences ?? []).map((p) => [p.user_id, p.sms_enabled]));
 
   const deduped = new Map<string, Recipient>();
@@ -110,10 +123,7 @@ async function resolveRecipientCandidates(
     const smsEnabled = smsPreference.has(user.id) ? smsPreference.get(user.id) === true : true;
     if (!smsEnabled) continue;
 
-    const isCustomer = user.role === "customer";
-    const hasActiveSubscription = activeSubscriberSet.has(user.id);
-    if (isCustomer && !hasActiveSubscription) continue;
-    if (!isCustomer && !includeStaff) continue;
+    if (user.role !== "customer" && !includeStaff) continue;
 
     if (!deduped.has(phoneE164)) {
       deduped.set(phoneE164, {
@@ -194,7 +204,7 @@ export async function POST(request: Request) {
 
   if (recipients.length === 0) {
     return NextResponse.json(
-      { error: "No eligible recipients found (active, SMS opted-in, valid phone).", correlationId },
+      { error: "No eligible recipients found (valid phone).", correlationId },
       { status: 400 },
     );
   }

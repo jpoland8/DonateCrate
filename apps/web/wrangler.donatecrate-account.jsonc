@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
+  "main": "worker-account-entry.ts",
   "name": "donatecrate-account",
   "account_id": "22b513793397cd283646c437f1514bdd",
   "compatibility_date": "2026-02-26",

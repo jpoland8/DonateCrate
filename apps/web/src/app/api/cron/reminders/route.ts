@@ -30,9 +30,7 @@ function eventTypeForCadence(cadence: Cadence) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const token =
-    url.searchParams.get("token") ||
-    request.headers.get("authorization")?.replace("Bearer ", "");
+  const token = url.searchParams.get("token");
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret || token !== cronSecret) {

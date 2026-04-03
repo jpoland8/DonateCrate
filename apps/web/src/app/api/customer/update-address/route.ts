@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
 
-  const geocoded = parsed.data.lat && parsed.data.lng
+  const geocoded = parsed.data.lat != null && parsed.data.lng != null
     ? { lat: parsed.data.lat, lng: parsed.data.lng }
     : await geocodeAddress(parsed.data);
 
@@ -61,6 +61,8 @@ export async function POST(request: Request) {
         city: parsed.data.city,
         state: normalizedState,
         postal_code: normalizedPostal,
+        lat: geocoded?.lat ?? null,
+        lng: geocoded?.lng ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id);
@@ -72,6 +74,8 @@ export async function POST(request: Request) {
       city: parsed.data.city,
       state: normalizedState,
       postal_code: normalizedPostal,
+      lat: geocoded?.lat ?? null,
+      lng: geocoded?.lng ?? null,
     });
   }
 

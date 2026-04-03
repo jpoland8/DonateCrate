@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
-import { checkEligibility } from "@/lib/eligibility";
+import { checkSavedAddressEligibility } from "@/lib/address-eligibility";
 import { SettingsClient } from "./settings-client";
 
 export const metadata = { title: "Account Settings — DonateCrate" };
@@ -20,7 +20,7 @@ export default async function SettingsPage() {
   ] = await Promise.all([
     supabase
       .from("addresses")
-      .select("address_line1,address_line2,city,state,postal_code")
+      .select("id,address_line1,address_line2,city,state,postal_code,lat,lng")
       .eq("user_id", profile.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -42,11 +42,11 @@ export default async function SettingsPage() {
   // Check current zone eligibility for address
   let zoneStatus: "active" | "pending" | "launching" | "not_covered" | null = null;
   let zoneName: string | null = null;
-  if (address?.postal_code) {
+  if (address) {
     try {
-      const eligibility = await checkEligibility({ postalCode: address.postal_code });
-      zoneStatus = eligibility.status as "active" | "pending" | "launching" | "not_covered";
-      zoneName = eligibility.zone?.name ?? null;
+      const eligibility = await checkSavedAddressEligibility(address);
+      zoneStatus = (eligibility?.status ?? null) as "active" | "pending" | "launching" | "not_covered";
+      zoneName = eligibility?.zone?.name ?? null;
     } catch {
       // non-fatal
     }

@@ -1,8 +1,15 @@
 export function normalizeToE164US(input: string | null): string | null {
   if (!input) return null;
   const trimmed = input.trim();
+
   if (trimmed.startsWith("+")) {
-    const normalized = `+${trimmed.slice(1).replace(/\D/g, "")}`;
+    const digits = trimmed.slice(1).replace(/\D/g, "");
+    // +XXXXXXXXXX (10 digits, missing country code) — treat as US
+    if (digits.length === 10) return `+1${digits}`;
+    // +1XXXXXXXXXX (11 digits, already correct US)
+    if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+    // Other international — validate and pass through
+    const normalized = `+${digits}`;
     if (/^\+[1-9]\d{7,14}$/.test(normalized)) return normalized;
     return null;
   }

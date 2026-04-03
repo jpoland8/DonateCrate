@@ -97,8 +97,8 @@ export function PaymentWall({
           <p className="mt-1">Return here to request this cycle&apos;s pickup or skip if you are not ready.</p>
         </div>
         <div className="rounded-[1.5rem] bg-[var(--dc-gray-100)] p-4">
-          <p className="font-semibold text-black">3. Set out your donations</p>
-          <p className="mt-1">First pickup: any garbage bag with a &ldquo;DonateCrate&rdquo; note. After that, we leave you a reusable bag and swap it every month.</p>
+          <p className="font-semibold text-black">3. Set out your bag</p>
+          <p className="mt-1">We will send reminders before route day so your donation is ready on time.</p>
         </div>
       </div>
       {message ? <p className="mt-3 text-sm text-red-600">{message}</p> : null}

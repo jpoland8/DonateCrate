@@ -26,19 +26,6 @@ export default async function OnboardingPage() {
     redirect("/app");
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: nextCycle } = await supabase
-    .from("pickup_cycles")
-    .select("pickup_date")
-    .gte("pickup_date", today)
-    .order("pickup_date", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  const pickupLabel = nextCycle?.pickup_date
-    ? new Date(nextCycle.pickup_date).toLocaleDateString("en-US", { month: "long", day: "numeric" })
-    : null;
-
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(255,106,0,0.12)_0%,transparent_24%),linear-gradient(160deg,#f6f3ef_0%,#ebe6df_48%,#e6e0d8_100%)] px-4 py-8 sm:px-6 sm:py-12">
       <main className="mx-auto w-full max-w-3xl space-y-6">
@@ -64,9 +51,9 @@ export default async function OnboardingPage() {
             </article>
             <article className="rounded-2xl bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--dc-orange)] text-sm font-bold text-white">2</span>
-              <p className="mt-3 text-sm font-semibold text-black">Set out your donations</p>
+              <p className="mt-3 text-sm font-semibold text-black">Set out your orange bag</p>
               <p className="mt-1 text-xs text-[var(--dc-gray-600)]">
-                Your first pickup: use any garbage bag with a note that says &ldquo;DonateCrate.&rdquo; After that, we&apos;ll leave you a reusable DonateCrate bag and swap it every pickup.
+                On pickup day, leave your bag of donations at your front door by 9 AM.
               </p>
             </article>
             <article className="rounded-2xl bg-[linear-gradient(180deg,#f7f7f6_0%,#efebe6_100%)] p-4">
@@ -77,11 +64,6 @@ export default async function OnboardingPage() {
               </p>
             </article>
           </div>
-          {pickupLabel ? (
-            <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              Your first pickup is scheduled for <span className="font-bold">{pickupLabel}</span>. Complete your profile to be included.
-            </p>
-          ) : null}
         </section>
 
         {/* Profile form */}
