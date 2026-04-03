@@ -8,10 +8,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 async function handleCheckoutCompleted(params: {
   supabase: ReturnType<typeof createSupabaseAdminClient>;
+  stripe: Stripe;
   session: Stripe.Checkout.Session;
   correlationId: string;
 }) {
-  const { supabase, session, correlationId } = params;
+  const { supabase, stripe, session, correlationId } = params;
   const appUserId = session.metadata?.app_user_id;
   const pricingPlanId = session.metadata?.pricing_plan_id;
   const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
@@ -41,7 +42,36 @@ async function handleCheckoutCompleted(params: {
     });
   }
 
-  await creditQualifiedReferralIfEligible({ supabase, referredUserId: appUserId });
+  // Credit the referral (idempotent — only runs once, only after first payment)
+  const creditResult = await creditQualifiedReferralIfEligible({ supabase, referredUserId: appUserId });
+
+  if (creditResult.credited) {
+    // Referred user already gets a free first month via the Stripe trial applied at checkout.
+    // Only apply the Stripe balance credit to the referrer here.
+    if (creditResult.referrerUserId) {
+      const { data: referrerSub } = await supabase
+        .from("subscriptions")
+        .select("stripe_customer_id")
+        .eq("user_id", creditResult.referrerUserId)
+        .not("stripe_customer_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (referrerSub?.stripe_customer_id) {
+        try {
+          await stripe.customers.createBalanceTransaction(referrerSub.stripe_customer_id, {
+            amount: -500,
+            currency: "usd",
+            description: "Referral reward — $5 off your next month for referring a new subscriber",
+          });
+        } catch (err) {
+          console.error("Failed to apply Stripe balance to referrer", err);
+        }
+      }
+    }
+  }
+
   await createAndProcessNotificationEmail({
     supabase,
     userId: appUserId,
@@ -204,6 +234,7 @@ export async function POST(request: Request) {
       case "checkout.session.completed": {
         await handleCheckoutCompleted({
           supabase,
+          stripe,
           session: event.data.object as Stripe.Checkout.Session,
           correlationId,
         });

@@ -139,7 +139,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const [{ data: subscription }, { count: creditedReferrals }, { data: latestCycle }] = await Promise.all([
+  const [{ data: subscription }, { count: creditedReferrals }, { data: latestCycle }, { data: appliedReferral }] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("status,current_period_end")
@@ -156,6 +156,11 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
       .gte("pickup_date", today)
       .order("pickup_date", { ascending: true })
       .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("referrals")
+      .select("id")
+      .eq("referred_user_id", profile?.id ?? "")
       .maybeSingle(),
   ]);
 
@@ -330,7 +335,7 @@ export default async function CustomerDashboardPage({ searchParams }: CustomerPa
             Your account is created. Complete billing to unlock pickups, referrals, and account settings.
           </p>
         </header>
-        <PaymentWall checkoutStatus={checkoutStatus} onboardingCreated={onboardingCreated} />
+        <PaymentWall checkoutStatus={checkoutStatus} onboardingCreated={onboardingCreated} hasAppliedReferral={Boolean(appliedReferral)} />
       </main>
     );
   }

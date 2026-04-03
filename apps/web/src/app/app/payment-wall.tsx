@@ -6,12 +6,48 @@ import { trackMeta } from "@/lib/meta-pixel";
 export function PaymentWall({
   checkoutStatus,
   onboardingCreated,
+  hasAppliedReferral = false,
 }: {
   checkoutStatus?: "success" | "canceled" | null;
   onboardingCreated?: boolean;
+  hasAppliedReferral?: boolean;
 }) {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  // Referral code entry (first-time users only)
+  const [referralInput, setReferralInput] = useState("");
+  const [referralStatus, setReferralStatus] = useState<"idle" | "saving" | "applied" | "error">(
+    hasAppliedReferral ? "applied" : "idle",
+  );
+  const [referralMessage, setReferralMessage] = useState(
+    hasAppliedReferral ? "Referral code applied! Your first month will be free — subscribe above to activate." : "",
+  );
+
+  async function applyReferralCode() {
+    const code = referralInput.trim().toUpperCase();
+    if (!code) return;
+    setReferralStatus("saving");
+    setReferralMessage("");
+    try {
+      const res = await fetch("/api/referrals/apply-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referralCode: code }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setReferralStatus("applied");
+        setReferralMessage("Referral code applied! Your first month will be free — subscribe above to activate.");
+      } else {
+        setReferralStatus("error");
+        setReferralMessage(json.error || "Could not apply referral code.");
+      }
+    } catch {
+      setReferralStatus("error");
+      setReferralMessage("Could not reach server. Try again.");
+    }
+  }
 
   async function fetchWithTimeout(path: string, init?: RequestInit) {
     const controller = new AbortController();
@@ -102,6 +138,46 @@ export function PaymentWall({
         </div>
       </div>
       {message ? <p className="mt-3 text-sm text-red-600">{message}</p> : null}
+
+      {/* Referral code entry — only for users who haven't paid yet */}
+      {referralStatus !== "applied" ? (
+        <div className="mt-6 border-t border-black/6 pt-5">
+          <p className="text-sm font-semibold text-[var(--dc-gray-700)]">Have a referral code?</p>
+          <p className="mt-0.5 text-xs text-[var(--dc-gray-500)]">
+            Enter it before subscribing and your first month will be free. Your referrer earns a $5 credit too.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={referralInput}
+              onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
+              placeholder="e.g. DCABC123"
+              maxLength={20}
+              className="h-10 flex-1 rounded-xl border border-black/15 px-3 text-sm font-mono tracking-wider"
+            />
+            <button
+              type="button"
+              onClick={applyReferralCode}
+              disabled={referralStatus === "saving" || !referralInput.trim()}
+              className="rounded-xl bg-[var(--dc-gray-900)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {referralStatus === "saving" ? "Applying..." : "Apply"}
+            </button>
+          </div>
+          {referralMessage ? (
+            <p className={`mt-2 text-xs font-medium ${referralStatus === "error" ? "text-red-600" : "text-emerald-700"}`}>
+              {referralMessage}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden>
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+          </svg>
+          <p className="text-sm font-semibold text-emerald-900">{referralMessage || "Referral code applied! You'll earn a $5 credit when you subscribe."}</p>
+        </div>
+      )}
       </div>
     </section>
   );

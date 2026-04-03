@@ -130,15 +130,25 @@ export async function POST(request: Request) {
       }
     }
 
+    // Check if this user was referred — give them a free first month via Stripe trial
+    const { data: qualifiedReferral } = await supabaseAdmin
+      .from("referrals")
+      .select("id")
+      .eq("referred_user_id", ctx.profile.id)
+      .eq("status", "qualified")
+      .maybeSingle();
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomerId,
       line_items: [{ price: stripePriceId, quantity: 1 }],
+      subscription_data: qualifiedReferral ? { trial_period_days: 30 } : undefined,
       success_url: `${appUrl}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/app?checkout=canceled`,
       metadata: {
         app_user_id: ctx.profile.id,
         pricing_plan_id: activePlan.id,
+        has_referral_trial: qualifiedReferral ? "true" : "false",
       },
     });
 

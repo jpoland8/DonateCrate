@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDefaultHomePath } from "@/lib/access";
 import { getSafeAppPath } from "@/lib/redirects";
+import { normalizeCode } from "@/lib/referrals";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,6 +9,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/app";
+  const refParam = searchParams.get("ref");
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`);
@@ -56,6 +58,31 @@ export async function GET(request: Request) {
       await supabaseAdmin
         .from("notification_preferences")
         .upsert({ user_id: newProfile.id, email_enabled: true, sms_enabled: true }, { onConflict: "user_id" });
+
+      // Apply referral code if provided
+      if (refParam) {
+        const normalizedRef = normalizeCode(refParam);
+        if (normalizedRef.length >= 4) {
+          const { data: affiliate } = await supabaseAdmin
+            .from("affiliate_codes")
+            .select("user_id")
+            .eq("code", normalizedRef)
+            .maybeSingle();
+
+          if (affiliate && affiliate.user_id !== newProfile.id) {
+            await supabaseAdmin.from("referrals").upsert(
+              {
+                referrer_user_id: affiliate.user_id,
+                referred_user_id: newProfile.id,
+                referral_code: normalizedRef,
+                status: "qualified",
+                created_at: new Date().toISOString(),
+              },
+              { onConflict: "referred_user_id" },
+            );
+          }
+        }
+      }
     }
 
     // Onboarding will collect phone + address and send the welcome email

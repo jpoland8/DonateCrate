@@ -22,17 +22,19 @@ type ZoneStatus = {
   distanceMiles?: number | null;
 };
 
-function signUpWithGoogle() {
+function signUpWithGoogle(referralCode?: string) {
   const supabase = createClient();
+  const callbackUrl = new URL(`${window.location.origin}/api/auth/callback`);
+  callbackUrl.searchParams.set("next", "/app");
+  const trimmedRef = referralCode?.trim();
+  if (trimmedRef) callbackUrl.searchParams.set("ref", trimmedRef);
   supabase.auth.signInWithOAuth({
     provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/api/auth/callback?next=/app`,
-    },
+    options: { redirectTo: callbackUrl.toString() },
   });
 }
 
-export function SignupForm() {
+export function SignupForm({ initialReferralCode = "" }: { initialReferralCode?: string }) {
   const searchParams = useSearchParams();
 
   /* ── Identity fields ── */
@@ -46,14 +48,13 @@ export function SignupForm() {
   const defaultCity = useMemo(() => searchParams.get("city") || "", [searchParams]);
   const defaultState = useMemo(() => searchParams.get("state") || "", [searchParams]);
   const defaultPostalCode = useMemo(() => searchParams.get("postalCode") || "", [searchParams]);
-  const defaultReferralCode = useMemo(() => searchParams.get("ref") || "", [searchParams]);
-
   const [addressLine1, setAddressLine1] = useState(defaultAddressLine1);
   const [addressLine2, setAddressLine2] = useState("");
   const [city, setCity] = useState(defaultCity);
   const [stateValue, setStateValue] = useState(defaultState);
   const [postalCode, setPostalCode] = useState(defaultPostalCode);
-  const [referralCode, setReferralCode] = useState(defaultReferralCode);
+  // initialReferralCode comes from the server component (reliable); also accept ?ref= fallback via searchParams
+  const [referralCode, setReferralCode] = useState(() => initialReferralCode || searchParams.get("ref") || "");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
 
@@ -297,7 +298,7 @@ export function SignupForm() {
       {/* ── Google sign-up ── */}
       <button
         type="button"
-        onClick={signUpWithGoogle}
+        onClick={() => signUpWithGoogle(referralCode)}
         className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-black/[0.12] bg-white text-sm font-semibold text-[var(--dc-gray-800)] shadow-sm transition hover:border-black/20 hover:bg-[var(--dc-gray-50)]"
       >
         <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden>

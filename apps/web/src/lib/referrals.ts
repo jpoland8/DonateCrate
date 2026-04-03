@@ -1,11 +1,24 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// Characters that are visually unambiguous — no O/0, I/1/L confusion
+const SAFE_CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+
 function normalizeCode(input: string) {
-  return input.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return input
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    // Normalize visually ambiguous characters so lookup is forgiving
+    .replace(/O/g, "0") // letter O → digit 0
+    .replace(/[IL]/g, "1"); // letter I or L → digit 1
 }
 
 function randomCode() {
-  return `DC${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  let suffix = "";
+  for (let i = 0; i < 6; i++) {
+    suffix += SAFE_CHARS[Math.floor(Math.random() * SAFE_CHARS.length)];
+  }
+  return `DC${suffix}`;
 }
 
 export async function getOrCreateAffiliateCode(supabase: SupabaseClient, userId: string) {

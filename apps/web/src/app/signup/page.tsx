@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { SignupForm } from "./signup-form";
 
@@ -43,7 +44,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
           <div>
             <p className="text-sm font-semibold text-emerald-900">You&apos;ve been referred!</p>
             <p className="mt-0.5 text-sm text-emerald-700">
-              Complete signup and you&apos;ll both earn a $5 credit — that&apos;s a free month each.
+              Sign up and your first month is free. Your referrer earns a $5 credit too.
             </p>
           </div>
         </div>
@@ -61,7 +62,9 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         </div>
       ) : null}
       <div className="mt-6">
-        <SignupForm />
+        <Suspense fallback={<div className="h-12 animate-pulse rounded-2xl bg-black/5" />}>
+          <SignupForm initialReferralCode={params.ref ?? ""} />
+        </Suspense>
       </div>
     </AuthShell>
   );

@@ -316,9 +316,9 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
               </svg>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Referral Program</p>
             </div>
-            <h3 className="text-xl font-bold">Give a free month, get a free month</h3>
+            <h3 className="text-xl font-bold">Give a free month, earn a free month</h3>
             <p className="mt-2 text-sm text-white/80 max-w-lg">
-              Share your personal invite link with neighbors and friends. When a new household subscribes, you each earn a $5 credit — one free month of DonateCrate.
+              Share your personal invite link with neighbors and friends. They get their first month free — and when they subscribe, you earn a $5 credit off your next month.
             </p>
 
             {/* How it works steps */}
@@ -373,14 +373,10 @@ export function CustomerPortalTools({ section = "all" }: { section?: "all" | "re
           </div>
 
           {/* Stats grid */}
-          <div className="grid gap-px bg-black/5 sm:grid-cols-4">
+          <div className="grid gap-px bg-black/5 sm:grid-cols-3">
             <article className="bg-white p-4 text-center">
-              <p className="text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.invitedCount}</p>
+              <p className="text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.qualifiedCount + referralStats.creditedCount}</p>
               <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--dc-gray-400)]">Invited</p>
-            </article>
-            <article className="bg-white p-4 text-center">
-              <p className="text-2xl font-bold text-[var(--dc-gray-900)]">{referralStats.qualifiedCount}</p>
-              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--dc-gray-400)]">Subscribed</p>
             </article>
             <article className="bg-white p-4 text-center">
               <p className="text-2xl font-bold text-emerald-600">{referralStats.creditedCount}</p>
