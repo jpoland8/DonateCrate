@@ -40,7 +40,6 @@ export async function GET(
       { count: "exact" },
     )
     .eq("zone_memberships.zone_id", zoneId)
-    .eq("zone_memberships.status", "active")
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -56,12 +55,15 @@ export async function GET(
   const members = (data ?? []).map((row) => {
     const addresses = Array.isArray(row.addresses) ? row.addresses : [];
     const primaryAddress = addresses[0] ?? null;
+    const memberships = Array.isArray(row.zone_memberships) ? row.zone_memberships : [];
+    const membershipStatus = memberships[0]?.status ?? null;
     return {
       id: row.id,
       email: row.email,
       full_name: row.full_name,
       phone: row.phone,
       role: row.role,
+      membership_status: membershipStatus,
       primary_address: primaryAddress
         ? {
             address_line1: primaryAddress.address_line1,
