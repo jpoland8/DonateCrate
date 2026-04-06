@@ -87,16 +87,16 @@ export function KpiPanel() {
   }
 
   const kpis = [
-    { label: "Active Subscribers", value: data.activeSubscribers, icon: "subscribers" as const, accent: "#10b981" },
-    { label: "Waitlist", value: data.waitlistCount, icon: "waitlist" as const, accent: "#f59e0b" },
-    { label: "Routes", value: data.routeCount, icon: "routes" as const, accent: "#6366f1" },
-    { label: "Picked Up Stops", value: data.pickupSuccessCount, icon: "pickups" as const, accent: "#ff6a00" },
+    { label: "Active Subscribers", value: data.activeSubscribers, icon: "subscribers" as const, accent: "#10b981", href: "/admin?tab=people" },
+    { label: "Waitlist", value: data.waitlistCount, icon: "waitlist" as const, accent: "#f59e0b", href: "/admin?tab=growth" },
+    { label: "Routes", value: data.routeCount, icon: "routes" as const, accent: "#6366f1", href: "/admin?tab=logistics" },
+    { label: "Picked Up Stops", value: data.pickupSuccessCount, icon: "pickups" as const, accent: "#ff6a00", href: "/admin?tab=pickups" },
   ];
 
   return (
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 dc-stagger">
       {kpis.map((kpi) => (
-        <article key={kpi.label} className="dc-stat-admin" style={{ borderLeftWidth: "3px", borderLeftColor: kpi.accent }}>
+        <a key={kpi.label} href={kpi.href} className="dc-stat-admin block transition-opacity hover:opacity-80" style={{ borderLeftWidth: "3px", borderLeftColor: kpi.accent }}>
           <div className="flex items-center justify-between">
             <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>{kpi.label}</p>
             <span className="rounded-lg p-1.5" style={{ background: "var(--admin-surface-strong)" }}>
@@ -104,7 +104,7 @@ export function KpiPanel() {
             </span>
           </div>
           <p className="mt-2 text-3xl font-bold">{kpi.value}</p>
-        </article>
+        </a>
       ))}
     </section>
   );

@@ -177,10 +177,11 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     {
       title: "Primary Launch Zone",
       value: `${zone?.anchor_postal_code ?? "37922"} | ${zone?.radius_miles ?? 3} mi radius`,
+      href: "/admin?tab=network&sub=zones",
     },
-    { title: "Active Members", value: String(subscribers ?? 0) },
-    { title: "Drivers Ready", value: `${drivers ?? 0} employees assigned` },
-    { title: "Routes Built", value: String(routes ?? 0) },
+    { title: "Active Members", value: String(subscribers ?? 0), href: "/admin?tab=people" },
+    { title: "Drivers Ready", value: `${drivers ?? 0} employees assigned`, href: "/admin?tab=people&sub=staff" },
+    { title: "Routes Built", value: String(routes ?? 0), href: "/admin?tab=logistics" },
   ];
 
   return (
@@ -204,10 +205,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
       <section className="grid gap-4 md:grid-cols-2 dc-stagger">
         {adminTiles.map((tile) => (
-          <article key={tile.title} className="dc-stat-admin">
+          <a key={tile.title} href={tile.href} className="dc-stat-admin block transition-opacity hover:opacity-80">
             <p className="text-xs uppercase tracking-wide" style={{ color: "var(--admin-muted)" }}>{tile.title}</p>
             <p className="mt-2 text-2xl font-bold">{tile.value}</p>
-          </article>
+          </a>
         ))}
       </section>
 
