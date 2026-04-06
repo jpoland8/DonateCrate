@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedContext } from "@/lib/api-auth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -33,7 +34,8 @@ export async function GET(
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = ctx.supabase
+  const adminSupabase = createSupabaseAdminClient();
+  let query = adminSupabase
     .from("users")
     .select(
       "id,email,full_name,phone,role,addresses(address_line1,city,state,postal_code,created_at),zone_memberships!inner(zone_id,status)",
